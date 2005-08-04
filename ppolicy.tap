@@ -1,0 +1,68 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
+# TAP start file
+#
+# Copyright (c) 2005 JAS
+#
+# Author: Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
+#
+# $Id$
+#
+from twisted.application import internet, service
+from twisted.internet import reactor, protocol
+from ppolicy.protocol import PPolicyServerRequest, PPolicyServerFactory
+import os, sys, imp
+
+# default config
+config = {
+    'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
+    'databaseAPI'  : 'MySQLdb',
+    'database'     : { 'host' : 'localhost',
+                       'databasePort' : 3306,
+                       'databaseDB'   : 'ppolicy',
+                       'databaseUser' : 'ppolicy',
+                       'databasePass' : 'ppolicy',
+                       },
+    'listenPort'   : 1030,
+    'checks'       : (),
+    'tasks'        : (),
+}
+
+
+reactor.suggestThreadPoolSize(40)
+
+
+if not os.path.isfile(config['configFile']):
+    sys.stderr.write("Configuration file %s doesn't exist\n\n" %
+                     config['configFile'])
+    sys.exit(1)
+
+try:
+    ppolicy_config = imp.load_source("ppolicy_config", config['configFile'])
+except ImportError, err:
+    sys.stderr.write("Error importing config file %s: %s\n\n" %
+                     (config['configFile'], str(err)))
+    sys.exit(1)
+except Exception, err:
+    sys.stderr.write("Error loading config: %s\n\n" % str(err))
+    sys.exit(1)
+
+
+# get configuration from config file
+for key in config.keys():
+    if hasattr(ppolicy_config, key):
+        config[key] = getattr(ppolicy_config, key)
+
+
+application = service.Application("PPolicyServer")
+factory	= PPolicyServerFactory(PPolicyServerRequest)
+for check in config['checks']:
+    factory.addCheck(check)
+for task in config['tasks']:
+    factory.addTask(task)
+factory.databaseAPI = config['databaseAPI']
+factory.database = config['database']
+
+
+internet.TCPServer(config['listenPort'], factory).setServiceParent(application)

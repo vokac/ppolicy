@@ -1,0 +1,71 @@
+                    Modular Postfix Python Policy Server
+                    ====================================
+
+Modular Postfix policy server is tool for extending postfix checking
+capabilities and can reduce mailserver load rejecting icorrect mail
+during SMTP connection. It was made with stress to hight reliability
+and performance by providing multilevel caching of required data and
+results. Because it has modular design it can be easily extended by
+custom modules (only one method has to be implemented and everything
+else is handled automatically). By default it provide SPF checking,
+domain mailhost checking, sender/recipient verification, ... It also
+provide configuration mechanism to make logical AND, OR, NOT and
+IFwith results of each module.
+
+
+
+1. Installation
+
+1.1 Requirements
+
+postfix           >= 2.1           - http://www.postfix.org
+python            >= 2.3           - http://www.python.org
+python-twisted    >= 1.3           - http://twistedmatrix.com
+* dnspython       >= 1.3.3         - http://www.dnspython.org
+
+* required by some check module
+
+
+1.2 PPPolicy download
+
+Primary site for this application is
+http://kmlinux.fjfi.cvut.cz/~vokac/pppolicy. You can download there
+prebuild RPM package or sources in SRPM and tgz format.
+
+
+1.3 PPPolicy installation
+
+1.3.1 Install from RPM
+
+rpm -Uvh pppolicy-1.x.x.noarch.rpm
+
+1.3.2 Install from sources
+
+Rebuild SRPM package or install aplication directly from tgz package.
+
+
+
+2. Configuration
+
+2.1 PPPolicy
+
+2.2 Postfix configuration
+
+Update configuration according following examples and adapt to your needs.
+
+/etc/postfix/master.cf:
+    127.0.0.1:9998  inet  n       n       n       -       -       spawn
+                    user=nobody argv=/some/where/policy-server
+
+/etc/postfix/main.cf:
+    smtpd_recipient_restrictions =
+        ... 
+        reject_unauth_destination 
+        check_policy_service inet:127.0.0.1:9998
+        ...
+    127.0.0.1:9998_time_limit = 3600
+
+
+
+3. Writing own modules
+

@@ -1,0 +1,91 @@
+#!/bin/sh
+#
+# Startup script for a Twisted service.
+#
+# chkconfig: 2345 85 15
+# description: Start-up script for the Twisted service ppolicy.tap
+# processname: ppolicy
+# config: /etc/postfix/ppolicy.conf
+# pidfile: /var/spool/ppolicy/ppolicy.pid
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+### Default variables
+PPOLICY_ACCOUNT="nobody"
+SYSCONFIG="/etc/sysconfig/ppolicy"
+
+pidfile=/var/spool/ppolicy/ppolicy.pid
+rundir=/var/spool/ppolicy
+file=/usr/sbin/ppolicy.tap
+logfile=/var/spool/ppolicy/ppolicy.log
+twistd=/usr/bin/twistd
+
+prog="ppolicy"
+
+### Read configuration
+[ -r "$SYSCONFIG" ] && source "$SYSCONFIG"
+
+#  check for required files
+if [ ! -x "$twistd" ]; then
+    echo "$0: Aborting, no $twistd found"
+    exit 1
+fi
+
+if [ ! -r "$file" ]; then
+    echo "$0: Aborting, no file $file found."
+    exit 1
+fi
+
+if [ ! -d "${rundir}" ]; then
+    echo "$0: Aborting, run directory $rundir doesn't exist."
+    exit 1
+fi
+
+start() {
+    # Start daemon
+    echo -n "Starting $prog (twistd):"
+    daemon --user "$PPOLICY_ACCOUNT" $twistd  \
+	--pidfile=$pidfile \
+	--rundir=$rundir \
+	--file=$file \
+	--python=$file \
+	--no_save \
+	--logfile=$logfile
+    #status $prog
+}
+
+stop() {
+    # Stop daemon
+    echo -n "Stopping $prog (twistd):"
+    [ -f ${pidfile} ] && kill `cat "${pidfile}"`
+    #status $prog
+}
+
+restart() {
+    # Restart daemon
+    stop
+    sleep 1
+    start
+}
+
+# See how we were called.
+case "$1" in
+        start)
+                start
+                ;;
+        stop)
+                stop
+                ;;
+        status)
+                status $prog
+                ;;
+        restart)
+                restart
+                ;;
+        *)
+                echo $"Usage: $0 {start|stop|status|restart}"
+                exit 1
+esac
+
+exit $?

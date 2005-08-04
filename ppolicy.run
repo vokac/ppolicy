@@ -1,0 +1,7 @@
+#!/bin/sh
+BASE=/home/vokac/workspace
+PPBASE=${BASE}/ppolicy
+PYTHON_PATH=${BASE}
+
+/usr/bin/twistd --rundir=${PPBASE} --file=${PPBASE}/ppolicy.tap --python=${PPBASE}/ppolicy.tap --no_save --logfile=${PPBASE}/ppolicy.log --pidfile=${PPBASE}/ppolicy.pid
+
