@@ -99,16 +99,16 @@ class StateRestarterTask(PPolicyServerTaskBase):
             if check.getState() != 'ready':
                 log.msg("[DBG] Check state: %s not ready - restarting" %
                         check.getId())
-                check.doRestartInt()
+                check.doStartInt()
 
 
 
 class DatabaseCleanupTask(PPolicyServerTaskBase):
     """Cleanup expired records from database."""
 
-    def __init__(self, interval = 60, *args, **keywords):
+    def __init__(self, interval = 3600, *args, **keywords):
         self.table = None
-        self.column = 'expir'
+        self.column = 'expire'
         PPolicyServerTaskBase.__init__(self, interval, *keywords)
 
 
@@ -126,7 +126,6 @@ class DatabaseCleanupTask(PPolicyServerTaskBase):
 
     def doTask(self):
         log.msg("[DBG] running task: %s" % self.getId())
-        #tools.dbMemCacheCleanup()
         try:
             conn = self.getDbConnection()
             cursor = conn.cursor()
@@ -142,7 +141,11 @@ class DatabaseCleanupTask(PPolicyServerTaskBase):
 class DatabaseSyncTask(PPolicyServerTaskBase):
     """Synchronize data in two or more databases."""
 
-    def __init__(self, interval = 60, *args, **keywords):
+    def __init__(self, interval = 300, *args, **keywords):
+        self.masters = []
+        self.slaves = []
+        self.tables = []
+        self.columns = []
         PPolicyServerTaskBase.__init__(self, interval, *keywords)
 
 
@@ -150,9 +153,20 @@ class DatabaseSyncTask(PPolicyServerTaskBase):
         PPolicyServerTaskBase.setParams(self, *keywords)
         self.masters = keywords.get('masters', self.masters)
         self.slaves = keywords.get('slaves', self.slaves)
+        self.tables = keywords.get('tables', self.tables)
+        self.columns = keywords.get('columns', self.columns)
         # dbX (host, port, db, user, port)
         # (table, columns)
         # direction (master-slave, multimaster)
+
+
+    def doStart(self, *args, **keywords):
+        for master in self.masters:
+            pass
+
+
+    def doStop(self, *args, **keywords):
+        pass
 
 
     def doTask(self):

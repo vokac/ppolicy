@@ -43,14 +43,33 @@ class IPPolicyServerCheck(components.Interface):
 
     def doCheck(self, data):
         """check request stored data againts policy and returns tuple
-        of SMTPError, SMTPNumber, SMTPResponse or Postfix specific "dunno".
-        example: 550, '5.0.7', 'Sender not permitted'
+        of action and actionEx according Postfix access specification.
+        example: dunno, None
+                 permit, None
+                 OK, None
+                 450, '4.5.1 Temporary failed'
+                 550, '5.0.7 Sender not permitted'
+                 ...
         """
 
 
 
 class PPolicyServerCheckBase:
-    """Base class for postfix policy check modules."""
+    """Base class for postfix policy check modules.
+
+    Parameters:
+      debug
+        set debug level: 0 - quiet, 1 - verbose (default: 0)
+      defaultAction
+      defaultActionEx
+        default result if something went wrong (default: 'DUNNO', None)
+      cacheResult
+        use result cache (default: True)
+      cacheResultLifetime
+        number of seconds for caching results for data hash (default: 600)
+      cacheResultSize
+        maximum records in cache (default: 1000)
+    """
 
     __implements__ = (IPPolicyServerCheck, )
 
@@ -60,19 +79,17 @@ class PPolicyServerCheckBase:
         self._stateLock = threading.Lock()
         self._state = 'initializing'
         self.factory = None
-        self.debug = 0
-        self.defaultActionCode = 'dunno'
-        self.defaultActionNr = None
-        self.defaultActionResponse = None
-        self._cacheResult = True
-        self._cacheResultLock = threading.Lock()
-        self._cacheResultData = {}
-        self._cacheResultExpire = {}
-        self._cacheResultLifetime = 600
-        self._cacheResultCheckInterval = 60
-        self._cacheResultSize = 10000
-        #self._cacheResultCleanTask = task.LoopingCall(self.__cleanCacheResult)
-        self.setParams(**keywords)
+        self.debug = getattr(self, 'debug', 0)
+        self.defaultAction = getattr(self, 'defaultAction', 'DUNNO')
+        self.defaultActionEx = getattr(self, 'defaultActionEx', None)
+        self.cacheResult = getattr(self, 'cacheResult', True)
+        self.cacheResultLifetime = getattr(self, 'cacheResultLifetime', 600)
+        self.cacheResultSize = getattr(self, 'cacheResultSize', 1000)
+        self.cacheResultLock = threading.Lock()
+        self.cacheResultData = {}
+        self.cacheResultExpire = {}
+        self.cacheResultCheckInterval = 150
+        self.setParams(*args, **keywords)
         self.setState('init')
 
 
@@ -82,30 +99,15 @@ class PPolicyServerCheckBase:
 
 
     def setParams(self, *args, **keywords):
-        """set 'debug' log level for this module
-        debug:
-          0 ... quiet (default)
-          1 ... verbose
-        defaultActionCode:
-        defaultActionNr:
-        defaultActionResponse:
-          default result if something went wrong
-        cacheResult:
-          use result cache (default: True)
-        cacheResultLifetime:
-          number of seconds for caching results for data hash (default: 600)
-        """
-        #self._cacheResultCleanTask.stop()
         lastState = self.setState('stop')
         self.debug = keywords.get('debug', self.debug)
-        self.defaultActionCode = keywords.get('defaultActionCode', self.defaultActionCode)
-        self.defaultActionNr = keywords.get('defaultActionNr', self.defaultActionNr)
-        self.defaultActionResponse = keywords.get('defaultActionResponse', self.defaultActionResponse)
-        self._cacheResult = keywords.get('cacheResult', self._cacheResult)
-        self._cacheResultLifetime = keywords.get('cacheResultLifetime', self._cacheResultLifetime)
-        self._cacheResultCheckTime = time.time()
+        self.defaultAction = keywords.get('defaultAction', self.defaultAction)
+        self.defaultActionEx = keywords.get('defaultActionEx', self.defaultActionEx)
+        self.cacheResult = keywords.get('cacheResult', self.cacheResult)
+        self.cacheResultLifetime = keywords.get('cacheResultLifetime', self.cacheResultLifetime)
+        self.cacheResultSize = keywords.get('cacheResultSize', self.cacheResultSize)
+        self.cacheResultCheckTime = time.time()
         self.setState(lastState)
-        #self._cacheDataCleanTask.start(self._cacheDataCleanInterval)
 
 
     def dataHash(self, data):
@@ -117,6 +119,10 @@ class PPolicyServerCheckBase:
         return hash("\n".join([ "=".join([x, data[x]]) for x in keys ]))
 
 
+    def getState(self):
+        return self._state
+
+
     def setState(self, state, *args, **keywords):
         self._stateLock.acquire()
 
@@ -124,22 +130,24 @@ class PPolicyServerCheckBase:
             lastState = self._state
             if self._state == state:
                 return
+            if self._state == 'ready' and state == 'start':
+                return
             if self._state != 'ready' and state == 'start':
                 self._state = 'starting'
                 self.__cleanCacheResult(True)
-                self.doStart(**keywords)
+                self.doStart(*args, **keywords)
                 self._state = 'ready'
             elif self._state == 'ready' and state == 'stop':
                 self._state = 'stopping'
-                self.doStop(**keywords)
+                self.doStop(*args, **keywords)
                 self._state = 'stopped'
             elif state == 'restart':
                 if self._state == 'ready':
                     self._state = 'stopping'
-                    self.doStop(**keywords)
+                    self.doStop(*args, **keywords)
                     self._state = 'stopped'
                 self._state = 'starting'
-                self.doStart(**keywords)
+                self.doStart(*args, **keywords)
                 self._state = 'ready'
             else:
                 self._state = state
@@ -151,7 +159,7 @@ class PPolicyServerCheckBase:
 
     def doStartInt(self, *args, **keywords):
         """Called by protocol factory once before doCheck is used."""
-        self.setState('start', **keywords)
+        self.setState('start', *args, **keywords)
 
 
     def doStart(self, *args, **keywords):
@@ -161,7 +169,7 @@ class PPolicyServerCheckBase:
 
     def doStopInt(self, *args, **keywords):
         """Called by protocol factory before shutdown."""
-        self.setState('stop', **keywords)
+        self.setState('stop', *args, **keywords)
 
 
     def doStop(self, *args, **keywords):
@@ -171,93 +179,96 @@ class PPolicyServerCheckBase:
 
     def doRestartInt(self, *args, **keywords):
         """Restart module/reload new configuration."""
-        self.setState('restart', **keywords)
+        self.setState('restart', *args, **keywords)
 
 
     def doCheckInt(self, data):
         """This method will ensure check result caching and should not
         be redefined. User checking should be implemented in doCheck
-        method."""
+        method called by this method in case of no cached data available."""
         if self._state != 'ready':
-            return self.defaultActionCode, self.defaultActionNr, self.defaultActionResponse
+            return self.defaultAction, self.defaultActionEx
 
         dataHash = self.dataHash(data)
-        if self._cacheResult:
-            code, nr, response = self.__getCacheResult(dataHash)
-            if code != None:
+        if self.cacheResult:
+            action, actionEx = self.__getCacheResult(dataHash)
+            if action != None:
                 log.msg("[DBG] %s: result cache hit" % self.getId())
-                return code, nr, response
-        code, nr, response = self.doCheck(data)
-        if self._cacheResult:
-            self.__addCacheResult(dataHash, code, nr, response)
-        return code, nr, response
+                return action, actionEx
+        action, actionEx = self.doCheck(data)
+        if self.cacheResult:
+            self.__addCacheResult(dataHash, action, actionEx)
+        return action, actionEx
 
 
     def doCheck(self, data):
         """This method will be called according configuration to
         check input data. If chaching is enabled (default) it will
-        be called only if response for requested data is not in cache.
+        be called only if actionEx for requested data is not in cache.
         This method has to be implemented in child classes."""
         raise NotImplementedException("Don't call base class directly")
 
 
-    def __addCacheResult(self, dataHash, code, nr, response):
+    def __addCacheResult(self, dataHash, action, actionEx):
         """Add new result to the cache."""
         if dataHash != 0:
             self.__cleanCacheResult()
-            self._cacheResultLock.acquire()
+            self.cacheResultLock.acquire()
             try:
-                self._cacheResultExpire[dataHash] = time.time() \
-                                                 + self._cacheResultLifetime
-                self._cacheResultData[dataHash] = (code, nr, response)
+                self.cacheResultExpire[dataHash] = time.time() \
+                                                    + self.cacheResultLifetime
+                self.cacheResultData[dataHash] = (action, actionEx)
             finally:
-                self._cacheResultLock.release()
+                self.cacheResultLock.release()
 
 
     def __getCacheResult(self, dataHash):
         """Get result from the cache."""
-        code, nr, response = (None, None, None)
+        action, actionEx = (None, None)
         if dataHash != 0:
-            self._cacheResultLock.acquire()
+            self.cacheResultLock.acquire()
             try:
-                if self._cacheResultData.has_key(dataHash) and self._cacheResultExpire[dataHash] >= time.time():
-                    code, nr, response = self._cacheResultData[dataHash]
+                if self.cacheResultData.has_key(dataHash) and self.cacheResultExpire[dataHash] >= time.time():
+                    action, actionEx = self.cacheResultData[dataHash]
             finally:
-                self._cacheResultLock.release()
-        return code, nr, response
+                self.cacheResultLock.release()
+        return action, actionEx
 
 
     def __cleanCacheResult(self, all = False):
         """Expired cache records cleanup."""
-        self._cacheResultLock.acquire()
+        self.cacheResultLock.acquire()
         try:
             if all:
-                self._cacheResultExpire = {}
-                self._cacheResultData = {}
-            else:
+                self.cacheResultExpire = {}
+                self.cacheResultData = {}
+            elif self.cacheResult:
                 toDel = []
-                if self._cacheResultCheckTime <= time.time():
-                    self._cacheResultCheckTime = time.time() + self._cacheResultCheckInterval
-                    for key in self._cacheResultExpire.keys():
-                        if self._cacheResultExpire[key] <= time.time():
-                            toDel.append(key)
+##                 if self.cacheResultCheckTime <= time.time():
+##                     self.cacheResultCheckTime = time.time() + self.cacheResultCheckInterval
+##                     for key in self.cacheResultExpire.keys():
+##                         if self.cacheResultExpire[key] <= time.time():
+##                             toDel.append(key)
 
-                if len(self._cacheResultExpire) - len(toDel) > 19 * self._cacheResultSize / 20:
-                    toDel = [] # this automatically include all expired
-                    expVal = sorted(self._cacheResultExpire.values())
+##                 if len(self.cacheResultExpire) - len(toDel) > 19 * self.cacheResultSize / 20:
+                if self.cacheResultSize <= len(self.cacheResultExpire):
+
+##                     toDel = [] # this automatically include all expired
+                    expVal = sorted(self.cacheResultExpire.values())
                     trh = expVal[len(expVal)/2]
-                    for expKey in self._cacheResultExpire.keys():
-                        if self._cacheResultExpire[expKey] <= trh:
+                    for expKey in self.cacheResultExpire.keys():
+                        if self.cacheResultExpire[expKey] <= trh:
                             toDel.append(expKey)    
 
-                log.msg("[DBG] %s: result cache cleanup (%s from %s items)" %
-                        (self.getId(), len(toDel), len(self._cacheResultExpire)))
+                if len(toDel) > 0:
+                    log.msg("[DBG] %s: result cache cleanup (%s from %s items)" %
+                            (self.getId(), len(toDel), len(self.cacheResultExpire)))
 
-                for key in toDel:
-                    del(self._cacheResultExpire[key])
-                    del(self._cacheResultData[key])
+                    for key in toDel:
+                        del(self.cacheResultExpire[key])
+                        del(self.cacheResultData[key])
         finally:
-            self._cacheResultLock.release()
+            self.cacheResultLock.release()
 
 
 
@@ -266,7 +277,7 @@ class DummyCheck(PPolicyServerCheckBase):
 
 
     def __init__(self, *args, **keywords):
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
 
 
     #def getId(self):
@@ -275,7 +286,7 @@ class DummyCheck(PPolicyServerCheckBase):
 
     #def setParams(self, *args, **keywords):
     #    lastState = self.setState('stop')
-    #    PPolicyServerCheckBase.setParams(self, **keywords)
+    #    PPolicyServerCheckBase.setParams(self, *args, **keywords)
     #    self.someParam = keywords.get('someParam', self.someParam)
     #    self.setState(lastState)
 
@@ -294,24 +305,33 @@ class DummyCheck(PPolicyServerCheckBase):
 
     def doCheck(self, data):
         log.msg("[DBG] %s: running check" % self.getId())
-        return 'dunno', None, None
+        return 'DUNNO', None
 
 
 
-class PassCheck(PPolicyServerCheckBase):
-    """Check module that always succeed."""
+class SimpleCheck(PPolicyServerCheckBase):
+    """Check module that returns exactly what it get
+    as constructor parameters.
+
+    Parameters:
+      action:
+        return action (default: None)
+      actionEx:
+        return actionEx string (default: None)
+    """
 
 
     def __init__(self, *args, **keywords):
-        self.code = 250
-        self.response = "succeed"
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        self.cacheResult = getattr(self, 'cacheResult', False)
+        self.action = getattr(self, 'action', None)
+        self.actionEx = getattr(self, 'actionEx', None)
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
-        PPolicyServerCheckBase.setParams(self, **keywords)
-        self.code = keywords.get('code', self.code)
-        self.response = keywords.get('response', self.response)
+        PPolicyServerCheckBase.setParams(self, *args, **keywords)
+        self.action = keywords.get('action', self.action)
+        self.actionEx = keywords.get('actionEx', self.actionEx)
 
 
     def dataHash(self, data):
@@ -320,96 +340,173 @@ class PassCheck(PPolicyServerCheckBase):
 
     def doCheck(self, data):
         log.msg("[DBG] %s: running check" % self.getId())
-        return self.code, ".".join([ x for x in str(self.code) ]), "%s %s" % (self.getId(), self.response)
 
-
-
-class FailCheck(PPolicyServerCheckBase):
-    """Check module that always fail with temporary failure 450."""
-
-
-    def __init__(self, *args, **keywords):
-        self.code = 450
-        self.response = "failed"
-        PPolicyServerCheckBase.__init__(self, **keywords)
-
-
-    def setParams(self, *args, **keywords):
-        PPolicyServerCheckBase.setParams(self, **keywords)
-        self.code = keywords.get('code', self.code)
-        self.response = keywords.get('response', self.response)
-
-
-    def dataHash(self, data):
-        return 0
-
-
-    def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
-        return self.code, ".".join([ x for x in str(self.code) ]), "%s %s" % (self.getId(), self.response)
-
-
-
-class AndCheck(PPolicyServerCheckBase):
-    """Run defined checks and join result with logical AND."""
-
-
-    def __init__(self, *args, **keywords):
-        self.checks = []
-        PPolicyServerCheckBase.__init__(self, **keywords)
-
-
-    def getId(self):
-        checks = ",".join(map(lambda x: x.getId(), self.checks))
-        return "%s(%s)" % (self.id, checks)
-
-
-    def setParams(self, *args, **keywords):
-        lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
-        self.checks = keywords.get('checks', self.checks)
-        self.setState(lastState)
-
-
-    def doStart(self, *args, **keywords):
-        for check in self.checks:
-            check.doStartInt(**keywords)
-
-
-    def doStop(self, *args, **keywords):
-        for check in self.checks:
-            check.doStopInt(**keywords)
-
-
-    def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
-
-        if self.checks == []:
-            log.msg("[WRN] %s: no check defined" % self.getId())
-            return 'dunno', None, None
-
-        code2xx = True
-        for check in self.checks:
-            code, nr, response = check.doCheckInt(data)
-            if code != 'dunno' and code >= 400:
-                return code, nr, "%s failed: %s" % (self.getId(), response)
-            if code == 'dunno' or code >= 300:
-                code2xx = False
-
-        if code2xx:
-            return 250, '2.5.0', "%s all passed Ok" % self.getId()
+        if self.action == None:
+            action = 'DUNNO'
         else:
-            return 'dunno', None, None
+            action = self.action
+
+        if self.actionEx == None:
+            actionEx = None
+        else:
+            actionEx = tools.safeSubstitute(self.actionEx, data)
+
+        return action, actionEx
 
 
 
-class OrCheck(PPolicyServerCheckBase):
-    """Run defined checks and join result with logical OR."""
+class OkCheck(SimpleCheck):
+    """Check module that return OK."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'OK'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class Reject4xxCheck(SimpleCheck):
+    """Check module that return 4xx."""
+
+    def __init__(self, *args, **keywords):
+        self.action = '450'
+        self.actionEx = 'temporary failure'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class Reject5xxCheck(SimpleCheck):
+    """Check module that return 5xx."""
+
+    def __init__(self, *args, **keywords):
+        self.action = '550'
+        self.actionEx = 'pernament failure'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class RejectCheck(SimpleCheck):
+    """Check module that return REJECT."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'REJECT'
+        self.actionEx = 'reject'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class DeferIfRejectCheck(SimpleCheck):
+    """Check module that return DEFER_IF_REJECT."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'DEFER_IF_REJECT'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class DeferIfPermitCheck(SimpleCheck):
+    """Check module that return DEFER_IF_PERMIT."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'DEFER_IF_PERMIT'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class DiscardCheck(SimpleCheck):
+    """Check module that return DISCARD."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'DISCARD'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class DunnoCheck(SimpleCheck):
+    """Check module that return DUNNO."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'DUNNO'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class FilterCheck(SimpleCheck):
+    """Check module that return FILTER."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'FILTER'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class HoldCheck(SimpleCheck):
+    """Check module that return HOLD."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'HOLD'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class PrependCheck(SimpleCheck):
+    """Check module that return PREPEND."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'PREPEND'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class RedirectCheck(SimpleCheck):
+    """Check module that return REDIRECT."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'REDIRECT'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+class WarnCheck(SimpleCheck):
+    """Check module that return WARN."""
+
+    def __init__(self, *args, **keywords):
+        self.action = 'WARN'
+        SimpleCheck.__init__(self, *args, **keywords)
+
+
+
+class LogicCheck(PPolicyServerCheckBase):
+    """Base class for logical operations and conditions between
+    some group of check modules.
+    """
+
+    def __init__(self, *args, **keywords):
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
+
+
+    def getLogicValue(self, action):
+        action = action.lower()
+        if len(action) == 3:
+            if action[0] == '4': action = '4xx'
+            elif action[0] == '5': action = '5xx'
+        if action in [ 'ok', 'permit' ]:
+            return True
+        elif action in [ 'reject', '4xx', '5xx' ]:
+            return False
+        else:
+            return None
+
+
+class AndCheck(LogicCheck):
+    """Run defined checks and join result with logical AND.
+
+    --------+-------+-------+-------+
+    | AND   | TRUE  | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+    | TRUE  | TRUE  | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+    | FALSE | FALSE | FALSE | FALSE |
+    +-------+-------+-------+-------+
+    | DUNNO | DUNNO | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+
+    Parameters:
+      checks
+        array of "check" class instances (default: [])
+    """
 
 
     def __init__(self, *args, **keywords):
         self.checks = []
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        LogicCheck.__init__(self, *args, **keywords)
 
 
     def getId(self):
@@ -419,19 +516,88 @@ class OrCheck(PPolicyServerCheckBase):
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        LogicCheck.setParams(self, *args, **keywords)
         self.checks = keywords.get('checks', self.checks)
         self.setState(lastState)
 
 
     def doStart(self, *args, **keywords):
         for check in self.checks:
-            check.doStartInt(**keywords)
+            check.doStartInt(*args, **keywords)
 
 
     def doStop(self, *args, **keywords):
         for check in self.checks:
-            check.doStopInt(**keywords)
+            check.doStopInt(*args, **keywords)
+
+
+    def doCheck(self, data):
+        log.msg("[DBG] %s: running check" % self.getId())
+
+        if self.checks == []:
+            log.msg("[WRN] %s: no check defined" % self.getId())
+            return 'DUNNO', None
+
+        dunno = False
+        for check in self.checks:
+            action, actionEx = check.doCheckInt(data)
+            logic = self.getLogicValue(action)
+            if logic == None:
+                dunno = True
+            elif not logic:
+                return action, actionEx
+
+        if dunno:
+            return 'DUNNO', None
+        else:
+            return 'OK', "%s all ok" % self.getId()
+
+
+
+class OrCheck(LogicCheck):
+    """Run defined checks and join result with logical OR.
+
+    --------+-------+-------+-------+
+    | OR    | TRUE  | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+    | TRUE  | TRUE  | TRUE  | TRUE  |
+    +-------+-------+-------+-------+
+    | FALSE | TRUE  | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+    | DUNNO | TRUE  | DUNNO | DUNNO |
+    +-------+-------+-------+-------+
+
+    Parameters:
+      checks
+        array of "check" class instances (default: [])
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.checks = []
+        LogicCheck.__init__(self, *args, **keywords)
+
+
+    def getId(self):
+        checks = ",".join(map(lambda x: x.getId(), self.checks))
+        return "%s(%s)" % (self.id, checks)
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        LogicCheck.setParams(self, *args, **keywords)
+        self.checks = keywords.get('checks', self.checks)
+        self.setState(lastState)
+
+
+    def doStart(self, *args, **keywords):
+        for check in self.checks:
+            check.doStartInt(*args, **keywords)
+
+
+    def doStop(self, *args, **keywords):
+        for check in self.checks:
+            check.doStopInt(*args, **keywords)
 
 
     def doCheck(self, data):
@@ -440,24 +606,42 @@ class OrCheck(PPolicyServerCheckBase):
 
         if self.checks == []:
             log.msg("[WRN] %s: no check defined" % self.getId())
-            return 'dunno', None, None
+            return 'DUNNO', None
 
+        dunno = False
         for check in self.checks:
-            code, nr, response = check.doCheckInt(data)
-            if code == 'dunno' or code < 400:
-                return code, nr, "%s Ok: %s" % (self.getId(), response)
+            action, actionEx = check.doCheckInt(data)
+            logic = self.getLogicValue(action)
+            if logic == None:
+                dunno = True
+            elif logic:
+                return action, actionEx
 
-        return 450, '4.5.0', "%s all failed" % self.getId()
+        if dunno:
+            return 'DUNNO', None
+        else:
+            return 'REJECT', "%s all failed" % self.getId()
 
 
 
-class NotCheck(PPolicyServerCheckBase):
-    """Run defined check and on result apply logical NOT."""
+class NotCheck(LogicCheck):
+    """Run defined check and on result apply logical NOT.
+
+    --------+-------+-------+-------+
+    | NOT   | TRUE  | FALSE | DUNNO |
+    +-------+-------+-------+-------+
+    |       | FALSE | TRUE  | DUNNO |
+    +-------+-------+-------+-------+
+
+    Parameters:
+      check
+        "check" class instance (default: None)
+    """
 
 
     def __init__(self, *args, **keywords):
         self.check = None
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        LogicCheck.__init__(self, *args, **keywords)
 
 
     def getId(self):
@@ -469,19 +653,19 @@ class NotCheck(PPolicyServerCheckBase):
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        LogicCheck.setParams(self, *args, **keywords)
         self.check = keywords.get('check', self.check)
         self.setState(lastState)
 
 
     def doStart(self, *args, **keywords):
         if self.check != None:
-            self.check.doStartInt(**keywords)
+            self.check.doStartInt(*args, **keywords)
 
 
     def doStop(self, *args, **keywords):
         if self.check != None:
-            self.check.doStopInt(**keywords)
+            self.check.doStopInt(*args, **keywords)
 
 
     def doCheck(self, data):
@@ -489,26 +673,40 @@ class NotCheck(PPolicyServerCheckBase):
 
         if self.check == None:
             log.msg("[WRN] %s: no check defined" % self.getId())
-            return 'dunno', None, None
+            return 'DUNNO', None
 
-        code, nr, response = self.check.doCheckInt(data)
-        if code != 'dunno' and code >= 400:
-            return 'dunno', None, None
+        action, actionEx = self.check.doCheckInt(data)
+        logic = self.getLogicValue(action)
+        if logic == None:
+            return 'DUNNO', None
+        elif logic:
+            return 'OK', "%s ok" % self.getId()
         else:
-            return 450, "4.5.0", "%s failed: %s" % (self.getId(), response)
+            return 'REJECT', "%s failed" % self.getId()
 
 
 
-class IfCheck(PPolicyServerCheckBase):
-    """Run check and according result run first (pass) or second (fail)
-    check. It prodide IF functionality for module configuration."""
+class IfCheck(LogicCheck):
+    """Run check and according result run first (ok) or second (reject)
+    check. It provide IF functionality for module configuration. If some
+    error occurs than it returns 'DUNNO'
+
+    Parameters:
+      ifCheck
+        "check" class instance, result used as condition
+        which check should be called (default: None)
+      okCheck
+        "check" class instance called when ifCheck succeed (default: None)
+      rejectCheck
+        "check" class instance called when ifCheck fail (default: None)
+    """
 
 
     def __init__(self, *args, **keywords):
         self.ifCheck = None
-        self.passCheck = None
-        self.failCheck = None
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        self.okCheck = None
+        self.rejectCheck = None
+        LogicCheck.__init__(self, *args, **keywords)
 
 
     def getId(self):
@@ -516,42 +714,42 @@ class IfCheck(PPolicyServerCheckBase):
             ifCheck = self.ifCheck.getId()
         else:
             ifCheck = "NDEF"
-        if self.passCheck != None:
-            passCheck = self.passCheck.getId()
+        if self.okCheck != None:
+            okCheck = self.okCheck.getId()
         else:
-            passCheck = "NDEF"
-        if self.failCheck != None:
-            failCheck = self.failCheck.getId()
+            okCheck = "NDEF"
+        if self.rejectCheck != None:
+            rejectCheck = self.rejectCheck.getId()
         else:
-            failCheck = "NDEF"
-        return "%s(%s?%s:%s)" % (self.id, ifCheck, passCheck, failCheck)
+            rejectCheck = "NDEF"
+        return "%s(%s?%s:%s)" % (self.id, ifCheck, okCheck, rejectCheck)
 
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        LogicCheck.setParams(self, *args, **keywords)
         self.ifCheck = keywords.get('ifCheck', self.ifCheck)
-        self.passCheck = keywords.get('passCheck', self.passCheck)
-        self.failCheck = keywords.get('failCheck', self.failCheck)
+        self.okCheck = keywords.get('okCheck', self.okCheck)
+        self.rejectCheck = keywords.get('rejectCheck', self.rejectCheck)
         self.setState(lastState)
 
 
     def doStart(self, *args, **keywords):
         if self.ifCheck != None:
-            self.ifCheck.doStartInt(**keywords)
-        if self.passCheck != None:
-            self.passCheck.doStartInt(**keywords)
-        if self.failCheck != None:
-            self.failCheck.doStartInt(**keywords)
+            self.ifCheck.doStartInt(*args, **keywords)
+        if self.okCheck != None:
+            self.okCheck.doStartInt(*args, **keywords)
+        if self.rejectCheck != None:
+            self.rejectCheck.doStartInt(*args, **keywords)
 
 
     def doStop(self, *args, **keywords):
         if self.ifCheck != None:
-            self.ifCheck.doStopInt(**keywords)
-        if self.passCheck != None:
-            self.passCheck.doStopInt(**keywords)
-        if self.failCheck != None:
-            self.failCheck.doStopInt(**keywords)
+            self.ifCheck.doStopInt(*args, **keywords)
+        if self.okCheck != None:
+            self.okCheck.doStopInt(*args, **keywords)
+        if self.rejectCheck != None:
+            self.rejectCheck.doStopInt(*args, **keywords)
 
 
     def doCheck(self, data):
@@ -560,35 +758,51 @@ class IfCheck(PPolicyServerCheckBase):
 
         if self.ifCheck == None:
             log.msg("[WRN] %s: no ifCheck defined" % self.getId())
-            return 'dunno', None, None
+            return 'DUNNO', None
 
-        code, nr, response = self.ifCheck.doCheckInt(data)
-        if code != 'dunno' and code >= 400:
-            check = self.failCheck
+        action, actionEx = self.ifCheck.doCheckInt(data)
+
+        logic = self.getLogicValue(action)
+        if logic == None:
+            return action, actionEx
+
+        if logic:
+            check = self.okCheck
         else:
-            check = self.passCheck
+            check = self.rejectCheck
 
         if check == None:
             log.msg("[WRN] %s: no check defined for result %s" %
-                    (self.getId(), code))
-            return 'dunno', None, None
+                    (self.getId(), action))
+            return 'DUNNO', None
 
         return check.doCheckInt(data)
 
 
 
-class If3Check(PPolicyServerCheckBase):
-    """Run check and according result run first (pass), second (fail)
-    or third (dunno) check. It prodide three state IF functionality
-    for module configuration."""
+class If3Check(LogicCheck):
+    """Run check and according result run first (ok), second (reject)
+    or third (dunno) check. It provide three state IF functionality
+    for module configuration.
 
+    Parameters:
+      ifCheck
+        "check" class instance, result used as condition
+        which check should be called (default: None)
+      okCheck
+        "check" class instance called when ifCheck succeed (default: None)
+      rejectCheck
+        "check" class instance called when ifCheck fail (default: None)
+      dunnoCheck
+        "check" class instance called when ifCheck return dunno (default: None)
+    """
 
     def __init__(self, *args, **keywords):
         self.ifCheck = None
-        self.passCheck = None
-        self.failCheck = None
+        self.okCheck = None
+        self.rejectCheck = None
         self.dunnoCheck = None
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        LogicCheck.__init__(self, *args, **keywords)
 
 
     def getId(self):
@@ -596,52 +810,52 @@ class If3Check(PPolicyServerCheckBase):
             ifCheck = self.ifCheck.getId()
         else:
             ifCheck = "NDEF"
-        if self.passCheck != None:
-            passCheck = self.passCheck.getId()
+        if self.okCheck != None:
+            okCheck = self.okCheck.getId()
         else:
-            passCheck = "NDEF"
-        if self.failCheck != None:
-            failCheck = self.failCheck.getId()
+            okCheck = "NDEF"
+        if self.rejectCheck != None:
+            rejectCheck = self.rejectCheck.getId()
         else:
-            failCheck = "NDEF"
+            rejectCheck = "NDEF"
         if self.dunnoCheck != None:
             dunnoCheck = self.dunnoCheck.getId()
         else:
             dunnoCheck = "NDEF"
-        return "%s(%s?%s:%s:%s)" % (self.id, ifCheck, passCheck,
-                                    failCheck, dunnoCheck)
+        return "%s(%s?%s:%s:%s)" % (self.id, ifCheck, okCheck,
+                                    rejectCheck, dunnoCheck)
 
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        LogicCheck.setParams(self, *args, **keywords)
         self.ifCheck = keywords.get('ifCheck', self.ifCheck)
-        self.passCheck = keywords.get('passCheck', self.passCheck)
-        self.failCheck = keywords.get('failCheck', self.failCheck)
+        self.okCheck = keywords.get('okCheck', self.okCheck)
+        self.rejectCheck = keywords.get('rejectCheck', self.rejectCheck)
         self.dunnoCheck = keywords.get('dunnoCheck', self.dunnoCheck)
         self.setState(lastState)
 
 
     def doStart(self, *args, **keywords):
         if self.ifCheck != None:
-            self.ifCheck.doStartInt(**keywords)
-        if self.passCheck != None:
-            self.passCheck.doStartInt(**keywords)
-        if self.failCheck != None:
-            self.failCheck.doStartInt(**keywords)
+            self.ifCheck.doStartInt(*args, **keywords)
+        if self.okCheck != None:
+            self.okCheck.doStartInt(*args, **keywords)
+        if self.rejectCheck != None:
+            self.rejectCheck.doStartInt(*args, **keywords)
         if self.dunnoCheck != None:
-            self.dunnoCheck.doStartInt(**keywords)
+            self.dunnoCheck.doStartInt(*args, **keywords)
 
 
     def doStop(self, *args, **keywords):
         if self.ifCheck != None:
-            self.ifCheck.doStopInt(**keywords)
-        if self.passCheck != None:
-            self.passCheck.doStopInt(**keywords)
-        if self.failCheck != None:
-            self.failCheck.doStopInt(**keywords)
+            self.ifCheck.doStopInt(*args, **keywords)
+        if self.okCheck != None:
+            self.okCheck.doStopInt(*args, **keywords)
+        if self.rejectCheck != None:
+            self.rejectCheck.doStopInt(*args, **keywords)
         if self.dunnoCheck != None:
-            self.dunnoCheck.doStopInt(**keywords)
+            self.dunnoCheck.doStopInt(*args, **keywords)
 
 
     def doCheck(self, data):
@@ -650,30 +864,235 @@ class If3Check(PPolicyServerCheckBase):
 
         if self.ifCheck == None:
             log.msg("[WRN] %s: no ifCheck defined" % self.getId())
+            return 'DUNNO', None
+
+        action, actionEx = self.ifCheck.doCheckInt(data)
+
+        logic = self.getLogicValue(action)
+        if logic == None:
             check = self.dunnoCheck
-            code = 'dunno'
+        elif logic:
+            check = self.okCheck
         else:
-            code, nr, response = self.ifCheck.doCheckInt(data)
-            if code == 'dunno':
-                check = self.dunnoCheck
-            elif code >= 400:
-                check = self.failCheck
-            else:
-                check = self.passCheck
+            check = self.rejectCheck
 
         if check == None:
             log.msg("[WRN] %s: no check defined for result %s" %
-                    (self.getId(), code))
-            return 'dunno', None, None
+                    (self.getId(), action))
+            return 'DUNNO', None
+
+        return check.doCheckInt(data)
+
+
+
+class SwitchCheck(LogicCheck):
+    """Run check and according result run another one. It use return action
+    as parameter for "switch" command. You can specify different check
+    for each action.
+
+    Parameters:
+      switchCheck
+        "check" class instance, result used as condition
+        which check should be called (default: None)
+      caseChecks
+        dictionary of action and "check" class instances (default: {})
+        for all 4xx resp. 5xx codes you can use key 4xx resp. 5xx
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.switchCheck = None
+        self.caseChecks = {}
+        LogicCheck.__init__(self, *args, **keywords)
+
+
+    def getId(self):
+        if self.switchCheck != None:
+            switchCheck = self.switchCheck.getId()
+        else:
+            switchCheck = "NDEF"
+        caseChecks = []
+        for action, check in self.caseChecks.items():
+            caseChecks.append("%s=%s" % (action, check.getId()))
+        return "%s(%s?%s)" % (self.id, switchCheck, ",".join(caseChecks))
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        LogicCheck.setParams(self, *args, **keywords)
+        self.switchCheck = keywords.get('switchCheck', self.switchCheck)
+        self.caseChecks = keywords.get('caseChecks', self.caseChecks)
+        self.setState(lastState)
+
+
+    def doStart(self, *args, **keywords):
+        if self.switchCheck != None:
+            self.switchCheck.doStartInt(*args, **keywords)
+        for check in self.caseChecks.values():
+            check.doStartInt(*args, **keywords)
+
+
+    def doStop(self, *args, **keywords):
+        if self.switchCheck != None:
+            self.switchCheck.doStopInt(*args, **keywords)
+        for check in self.caseChecks.values():
+            check.doStopInt(*args, **keywords)
+
+
+    def doCheck(self, data):
+
+        log.msg("[DBG] %s: running check" % self.getId())
+
+        if self.switchCheck == None:
+            log.msg("[WRN] %s: no switchCheck defined" % self.getId())
+            return 'DUNNO', None
+
+        action, actionEx = self.switchCheck.doCheckInt(data)
+
+        check = None
+        if self.caseChecks.has_key(action):
+            check = self.caseChecks[action]
+        else:
+            action = action.lower()
+            if len(action) == 3:
+                if action[0] == '4': action = '4xx'
+                elif action[0] == '5': action = '5xx'
+            if self.caseChecks.has_key(action):
+                check = self.caseChecks[action]
+
+        if check == None:
+            log.msg("[WRN] %s: no check defined for result %s" %
+                    (self.getId(), action))
+            return 'DUNNO', None
 
         return check.doCheckInt(data)
 
 
 
 class ListCheck(PPolicyServerCheckBase):
+    """Check if item is in specified list and return corresponding
+    action, actionEx.
+
+    Parameters:
+      param
+        which parameter from data received from postfix should be used
+        (default: None)
+      paramFunction
+        function which will be called on param data. It can be used to
+        separate user from domain in email address, ... Its return has
+        to be array of strins and each will be checked with white/black
+        list. (default: None)
+      table
+        database table with whitelist (default: None)
+      cols
+        dictionary { 'name': 'name',
+                     'action': 'action',
+                     'actionEx': 'actionEx' }
+      cacheSize
+        memory cache size, for best performance should be 0 - means
+        load all records in memory (default: 0)
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.param = None
+        self.paramFunction = None
+        self.table = None
+        self.cols = { 'name': 'name',
+                      'action': 'action',
+                      'actionEx': 'actionEx' }
+        self.cacheSize = 0
+        self.cache = None
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
+
+
+    def getId(self):
+        return "%s[%s]" % (self.id, self.table)
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        PPolicyServerCheckBase.setParams(self, *args, **keywords)
+        self.param = keywords.get('param', self.param)
+        self.paramFunction = keywords.get('paramFunction', self.paramFunction)
+        self.table = keywords.get('table', self.table)
+        self.cols =keywords.get('cols', self.cols)
+        self.cacheSize = keywords.get('cacheSize', self.cacheSize)
+        self.setState(lastState)
+
+
+    def dataHash(self, data):
+        if self.param == None:
+            return 0
+        else:
+            return hash("=".join([ self.param, data.get(self.param) ]))
+
+
+    def doStart(self, *args, **keywords):
+        self.factory = keywords.get('factory', self.factory)
+        if self.factory != None:
+            self.getDbConnection = self.factory.getDbConnection
+        self.cache = tools.DbMemListCache(self, self.table, self.cols,
+                                          self.cacheSize)
+
+
+    def doCheck(self, data):
+        log.msg("[DBG] %s: running check" % self.getId())
+
+        if self.param == None:
+            return self.defaultAction, self.defaultActionEx
+
+        if self.paramFunction == None:
+            testDataArr = [ data.get(self.param) ]
+        else:
+            testDataArr = self.paramFunction(data.get(self.param))
+
+        if testDataArr in [ None, [], [ None ] ]:
+            log.msg("[WRN] %s: no test data for %s" %
+                    (self.getId(), self.param))
+            return 'DUNNO', None
+
+        for testData in testDataArr:
+            action, actionEx = self.cache.get(testData)
+            if action == None:
+                return 'DUNNO', None
+            else:
+                return action, actionEx
+
+        return self.defaultAction, self.defaultActionEx
+
+
+    def getDbConnection(self):
+        raise Exception("No connection function defined")
+
+
+
+class ListWBCheck(PPolicyServerCheckBase):
     """Check if item is in specified black/white list. Together
     with IfCheck it can be used to check only some user/domain/...
-    with further modules"""
+    with further modules.
+
+    Parameters:
+      param
+        which parameter from data received from postfix should be used
+        (default: None)
+      paramFunction
+        function which will be called on param data. It can be used to
+        separate user from domain in email address, ... Its return has
+        to be array of strins and each will be checked with white/black
+        list. (default: None)
+      whitelistTable
+        database table with whitelist (default: None)
+      whitelistColumn
+        table column for data lookup (default: 'name')
+      blacklistTable
+        database table with blacklist (default: None)
+      blacklistColumn
+        table column for data lookup (default: 'name')
+      cacheSize
+        memory cache size, for best performance should be 0 - means
+        load all records in memory (default: 0)
+    """
 
 
     def __init__(self, *args, **keywords):
@@ -685,7 +1104,7 @@ class ListCheck(PPolicyServerCheckBase):
         self.blacklistColumn = 'name'
         self.cacheSize = 0
         self.cache = None
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
 
 
     def getId(self):
@@ -694,22 +1113,8 @@ class ListCheck(PPolicyServerCheckBase):
 
 
     def setParams(self, *args, **keywords):
-        """
-        param:
-          string key for data item that should be checked
-        paramFunction:
-          optional function to process 'param' before checking with lists
-        whitelistTable: (default: None)
-        whitelistColumn: (default: name)
-          database table and column with whitelist records
-        blacklistTable: (default: None)
-        blacklistColumn: (default: name)
-          database table and column with blacklist records
-        cacheSize:
-          max number of records in memory cache (default: 0 - all records)
-        """
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        PPolicyServerCheckBase.setParams(self, *args, **keywords)
         self.param = keywords.get('param', self.param)
         self.paramFunction = keywords.get('paramFunction', self.paramFunction)
         self.whitelistTable = keywords.get('whitelistTable', self.whitelistTable)
@@ -731,16 +1136,19 @@ class ListCheck(PPolicyServerCheckBase):
         self.factory = keywords.get('factory', self.factory)
         if self.factory != None:
             self.getDbConnection = self.factory.getDbConnection
-        self.cache = tools.DbMemWBCache(self,
-                                        self.whitelistTable,
-                                        self.whitelistColumn,
-                                        self.blacklistTable,
-                                        self.blacklistColumn,
-                                        self.cacheSize)
+        self.cache = tools.DbMemListWBCache(self,
+                                            self.whitelistTable,
+                                            self.whitelistColumn,
+                                            self.blacklistTable,
+                                            self.blacklistColumn,
+                                            self.cacheSize)
 
 
     def doCheck(self, data):
         log.msg("[DBG] %s: running check" % self.getId())
+
+        if self.param == None:
+            return self.defaultAction, self.defaultActionEx
 
         if self.paramFunction == None:
             testDataArr = [ data.get(self.param) ]
@@ -750,15 +1158,15 @@ class ListCheck(PPolicyServerCheckBase):
         if testDataArr in [ None, [], [ None ] ]:
             log.msg("[WRN] %s: no test data for %s" %
                     (self.getId(), self.param))
-            return 'dunno', None, None
+            return 'DUNNO', None
 
         for testData in testDataArr:
             if self.__isInWhitelist(testData):
-                return 250, '2.5.0', "%s in whitelist" % self.getId()
+                return 'OK', "%s %s is on whitelist" % (self.param, testData)
             if self.__isInBlacklist(testData):
-                return 450, '4.5.0', "%s in blacklist" % self.getId()
+                return 'REJECT', "%s %s is on blacklist" % (self.param, testData)
 
-        return self.defaultActionCode, self.defaultActionNr, self.defaultActionResponse
+        return self.defaultAction, self.defaultActionEx
 
 
     def __isInWhitelist(self, data):
@@ -785,12 +1193,18 @@ class SPFCheck(PPolicyServerCheckBase):
     or restrictive mode. Passive mode is default and recomended
     for general usage. Restrictive drop too much correct mail
     and shoul be used only in special cases when you really
-    know what you are doing..."""
+    know what you are doing...
+
+    Parameters:
+      restrictive
+        very strict SPF checking, be very carefull setting
+        this option to True (default: False)
+    """
 
 
     def __init__(self, *args, **keywords):
         self.restrictive = False
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
@@ -801,7 +1215,7 @@ class SPFCheck(PPolicyServerCheckBase):
           True  ... restrictive, Unknown Querys are denyed
         """
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        PPolicyServerCheckBase.setParams(self, *args, **keywords)
         self.restrictive = keywords.get('restrictive', self.restrictive)
         self.setState(lastState)
 
@@ -825,25 +1239,25 @@ class SPFCheck(PPolicyServerCheckBase):
         try:
             log.msg("[DBG] %s: spf.check('%s', '%s', '%s')" %
                     (self.getId(), client_address, sender, client_name))
-            result, mtastatus, explanation = spf.check(i=client_address,
-                                                       s=sender, h=client_name)
+            result, mtastatus, mtaexpl = spf.check(i=client_address,
+                                                   s=sender, h=client_name)
             log.msg("[DBG] %s: result: %s, %s, %s" %
-                    (self.getId(), result, mtastatus, explanation))
+                    (self.getId(), result, mtastatus, mtaexpl))
         except Exception, error:
             log.msg("[ERR] %s: checking SPF failed: %s" %
                     (self.getId(), str(error)))
-            return 'dunno', None, None
+            return 'DUNNO', None
 
         if self.restrictive:
             if result.lower() == 'unknown':
-                return 550, '5.5.7', 'SPF Policy violation'
+                return 'REJECT', '5.5.7 SPF Policy violation'
             else:
-                return mtastatus, mtastatus, explanation
+                return 'OK', mtaexpl
         else:
             if result.lower() != 'deny':
-                return 250, '2.5.0', 'SPF Policy success'
+                return 'OK', '2.5.0 SPF Policy success'
             else:
-                return mtastatus, mtastatus, explanation
+                return 'REJECT', mtaexpl
 
 
 
@@ -852,45 +1266,46 @@ class UserDomainCheck(PPolicyServerCheckBase):
     also sender/recipient verification if "verify" parameter is set
     to True (default is False). Be carefull when turning on verification
     and first read http://www.postfix.org/ADDRESS_VERIFICATION_README.html
-    about its limitation"""
+    about its limitation
+
+    Parameters:
+      param
+        string key for data item that should be verified (default: None)
+      verify
+        verify user, not only domain mailserver (default: False)
+      cacheTable
+        database table name for caching data (default: None)
+      cacheCols
+        dictionary { 'key': 'name',
+                     'res': 'result',
+                     'exp': 'expire' }
+      cachePositive
+        expiration time sucessfully verified records (default: month)
+      cacheNegative
+        expiration time if verification fail (def: 4 hours)
+      cacheNegative5xx
+        expiration time if verification fail with code 5xx (def: 2 days)
+      cacheSize
+        max number of records in memory cache (default: 0 - all records)
+    """
 
 
     def __init__(self, *args, **keywords):
-        self.param = 'sender'
+        self.param = None
         self.verify = False
-        self.cacheTable = "verif_%s" % self.param
-        self.cacheCols = { 'key': 'name', 'res': 'result', 'exp': 'expir' }
+        self.cacheTable = None
+        self.cacheCols = { 'key': 'name', 'res': 'result', 'exp': 'expire' }
         self.cachePositive = 60*60*24*31    # month
         self.cacheNegative = 60*60*4        # 4 hours
         self.cacheNegative5xx = 60*60*24*2  # 2 days
         self.cacheSize = 0
         self.cache = None
-        PPolicyServerCheckBase.__init__(self, **keywords)
+        PPolicyServerCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
-        """
-        param:
-          string key for data item that should be verified
-        verify:
-          verify user, not only domain mailserver (default: False)
-        cacheTable:
-          database table name for caching data (default: verif_"param")
-        cacheCols:
-          dictionary { 'key': 'name',
-                       'res': 'result',
-                       'exp': 'expir' }
-        cachePositive:
-          expiration time sucessfully verified records (default: month)
-        cacheNegative:
-          expiration time if verification fail (def: 4 hours)
-        cacheNegative5xx:
-          expiration time if verification fail with code 5xx (def: 2 days)
-        cacheSize:
-          max number of records in memory cache (default: 0 - all records)
-        """
         lastState = self.setState('stop')
-        PPolicyServerCheckBase.setParams(self, **keywords)
+        PPolicyServerCheckBase.setParams(self, *args, **keywords)
         self.param = keywords.get('param', self.param)
         self.verify = keywords.get('verify', self.verify)
         self.cacheTable = keywords.get('cacheTable', self.cacheTable)
@@ -904,7 +1319,10 @@ class UserDomainCheck(PPolicyServerCheckBase):
 
     def dataHash(self, data):
         """Compute hash only from used data fields."""
-        return hash("=".join([ self.param, data.get(self.param) ]))
+        if self.param == None:
+            return 0
+        else:
+            return hash("=".join([ self.param, data.get(self.param) ]))
 
 
     def doStart(self, *args, **keywords):
@@ -918,11 +1336,10 @@ class UserDomainCheck(PPolicyServerCheckBase):
     def doCheck(self, data):
         log.msg("[DBG] %s: running check" % self.getId())
         if not data.has_key(self.param):
-            return self.defaultActionCode, self.defaultActionNr, self.defaultActionResponse
+            return self.defaultAction, self.defaultActionEx
 
-        code = self.defaultActionCode
-        nr = self.defaultActionNr
-        response = self.defaultActionResponse
+        action = self.defaultAction
+        actionEx = self.defaultActionEx
 
         try:
             user, domain = data[self.param].split("@")
@@ -932,54 +1349,39 @@ class UserDomainCheck(PPolicyServerCheckBase):
                 key = domain
             res = self.cache.get(key)
             if res != None:
-                code = int(res[:res.find(":")])
-                response = res[res.find(":")+1:]
+                action = res[:res.find(":")]
+                actionEx = res[res.find(":")+1:]
             else:
                 if self.verify:
-                    code, response = self.__checkDomain(domain, user)
+                    code, actionEx = self.__checkDomain(domain, user)
                 else:
-                    code, response = self.__checkDomain(domain)
+                    code, actionEx = self.__checkDomain(domain)
+                action = str(code)
                 if code < 400:
-                    expir = self.cachePositive
+                    expire = self.cachePositive
                 elif code < 500:
-                    expir = self.cacheNegative
+                    expire = self.cacheNegative
                 else:
-                    expir = self.cacheNegative5xx
-                self.cache.set(key, "%s:%s" % (code, response),
-                               time.time() + expir)
-            nr = ".".join([ x for x in str(code) ])
+                    expire = self.cacheNegative5xx
+                self.cache.set(key, "%s:%s" % (action, actionEx),
+                               time.time() + expire)
         except ValueError:
             log.msg("[WRN] %s: sender address in unknown format %s" %
                     (self.getId(), data[self.param]))
 
-        return code, nr, response
+        return action, actionEx
 
 
     def getDbConnection(self):
         raise Exception("No connection function defined")
 
 
-## FIXME: replaced by configuration with OrCheck(ListCheck, UserDomainCheck)
-##     def __verifyDomain(self, domain):
-##         """Check verification lists and return if address verifycation
-##         should be done for this domain."""
-##         while len(domain) > 0:
-##             if self.verifyNever.has_key(domain):
-##                 return False
-##             if self.verifyAlways.has_key(domain):
-##                 return True
-##             if domain.find(".") != -1:
-##                 domain = domain[domain.find(".")+1:]
-##         return self.verifyDefault
-
-
     def __checkDomain(self, domain, user = None):
         """Check if something listening for incomming SMTP connection
         for specified domain. First try to look in cached records
         in memory, then in database and the last step is to try connect
-        to MX record(s) or if none exist then A record with. If "domain"
-        CNAME is found instead, the resulting name is processed as if
-        it were the initial name (RFC2821, chapter 5)."""
+        to MX record(s) or if none exist then A record. For more details
+        see RFC2821, chapter 5."""
         import smtplib
         import socket
 
@@ -1005,14 +1407,17 @@ class UserDomainCheck(PPolicyServerCheckBase):
                 retcode, retmsg = conn.rset()
                 conn.quit()
                 conn.close()
-                return 250, "Sender domain verification success"
+                if user == None:
+                    return 250, "Sender domain verification success"
+                else:
+                    return 250, "Sender verification success"
 ##             SMTPRecipientsRefused
 ##             SMTPAuthenticationError
 ##             SMTPConnectError
 ##             SMTPDataError
 ##             SMTPHeloError
 ##             SMTPSenderRefused
-##             SMTPResponseException
+##             SMTPActionExException
 ##             SMTPServerDisconnected
             except smtplib.SMTPException, err:
                 log.msg("[WRN] %s: SMTP connection to %s failed: %s" %
@@ -1061,9 +1466,15 @@ if __name__ == "__main__":
              'ccert_issuer': '???',
              'ccert_fingerprint': '???',
              'size': '12345' }
-    for checkClass in [ PPolicyServerCheckBase, DummyCheck, PassCheck,
-                        FailCheck, AndCheck, OrCheck, NotCheck, IfCheck,
-                        If3Check, ListCheck, SPFCheck, UserDomainCheck ]:
+    print ">>>>>>>>>>>>>>>>>>>>>>>>> GLOBAL CHECKS - BEGIN <<<<<<<<<<<<<<<<<<<<<<<<<"
+    for checkClass in [ PPolicyServerCheckBase, DummyCheck, SimpleCheck,
+                        OkCheck, Reject4xxCheck, Reject5xxCheck, RejectCheck,
+                        DeferIfRejectCheck, DeferIfPermitCheck, DiscardCheck,
+                        DunnoCheck, FilterCheck, HoldCheck, PrependCheck,
+                        RedirectCheck, WarnCheck,
+                        AndCheck, OrCheck, NotCheck, IfCheck, If3Check,
+                        SwitchCheck,
+                        ListCheck, ListWBCheck, SPFCheck, UserDomainCheck ]:
         check = checkClass(debug=True)
         print check.getId()
         try:
@@ -1074,79 +1485,78 @@ if __name__ == "__main__":
         except Exception, err:
             print "ERROR: %s" % str(err)
             print traceback.print_exc()
+    print ">>>>>>>>>>>>>>>>>>>>>>>>> GLOBAL CHECKS - END <<<<<<<<<<<<<<<<<<<<<<<<<"
 
     dummyCheck = DummyCheck(debug=True)
     dummyCheck.doStartInt(factory=FakeFactory())
-    passCheck = PassCheck(debug=True)
-    passCheck.doStartInt(factory=FakeFactory())
-    pass2xxCheck = PassCheck(debug=True, code=234, response="pass2xx")
-    pass2xxCheck.doStartInt(factory=FakeFactory())
-    failCheck = FailCheck(debug=True)
-    failCheck.doStartInt(factory=FakeFactory())
-    fail4xxCheck = FailCheck(debug=True, code=432, response="fail4xx")
-    fail4xxCheck.doStartInt(factory=FakeFactory())
-    fail5xxCheck = FailCheck(debug=True, code=543, response="fail5xx")
-    fail4xxCheck.doStartInt(factory=FakeFactory())
+    okCheck = OkCheck(debug=True)
+    okCheck.doStartInt(factory=FakeFactory())
+    rejectCheck = RejectCheck(debug=True)
+    rejectCheck.doStartInt(factory=FakeFactory())
+    reject4xxCheck = Reject4xxCheck(debug=True, action='456', actionEx="reject4xx")
+    reject4xxCheck.doStartInt(factory=FakeFactory())
+    reject5xxCheck = Reject5xxCheck(debug=True, action='543', actionEx="reject5xx")
+    reject5xxCheck.doStartInt(factory=FakeFactory())
 
     print ">>> AND <<<"
-    test1AndCheck = AndCheck(debug=True, checks=[ passCheck, passCheck ])
+    test1AndCheck = AndCheck(debug=True, checks=[ okCheck, okCheck ])
     test1AndCheck.doStartInt(factory=FakeFactory())
     print test1AndCheck.doCheckInt(data)
-    test2AndCheck = AndCheck(debug=True, checks=[ passCheck, failCheck ])
+    test2AndCheck = AndCheck(debug=True, checks=[ okCheck, rejectCheck ])
     test2AndCheck.doStartInt(factory=FakeFactory())
     print test2AndCheck.doCheckInt(data)
 
     print ">>> OR <<<"
-    test1OrCheck = OrCheck(debug=True, checks=[ failCheck, failCheck ])
+    test1OrCheck = OrCheck(debug=True, checks=[ rejectCheck, rejectCheck ])
     test1OrCheck.doStartInt(factory=FakeFactory())
     print test1OrCheck.doCheckInt(data)
-    test2OrCheck = OrCheck(debug=True, checks=[ passCheck, failCheck ])
+    test2OrCheck = OrCheck(debug=True, checks=[ okCheck, rejectCheck ])
     test2OrCheck.doStartInt(factory=FakeFactory())
     print test2OrCheck.doCheckInt(data)
 
     print ">>> NOT <<<"
-    test1NotCheck = NotCheck(debug=True, check=passCheck)
+    test1NotCheck = NotCheck(debug=True, check=okCheck)
     test1NotCheck.doStartInt(factory=FakeFactory())
     print test1NotCheck.doCheckInt(data)
-    test2NotCheck = NotCheck(debug=True, check=failCheck)
+    test2NotCheck = NotCheck(debug=True, check=rejectCheck)
     test2NotCheck.doStartInt(factory=FakeFactory())
     print test2NotCheck.doCheckInt(data)
 
     print ">>> IF <<<"
-    test1IfCheck = IfCheck(debug=True, ifCheck=passCheck)
+    test1IfCheck = IfCheck(debug=True, ifCheck=okCheck)
     test1IfCheck.doStartInt(factory=FakeFactory())
     print test1IfCheck.doCheckInt(data)
-    test2IfCheck = IfCheck(debug=True, ifCheck=failCheck)
+    test2IfCheck = IfCheck(debug=True, ifCheck=rejectCheck)
     test2IfCheck.doStartInt(factory=FakeFactory())
     print test2IfCheck.doCheckInt(data)
-    test3IfCheck = IfCheck(debug=True, ifCheck=passCheck, passCheck=passCheck,
-                           failCheck=failCheck)
+    test3IfCheck = IfCheck(debug=True, ifCheck=okCheck, okCheck=okCheck,
+                           rejectCheck=rejectCheck)
     test3IfCheck.doStartInt(factory=FakeFactory())
     print test3IfCheck.doCheckInt(data)
-    test4IfCheck = IfCheck(debug=True, ifCheck=failCheck, passCheck=passCheck,
-                           failCheck=failCheck)
+    test4IfCheck = IfCheck(debug=True, ifCheck=rejectCheck, okCheck=okCheck,
+                           rejectCheck=rejectCheck)
     test4IfCheck.doStartInt(factory=FakeFactory())
     print test4IfCheck.doCheckInt(data)
 
     print ">>> IF3 <<<"
-    test1If3Check = If3Check(debug=True, ifCheck=passCheck)
+    test1If3Check = If3Check(debug=True, ifCheck=okCheck)
     test1If3Check.doStartInt(factory=FakeFactory())
     print test1If3Check.doCheckInt(data)
-    test2If3Check = If3Check(debug=True, ifCheck=failCheck)
+    test2If3Check = If3Check(debug=True, ifCheck=rejectCheck)
     test2If3Check.doStartInt(factory=FakeFactory())
     print test2If3Check.doCheckInt(data)
-    test3If3Check = If3Check(debug=True, ifCheck=passCheck,
-                             passCheck=passCheck, failCheck=failCheck,
+    test3If3Check = If3Check(debug=True, ifCheck=okCheck,
+                             okCheck=okCheck, rejectCheck=rejectCheck,
                              dunnoCheck=dummyCheck)
     test3If3Check.doStartInt(factory=FakeFactory())
     print test3If3Check.doCheckInt(data)
-    test4If3Check = If3Check(debug=True, ifCheck=failCheck,
-                             passCheck=passCheck, failCheck=failCheck,
+    test4If3Check = If3Check(debug=True, ifCheck=rejectCheck,
+                             okCheck=okCheck, rejectCheck=rejectCheck,
                              dunnoCheck=dummyCheck)
     test4If3Check.doStartInt(factory=FakeFactory())
     print test4If3Check.doCheckInt(data)
     test5If3Check = If3Check(debug=True, ifCheck=None,
-                             passCheck=passCheck, failCheck=failCheck,
+                             okCheck=okCheck, rejectCheck=rejectCheck,
                              dunnoCheck=dummyCheck)
     test5If3Check.doStartInt(factory=FakeFactory())
     print test5If3Check.doCheckInt(data)

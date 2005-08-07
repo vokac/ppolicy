@@ -174,9 +174,8 @@ class PPolicyServerFactory:
 class PPolicyServerRequest(protocol.Protocol):
 
     CONN_LIMIT = 100
-    DEFAULT_ACTION_CODE = "dunno"
-    DEFAULT_ACTION_NR = None
-    DEFAULT_ACTION_RESPONSE = None
+    DEFAULT_ACTION = "dunno"
+    DEFAULT_ACTION_EX = None
 
 
     def __init__(self, factory, checks=[]):
@@ -192,8 +191,7 @@ class PPolicyServerRequest(protocol.Protocol):
         if self.factory.numProtocols > self.CONN_LIMIT:
             log.msg("[ERR] connection limit (%s) reached, returning dunno" %
                     self.CONN_LIMIT)
-            self.dataResponse(self.DEFAULT_ACTION_CODE, self.DEFAULT_ACTION_NR,
-                              self.DEFAULT_ACTION_RESPONSE)
+            self.dataResponse(self.DEFAULT_ACTION, self.DEFAULT_ACTION_EX)
             #self.transport.write("Too many connections, try later") 
             self.transport.loseConnection()
 
@@ -207,6 +205,7 @@ class PPolicyServerRequest(protocol.Protocol):
     def dataReceived(self, data):
         """Receive Data, Parse it, go through the checks"""
         try:
+            self.data = {}
             if self.__parseData(data):
                 self.__doChecks()
         except Exception, err:
@@ -216,45 +215,53 @@ class PPolicyServerRequest(protocol.Protocol):
             # FIXME: default return action on garbage?
 
 
-    def dataResponse(self, code=None, nr=None, response=None):
+    def dataResponse(self, action=None, actionEx=None):
         """Check response"""
-        if not code or code == 'dunno':
+        if action == None:
             log.msg("[DBG] action=dunno")
 	    self.transport.write("action=dunno\n\n")
+        elif actionEx == None:
+            log.msg("[DBG] action=%s" % action)
+	    self.transport.write("action=%s\n\n" % action)
 	else:
-            log.msg("[DBG] action=%s %s %s" % (code, nr, response))
-	    self.transport.write("action=%s %s %s\n\n" % (code, nr, response))
+            log.msg("[DBG] action=%s %s" % (action, actionEx))
+	    self.transport.write("action=%s %s\n\n" % (action, actionEx))
 
 
     def __doChecks(self):
         """Loop over all checks"""
-        code = self.DEFAULT_ACTION_CODE
-        nr = self.DEFAULT_ACTION_NR
-        response = self.DEFAULT_ACTION_RESPONSE
-        #self.request_state.get_state(self.instance)
-        #if not self.request_state.state:
-        #    self.request_state.set_state(self.instance, 'started')
+        action = self.DEFAULT_ACTION
+        actionEx = self.DEFAULT_ACTION_EX
+        defer_if_permit = False
+        defer_if_reject = False
+
         for check in self.checks:
             try:
-                code, nr, response = check.doCheckInt(self.data)
+                action, actionEx = check.doCheckInt(self.data)
             except Exception, err:
                 import traceback
                 log.msg("[ERR] processing data for %s: %s" %
                         (check.getId(), str(err)))
                 log.msg("[ERR] %s" % traceback.format_exc())
-                code = self.DEFAULT_ACTION_CODE
-                nr = self.DEFAULT_ACTION_NR
-                response = self.DEFAULT_ACTION_RESPONSE
-            if code != 'dunno' and code >= 400:
-                self.dataResponse(code, nr, response)
-                #self.request_state.set_state(self.instance, 'ended')
-                #self.transport.loseConnection()
+                action = self.DEFAULT_ACTION
+                actionEx = self.DEFAULT_ACTION_EX
+            if action == None:
+                log.msg("[WRN] module %s return None for action" %
+                        check.getId())
+                action = self.DEFAULT_ACTION
+                actionEx = self.DEFAULT_ACTION_EX
+            if action.upper() in [ 'DUNNO', 'WARN' ]:
+                pass
+            elif action.upper() == 'DEFER_IF_PERMIT':
+                defer_if_permit = True
+            elif action.upper() == 'DEFER_IF_REJECT':
+                defer_if_reject = True
+            else:
+                # FIXME: handle DEFER_IF_
+                self.dataResponse(action, actionEx)
                 return
-            #self.request_state.set_passed(self.instance, check.getId())
-            #self.request_state.checks = []
-        self.dataResponse(code, nr, response)
-        #if self.request_state.state == 'ended':
-        #    self.transport.loseConnection()
+        # FIXME: handle DEFER_IF_
+        self.dataResponse(action, actionEx)
 
 
     def __parseData(self, data):

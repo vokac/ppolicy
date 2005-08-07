@@ -110,8 +110,189 @@ def getDomainMailhosts(domain, ipv6 = True):
                                              '::0', '::1' ] ]
 
 
+def funcMailToPostfixLookup(mail, split = True, user = True, userAt = True):
+    if mail == None or mail == '':
+        return []
+    try:
+        username, domain = mail.split("@")
+        domainParts = domain.split(".")
+    except ValueError:
+        return []
+    if not split:
+        if user:
+            return [ "%s@%s" % (username, ".".join(domainParts)) ]
+        else:
+            return [ "%s" % ".".join(domainParts) ]
+    retVal = []
+    if user:
+        retVal.append("%s@%s" % (username, ".".join(domainParts)))
+    while len(domainParts) > 0:
+        retVal.append("%s" % ".".join(domainParts))
+        domainParts.pop(0)
+    if userAt:
+        retVal.append("%s@" % username)
+    return retVal
+def funcMailToUserDomain(mail, split = False):
+    return funcMailToPostfixLookup(mail, split, True, False)
+def funcMailToUserDomainSplit(mail):
+    return funcMailToUserDomain(mail, True)
+def funcMailToDomain(mail, split = False):
+    return funcMailToPostfixLookup(mail, split, False, False)
+def funcMailToDomainSplit(mail):
+    return funcMailToDomain(mail, True)
 
-class DbMemWBCache:
+
+def code2nr(code):
+    if code == None:
+        return '0.0.0'
+    else:
+        return ".".join([ x for x in str(code) ])
+
+
+def safeSubstitute(text, dict):
+    import re
+    retVal = text
+    keywords = re.findall("%(\(.*?\))", text)
+    replace = []
+    for keyword in keywords:
+        if not dict.has_key(keyword[1:-1]):
+            replace.append(".\(%s\)." % keyword[1:-1])
+    for repl in replace:
+        retVal = re.sub(repl, "UNKNOWN", retVal)
+    return retVal % dict
+
+
+class DbMemListCache:
+    """Cache for list check. Method 'get' return action and text if name
+    is in table. Otherwise and in case of error it returns dunno.
+    If possible don't use limited cache size because it dramatically reduce
+    performance."""
+
+    # stop to use db after limit reached
+    ERROR_LIMIT = 10
+    # time after which errorLimit will be increased
+    ERROR_SLEEP = 120
+
+    def __init__(self, parent, table = None, cols = None, maxSize = 0):
+        self.getId = parent.getId
+        self.getDbConnection = parent.getDbConnection
+        self.useDb = True
+        self.table = table
+        self.cols = cols
+        self.maxSize = 0
+        if maxSize > 0:
+            self.maxSize = maxSize
+        self.cacheRes = {}
+        self.cacheUse = {}
+        self.errorLimit = self.ERROR_LIMIT
+        self.errorSleep = 0
+        self.lock = threading.Lock()
+        if self.useDb:
+            self.__checkDb()
+        if self.useDb and self.maxSize == 0:
+            self.__readAll()
+
+
+    def __checkDb(self):
+        """Check if we can use db connection, check existence or required
+        table and create new if doesn't exist."""
+        try:
+            conn = self.getDbConnection()
+            cursor = conn.cursor()
+            if self.table != None:
+                cursor.execute("CREATE TABLE IF NOT EXISTS %s ( %s VARCHAR(50) NOT NULL PRIMARY KEY, %s VARCHAR(20), %s VARCHAR(200) ) ENGINE=MyISAM DEFAULT CHARSET=latin1" % (self.table, self.cols['name'], self.cols['action'], self.cols['explanation'] ))
+                cursor.execute("SELECT * FROM %s WHERE 0 = 1" % self.table)
+        except Exception, err:
+            log.msg("[ERR] %s: checking db %s: %s" % (self.getId(), self.table,
+                                                      err))
+
+    def __readAll(self):
+        try:
+            conn = self.getDbConnection()
+            cursor = conn.cursor()
+            if self.table != None:
+                cursor.execute("SELECT %s, %s, %s FROM %s" %
+                               (self.cols['name'], self.cols['action'],
+                                self.cols['explanation'], self.table))
+                while (True):
+                    row = cursor.fetchone()
+                    if row == None: break
+                    self.cacheRes[row[0]] = ( row[1], row[2] )
+                    self.cacheUse[row[0]] = time.time()
+                log.msg("[INF] %s: loaded %s rows from %s" %
+                        (self.getId(), cursor.rowcount, self.table))
+            cursor.close()
+            self.maxSize = -1
+        except Exception, err:
+            # use only memory cache in case of DB problems
+            log.msg("[ERR] %s: error loading %s: %s" %
+                    (self.getId(), self.table, str(err)))
+            self.errorLimit -= 1
+
+
+    def __cacheCheckCleanFull(self):
+        """If cache is full clear 1/2. Call only inside block
+        with acquired cache lock."""
+        if self.maxSize > 0 and len(self.cacheUse) >= self.maxSize:
+            trh = sorted(self.cacheUse.values())[self.maxSize/2]
+            toDel = []
+            for keyToDel in self.cacheUse.keys():
+                if self.cacheUse[keyToDel] <= trh:
+                    toDel.append(keyToDel)
+            for keyToDel in toDel:
+                del(self.cacheRes[keyToDel])
+                del(self.cacheUse[keyToDel])
+
+
+    def get(self, key):
+        """Get data from cache."""
+        retVal = (None, None, None)
+        self.lock.acquire()
+        try:
+            if self.errorLimit <= 0:
+                if self.useDb:
+                    self.errorSleep = time.time() + self.ERROR_SLEEP
+                    self.useDb = False
+                elif self.errorSleep < time.time():
+                    self.useDb = True
+                    self.errorLimit = self.ERROR_LIMIT
+            # load cache data firstime if we can load everything
+            if self.useDb and self.maxSize == 0:
+                self.__readAll()
+            # memory cache
+            if self.cacheRes.has_key(key):
+                self.cacheUse[key] = time.time()
+                retVal = self.cacheRes[key]
+            # database cache
+            elif self.useDb and self.maxSize > 0:
+                conn = self.getDbConnection()
+                cursor = conn.cursor()
+                if self.table:
+                    cursor.execute("SELECT %s, %s, %s FROM %s WHERE %s == '%s'" %
+                                   (self.cols['name'], self.cols['action'],
+                                    self.cols['explanation'], self.table,
+                                    self.cols['name'], key))
+                    if cursor.rowcount > 0:
+                        if cursor.rowcount > 1:
+                            log.msg("[WRN] %s: more records in %s for %s (using first)" % (self.getId(), self.table, key))
+                        row = cursor.fetchone()
+                        if row != None:
+                            self.__cacheCheckCleanFull()
+                            self.cacheRes[key] = ( row[1], row[2] )
+                            self.cacheUse[key] = time.time()
+                            retVal = ( row[1], row[2] )
+                cursor.close()
+        except Exception, err:
+            log.msg("[ERR] %s: cache error (table: %s, key: %s, limit: %s): %s" %
+                    (self.getId(), self.table, key, self.errorLimit, str(err)))
+            self.errorLimit -= 1
+            retVal = (None, None, None)
+        self.lock.release()
+        return retVal
+
+
+
+class DbMemListWBCache:
     """Cache for white/black lists. Method 'get' return True if key is in
     whitelist, False if key is in blacklist and None if it is not in either.
     If possible don't use limited cache size because it dramatically reduce
@@ -229,7 +410,7 @@ class DbMemWBCache:
                 self.cacheUse[key] = time.time()
                 retVal = self.cacheRes[key]
             # database cache
-            if self.useDb and self.maxSize > 0:
+            elif self.useDb and self.maxSize > 0:
                 conn = self.getDbConnection()
                 cursor = conn.cursor()
                 if self.wtable:
@@ -247,6 +428,7 @@ class DbMemWBCache:
                         self.cacheRes[key] = False
                         self.cacheUse[key] = time.time()
                 cursor.close()
+                retVal = self.cacheRes.get(key)
         except Exception, err:
             log.msg("[ERR] %s: cache error (table: %s/%s, key: %s, limit: %s): %s" %
                     (self.getId(), self.wtable, self.btable,
@@ -362,9 +544,8 @@ class DbMemCache:
             if self.cacheExp.has_key(key) and self.cacheExp[key] >= time.time():
                 self.cacheUse[key] = time.time()
                 retVal = self.cacheRes[key]
-
             # database cache
-            if self.useDb and self.maxSize > 0:
+            elif self.useDb and self.maxSize > 0:
                 conn = self.getDbConnection()
                 cursor = conn.cursor()
                 cursor.execute("SELECT %s, UNIX_TIMESTAMP(%s) FROM %s WHERE %s == '%s'" %
@@ -381,6 +562,7 @@ class DbMemCache:
                         self.cacheExp[key] = row[1]
                         self.cacheUse[key] = time.time()
                 cursor.close()
+                retVal = self.cacheRes.get(key)
 
         except Exception, err:
             log.msg("[ERR] %s: cache error (table: %s, key: %s, limit: %s): %s" %
