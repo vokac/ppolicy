@@ -1,0 +1,14 @@
+* caching - remove negative caching from MemCache
+            remove MemCache __get, __set, __reload - no longer base class
+
+* implement modules
+  - graylisting
+  - spam traps -> blacklist (realtime!)
+
+* update /etc/postfix/master.cf from postinstall
+
+* test:
+  - ListCheck
+  - ListWBCheck
+  - UserDomainCheck
+  - DB cleanup task

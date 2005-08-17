@@ -30,7 +30,7 @@ class PPolicyServerFactory:
         self.checks = []
         self.tasks = []
         self.numPorts = 0
-        self.numProtocols = 0 # FIXME: numProtocols x numPorts ?
+        self.numProtocols = 0
         self.databaseAPI = None
         self.database = None
         self.dbConnPool = None
@@ -129,44 +129,20 @@ class PPolicyServerFactory:
         #    self.checkStateTask.stop()
 	self.__deactivateTasks()
         self.__deactivateChecks()
+
+
+    def startFactory(self):
+        """Called once."""
+        pass
+
+
+    def stopFactory(self):
+        """Called once."""
         if self.dbConnPool != None and self.dbConnPool.running == 1:
             self.dbConnPool.close()
 
 
-    def startFactory(self):
-        """This will be called before I begin listening on a Port or Connector.
-	
-	It will only be called once, even if the factory is connected
-	to multiple ports.
-	
-	This can be used to perform 'unserialization' tasks that
-	are best put off until things are actually running, such
-	as connecting to a database, opening files, etcetera.
-	"""
-
-
-    def stopFactory(self):
-        """This will be called before I stop listening on all Ports/Connectors.
-	
-	This can be used to perform 'shutdown' tasks such as disconnecting
-	database connections, closing files, etc.
-	
-	It will be called, for example, before an application shuts down,
-	if it was connected to a port.
-	"""
-
-
     def buildProtocol(self, addr):
-        """Create an instance of a subclass of Protocol.
-	
-	The returned instance will handle input on an incoming server
-	connection, and an attribute \"factory\" pointing to the creating
-	factory.
-	
-	Override this method to alter how Protocol instances get created.
-	
-	@param addr: an object implementing L{twisted.internet.interfaces.IAddress}
-	"""
 	return self.protocol(self, self.checks)
 
 
@@ -174,7 +150,7 @@ class PPolicyServerFactory:
 class PPolicyServerRequest(protocol.Protocol):
 
     CONN_LIMIT = 100
-    DEFAULT_ACTION = "dunno"
+    DEFAULT_ACTION = 'DUNNO'
     DEFAULT_ACTION_EX = None
 
 

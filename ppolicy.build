@@ -1,0 +1,32 @@
+#!/bin/sh
+NAME=ppolicy
+VERSION=1.0
+
+mkdir -p ${NAME}-${VERSION}/${NAME}
+cp \
+ppolicy.conf \
+ppolicy.init \
+ppolicy.spec \
+ppolicy.tap \
+README \
+setup.py \
+TODO \
+${NAME}-${VERSION}
+
+cp \
+checks.py \
+__init__.py \
+protocol.py \
+spf.py \
+tasks.py \
+tools.py \
+${NAME}-${VERSION}/${NAME}
+
+#tar cjf ${NAME}-${VERSION}.tar.bz2 ${NAME}-${VERSION}
+tar czf ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}
+
+rm -rf ${NAME}-${VERSION}
+
+rpmbuild -ta ${NAME}-${VERSION}.tar.gz
+mv -f ${HOME}/workspace/rpmbuild/SRPMS/${NAME}-${VERSION}*.src.rpm .
+mv -f ${HOME}/workspace/rpmbuild/RPMS/noarch/${NAME}-${VERSION}*.noarch.rpm .
