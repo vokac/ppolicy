@@ -1,6 +1,6 @@
 #!/bin/sh
 NAME=ppolicy
-VERSION=1.0
+VERSION=1.1
 
 mkdir -p ${NAME}-${VERSION}/${NAME}
 cp \

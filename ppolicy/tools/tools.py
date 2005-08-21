@@ -317,6 +317,30 @@ class DbCache:
         self.getDbConnection = parent.getDbConnection
         self.table = getattr(self, 'table', table)
         self.cols = getattr(self, 'cols', cols)
+        if 'name' not in self.cols.keys():
+            raise DbCache.DbCacheError("Name column is required for %s" %
+                                       self.table)
+        for k, v in self.cols.items():
+            if k not in [ 'name', 'value', 'expire' ]:
+                raise DbCache.DbCacheError("Unknown column %s in table %s" %
+                                           (k, self.table))
+        self.colsTypes = {}
+        for k,v in self.cols.items():
+            if type(v) == str:
+                if v.find(" ") != -1:
+                    v1, v2 = v.split(" ", 2)
+                    self.cols[k] = v1
+                    self.colsTypes[k + "=>" + v1] = v2
+                vn = []
+            else:
+                for va in v:
+                    if va.find(" ") != -1:
+                        v1, v2 = va.split(" ", 2)
+                        vn.append(v1)
+                        self.colsTypes[k + "=>" + v1] = v2
+                    else:
+                        vn.append(va)
+                self.cols[k] = vn
         self.memCache = getattr(self, 'memCache', memCache)
         self.memExpire = getattr(self, 'memExpire', memExpire)
         self.memMaxSize = getattr(self, 'memMaxSize', memMaxSize)
@@ -338,28 +362,40 @@ class DbCache:
         table and create new if doesn't exist."""
         try:
             colsDef = []
-            if 'name' not in self.cols.keys():
-                raise DbCache.DbCacheError("Name field is required %s" % self.table)
             if self.cols.has_key('name'):
-                colsDef.append("%s VARCHAR(50) NOT NULL PRIMARY KEY" % self.cols['name'])
+                colName = self.cols['name']
+                colType = "VARCHAR(50)"
+                if self.colsTypes.has_key('name'+"=>"+colName):
+                    colType = self.colsTypes['name'+"=>"+colName]
+                colsDef.append("%s %s NOT NULL PRIMARY KEY" % (colName, colType))
             if self.cols.has_key('value'):
-                for val in self.cols['value']:
-                    colsDef.append("%s VARCHAR(200)" % val)
+                if type(self.cols['value']) == str:
+                    colName = self.cols['value']
+                    colType = "VARCHAR(200)"
+                    if self.colsTypes.has_key('value'+"=>"+colName):
+                        colType = self.colsTypes['value'+"=>"+colName]
+                    colsDef.append("%s %s" % (colName, colType))
+                else:
+                    for colName in self.cols['value']:
+                        colType = "VARCHAR(200)"
+                        if self.colsTypes.has_key('value'+"=>"+colName):
+                            colType = self.colsTypes['value'+"=>"+colName]
+                        colsDef.append("%s %s" % (colName, colType))
             if self.cols.has_key('expire'):
-                colsDef.append("%s TIMESTAMP NOT NULL" % self.cols['expire'])
-            for k, v in self.cols.items():
-                if k not in [ 'name', 'value', 'expire' ]:
-                    raise DbCache.DbCacheError("Unknown column name %s in table %s" %
-                                               (k, self.table))
-            sql = "CREATE TABLE IF NOT EXISTS %s ( %s ) %s" % (self.table, ",".join(colsDef), DbCache.TABLE_TYPE)
+                colName = self.cols['expire']
+                colType = "TIMESTAMP NOT NULL"
+                if self.colsTypes.has_key('expire'+"=>"+colName):
+                    colType = self.colsTypes['expire'+"=>"+colName]
+                colsDef.append("%s %s" % (colName, colType))
+            sql = "CREATE TABLE IF NOT EXISTS %s (%s) %s" % (self.table, ",".join(colsDef), DbCache.TABLE_TYPE)
             conn = self.getDbConnection()
             cursor = conn.cursor()
-            cursor.execute(sql)
-            sql = "SELECT %s FROM %s" % (self.__getCols(), self.table)
-            cursor.execute(sql)
-            cursor.close()
-        except DbCache.DbCacheError, err:
-            raise err
+            try:
+                cursor.execute(sql)
+                sql = "SELECT %s FROM %s WHERE 1 = 2" % (self.__getCols(), self.table)
+                cursor.execute(sql)
+            finally:
+                cursor.close()
         except Exception, err:
             log.msg("[ERR] %s: query '%s': %s" % (self.getId(), sql, err))
 
@@ -394,8 +430,10 @@ class DbCache:
                 sql = "DELETE FROM %s" % self.table
                 conn = self.getDbConnection()
                 cursor = conn.cursor()
-                cursor.execute(sql)
-                cursor.close()
+                try:
+                    cursor.execute(sql)
+                finally:
+                    cursor.close()
             except Exception, err:
                 log.msg("[ERR] %s: error cleaning %s: %s" %
                         (self.getId(), self.table, err))
@@ -409,19 +447,21 @@ class DbCache:
             sql = ""
             conn = self.getDbConnection()
             cursor = conn.cursor()
-            if self.memMaxSize > 0:
-                sql = "SELECT COUNT(*) FROM %s" % self.table
+            try:
+                if self.memMaxSize > 0:
+                    sql = "SELECT COUNT(*) FROM %s" % self.table
+                    cursor.execute(sql)
+                    row = cursor.fetchone()
+                    if self.memMaxSize > row[0]:
+                        self.cacheVal.clean()
+                        return
+                sql = "SELECT %s FROM %s" % (self.__getCols(), self.table)
                 cursor.execute(sql)
-                row = cursor.fetchone()
-                if self.memMaxSize > row[0]:
-                    self.cacheVal.clean()
-                    return
-            sql = "SELECT %s FROM %s" % (self.__getCols(), self.table)
-            cursor.execute(sql)
-            self.cacheVal.reload(cursor.fetchall(), self.cols)
-            log.msg("[INF] %s: loaded %s rows from %s" %
-                    (self.getId(), cursor.rowcount, self.table))
-            cursor.close()
+                self.cacheVal.reload(cursor.fetchall(), self.cols)
+                log.msg("[INF] %s: loaded %s rows from %s" %
+                        (self.getId(), cursor.rowcount, self.table))
+            finally:
+                cursor.close()
             self.lastReload = time.time()
         except Exception, err:
             # use only memory cache in case of DB problems
@@ -443,28 +483,30 @@ class DbCache:
                 sql = "SELECT %s FROM %s WHERE %s == '%s'" % (self.__getCols(), self.table, self.cols['name'], key)
                 conn = self.getDbConnection()
                 cursor = conn.cursor()
-                cursor.execute(sql)
-                if cursor.rowcount > 0:
-                    if cursor.rowcount > 1:
-                        log.msg("[WRN] %s: more records in %s for %s" %
-                                (self.getId(), self.table, key))
-                    row = cursor.fetchone()
-                    if row != None:
-                        value = True
-                        if self.cols.has_key('value'):
-                            if len(self.cols['value']) == 1:
-                                value = row[1]
-                            else:
-                                value = tuple()
-                                for i in range(0, len(self.cols['value'])):
-                                    value += (row[1+i])
-                        expire = self.memExpire
-                        if self.cols.has_key('expire') and time.time() + self.memExpire > row[2]:
-                            expire = row[len(row)-1]
-                        self.cacheVal.set(key, value, expire)
-                        if expire >= time.time():
-                            retVal = value
-                cursor.close()
+                try:
+                    cursor.execute(sql)
+                    if cursor.rowcount > 0:
+                        if cursor.rowcount > 1:
+                            log.msg("[WRN] %s: more records in %s for %s" %
+                                    (self.getId(), self.table, key))
+                        row = cursor.fetchone()
+                        if row != None:
+                            value = True
+                            if self.cols.has_key('value'):
+                                if len(self.cols['value']) == 1:
+                                    value = row[1]
+                                else:
+                                    value = tuple()
+                                    for i in range(0, len(self.cols['value'])):
+                                        value += (row[1+i])
+                            expire = self.memExpire
+                            if self.cols.has_key('expire') and time.time() + self.memExpire > row[2]:
+                                expire = row[len(row)-1]
+                            self.cacheVal.set(key, value, expire)
+                            if expire >= time.time():
+                                retVal = value
+                finally:
+                    cursor.close()
         except Exception, err:
             log.msg("[ERR] %s: cache error (table: %s, key: %s, err: %s): %s" %
                     (self.getId(), self.table, key, self.errorLimit, err))
@@ -482,34 +524,36 @@ class DbCache:
                 sql = "SELECT COUNT(*) FROM %s WHERE %s = '%s'" % (self.table, self.cols['name'], key)
                 conn = self.getDbConnection()
                 cursor = conn.cursor()
-                cursor.execute(sql)
-                row = cursor.fetchone ()
-                if row != None:
-                    if row[0] == 0:
-                        sql = "INSERT INTO %s (%s) VALUES ('%s'" % (self.table, self.__getCols(), key)
-                        if self.cols.has_key('value'):
-                            if len(self.cols['value']) == 1:
-                                sql += ", '%s'" % val
-                            else:
-                                for i in range(0, len(self.cols['value'])):
-                                    sql += ", '%s'" % val[i]
-                        if self.cols.has_key('expire'):
-                            sql += "FROM_UNIXTIME(%i)" % long(exp)
-                        cursor.execute(sql)
-                    else:
-                        sql = "UPDATE %s SET " % self.table
-                        if self.cols.has_key('value'):
-                            if len(self.cols['value']) == 1:
-                                sql += "%s = '%s'" % (self.cols['value'], val)
-                            else:
-                                for i in range(0, len(self.cols['value'])):
-                                    sql += "%s = '%s'" % (self.cols['value'][i], val[i])
-                        if self.cols.has_key('expire'):
-                            sql += ", %s = FROM_UNIXTIME(%i) " % (self.cols['expire'], long(exp))
-                        sql += "WHERE %s = '%s'" % (self.cols['name'], key)
-                        if self.cols > 1:
+                try:
+                    cursor.execute(sql)
+                    row = cursor.fetchone ()
+                    if row != None:
+                        if row[0] == 0:
+                            sql = "INSERT INTO %s (%s) VALUES ('%s'" % (self.table, self.__getCols(), key)
+                            if self.cols.has_key('value'):
+                                if len(self.cols['value']) == 1:
+                                    sql += ", '%s'" % val
+                                else:
+                                    for i in range(0, len(self.cols['value'])):
+                                        sql += ", '%s'" % val[i]
+                            if self.cols.has_key('expire'):
+                                sql += "FROM_UNIXTIME(%i)" % long(exp)
                             cursor.execute(sql)
-                cursor.close()
+                        else:
+                            sql = "UPDATE %s SET " % self.table
+                            if self.cols.has_key('value'):
+                                if len(self.cols['value']) == 1:
+                                    sql += "%s = '%s'" % (self.cols['value'], val)
+                                else:
+                                    for i in range(0, len(self.cols['value'])):
+                                        sql += "%s = '%s'" % (self.cols['value'][i], val[i])
+                            if self.cols.has_key('expire'):
+                                sql += ", %s = FROM_UNIXTIME(%i) " % (self.cols['expire'], long(exp))
+                            sql += "WHERE %s = '%s'" % (self.cols['name'], key)
+                            if self.cols > 1:
+                                cursor.execute(sql)
+                finally:
+                    cursor.close()
         except IndexError, err:
             log.msg("[ERR] %s: wrong number of parameters: %s" %
                     (self.getId(), err))
@@ -558,5 +602,10 @@ if __name__ == "__main__":
         print memCache.get(i)
 
     print "##### DbCache #####"
-    dbCache = DbCache(FakeCheck(), 'test', { 'name': 'name', 'value': 'value',
-                                            'expire': 'expire' }, True, 900, 0)
+    dbCache = DbCache(FakeCheck(), 'test1',
+                      { 'name': 'name VARCHAR(10)',
+                        'value': 'value VARCHAR(123)',
+                        'expire': 'expire' }, True, 900, 0)
+    dbCache = DbCache(FakeCheck(), 'test2',
+                      { 'name': 'name', 'value': [ 'value1', 'value2' ],
+                        'expire': 'expire' }, True, 900, 0)

@@ -21,8 +21,24 @@ import tools
 
 
 
-class NotImplementedException(Exception):
-    pass
+class CheckError(Exception):
+    """Base exception class for check modules."""
+    def __init__(self, args = ""):
+        Exception.__init__(self, args)
+
+
+class NotImplementedError(CheckError):
+    """Exception for some methods in base classes that should be implemented
+    in derived classes."""
+    def __init__(self, args = ""):
+        CheckError.__init__(self, args)
+
+
+class ParamError(CheckError):
+    """Error when setting module parameters. Used when required parametr
+    is not specified."""
+    def __init__(self, args = ""):
+        CheckError.__init__(self, args)
 
 
 
@@ -153,6 +169,7 @@ class PPolicyCheckBase:
 
     def doStartInt(self, *args, **keywords):
         """Called by protocol factory once before doCheck is used."""
+        log.msg("[DBG] %s: Starting" % self.getId())
         if self.cacheResult:
             self.cacheResultData = getattr(self, 'cacheResultData', None);
             if self.cacheResultData == None:
@@ -171,6 +188,7 @@ class PPolicyCheckBase:
 
     def doStopInt(self, *args, **keywords):
         """Called by protocol factory before shutdown."""
+        log.msg("[DBG] %s: Stopping" % self.getId())
         self.setState('stop', *args, **keywords)
 
 
@@ -188,6 +206,7 @@ class PPolicyCheckBase:
         """This method will ensure check result caching and should not
         be redefined. User checking should be implemented in doCheck
         method called by this method in case of no cached data available."""
+        log.msg("[DBG] %s: Checking..." % self.getId())
         if self._state != 'ready':
             return self.defaultAction, self.defaultActionEx
 
@@ -208,7 +227,7 @@ class PPolicyCheckBase:
         check input data. If chaching is enabled (default) it will
         be called only if actionEx for requested data is not in cache.
         This method has to be implemented in child classes."""
-        raise NotImplementedException("Don't call base class directly")
+        raise NotImplementedError("Don't call base class directly")
 
 
 
@@ -287,7 +306,7 @@ class SimpleCheck(PPolicyCheckBase):
             action = self.action
 
         if self.actionEx == None:
-            actionEx = self.defaultAction
+            actionEx = self.defaultActionEx
         else:
             actionEx = tools.safeSubstitute(self.actionEx, data)
 
@@ -1255,24 +1274,18 @@ class SPFCheck(PPolicyCheckBase):
 
 
 
-class UserDomainCheck(PPolicyCheckBase):
-    """Check if sender/recipient mailserver is reachable. It provide
-    also sender/recipient verification if "verify" parameter is set
-    to True (default is False). Be carefull when turning on verification
-    and first read http://www.postfix.org/ADDRESS_VERIFICATION_README.html
-    about its limitation
+class DbCacheCheck(PPolicyCheckBase):
+    """Base class for check that uses Db to store results. Some methods has
+    to be implemented in subclasses.
 
     Parameters:
-      param
-        string key for data item that should be verified (default: None)
-      verify
-        verify user, not only domain mailserver (default: False)
       cacheTable
         database table name for caching data (default: None)
       cacheCols
-        dictionary { 'name': 'name',
-                     'value': [ 'code', 'ex' ],
+        dictionary { 'name': 'name VARCHAR(256)',
+                     'value': [ 'code VARCHAR(20)', 'ex VARCHAR(500)' ],
                      'expire': 'expire' }
+        see RFC 2821, 4.5.3.1 Size limits and minimums
       cachePositive
         expiration time sucessfully verified records (default: month)
       cacheNegative
@@ -1280,32 +1293,30 @@ class UserDomainCheck(PPolicyCheckBase):
       cacheNegative5xx
         expiration time if verification fail with code 5xx (def: 2 days)
       cacheExpire
-        expiration time for records in memory (default: 900s)
+        expiration time for records in memory (default: 15 minutes)
       cacheSize
         max number of records in memory cache (default: 0 - all records)
     """
 
 
     def __init__(self, *args, **keywords):
-        self.param = None
-        self.verify = False
-        self.cacheTable = None
-        self.cacheCols = { 'name': 'name',
-                           'value': [ 'code', 'ex' ],
-                           'expire': 'expire' }
-        self.cachePositive = 60*60*24*31    # month
-        self.cacheNegative = 60*60*4        # 4 hours
-        self.cacheNegative5xx = 60*60*24*2  # 2 days
-        self.cacheExpire = 900
-        self.cacheSize = 0
+        self.cacheTable = getattr(self, 'cacheTable', None)
+        self.cacheCols = getattr(self, 'cacheCols',
+                                 { 'name': 'name VARCHAR(256)',
+                                   'value': [ 'code VARCHAR(20)',
+                                              'ex VARCHAR(500)' ],
+                                   'expire': 'expire' })
+        self.cachePositive = getattr(self, 'cachePositive', 60*60*24*31)
+        self.cacheNegative = getattr(self, 'cacheNegative', 60*60*4)
+        self.cacheNegative5xx = getattr(self, 'cacheNegative5xx', 60*60*24*2)
+        self.cacheExpire = getattr(self, 'cacheExpire', 60*15)
+        self.cacheSize = getattr(self, 'cacheSize', 0)
         PPolicyCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
         PPolicyCheckBase.setParams(self, *args, **keywords)
-        self.param = keywords.get('param', self.param)
-        self.verify = keywords.get('verify', self.verify)
         self.cacheTable = keywords.get('cacheTable', self.cacheTable)
         self.cacheCols = keywords.get('cacheCols', self.cacheCols)
         self.cachePositive = keywords.get('cachePositive', self.cachePositive)
@@ -1314,14 +1325,6 @@ class UserDomainCheck(PPolicyCheckBase):
         self.cacheExpire = keywords.get('cacheExpire', self.cacheExpire)
         self.cacheSize = keywords.get('cacheSize', self.cacheSize)
         self.setState(lastState)
-
-
-    def dataHash(self, data):
-        """Compute hash only from used data fields."""
-        if self.param == None:
-            return 0
-        else:
-            return hash("=".join([ self.param, data.get(self.param) ]))
 
 
     def doStart(self, *args, **keywords):
@@ -1334,82 +1337,179 @@ class UserDomainCheck(PPolicyCheckBase):
 
     def doCheck(self, data):
         log.msg("[DBG] %s: running check" % self.getId())
-        if self.param == None or not data.has_key(self.param):
-            return self.defaultAction, self.defaultActionEx
 
-        action = self.defaultAction
-        actionEx = self.defaultActionEx
-
-        try:
-            user, domain = data[self.param].split("@")
-            if self.verify:
-                key = "%s@%s" % (user, domain)
-            else:
-                key = domain
-
+        key = self.getKey(data)
+        if key != None:
             action, actionEx = self.cache.get(key, (None, None))
 
-            if action == None:
-                if self.verify:
-                    code, actionEx = self.__checkDomain(domain, user)
-                else:
-                    code, actionEx = self.__checkDomain(domain)
-                action = str(code)
-                if code < 400:
-                    expire = self.cachePositive
-                elif code < 500:
-                    expire = self.cacheNegative
-                else:
-                    expire = self.cacheNegative5xx
+        if action == None:
 
+            action, actionEx = self.doCheckReal(data)
+
+            actTest = action.lower()
+            if len(actTest) == 3:
+                if action[0] == '4': expire = self.cacheNegative
+                elif action[0] == '5': expire = self.cacheNegative5xx
+            elif actTest in [ 'ok', 'permit' ]:
+                expire = self.cachePositive
+            elif action in [ 'reject' ]:
+                expire = self.cacheNegative5xx
+            else:
+                log.msg("[DBG] %s: unknown return action %s" %
+                        (self.getId(), action))
+                return self.defaultAction, self.defaultActionEx
+
+            if key != None:
                 self.cache.set(key, (action, actionEx), time.time() + expire)
 
-        except ValueError:
-            log.msg("[WRN] %s: sender address in unknown format %s" %
-                    (self.getId(), data[self.param]))
-
         return action, actionEx
+
+
+    def doCheckReal(self, data):
+        raise NotImplementedError("You can't call base class %s directly" %
+                                  self.getId())
 
 
     def getDbConnection(self):
         raise Exception("No connection function defined")
 
 
-    def __checkDomain(self, domain, user = None):
+    def getKey(self, data):
+        return self.dataHash(data)
+
+
+
+class VerificationCheck(DbCacheCheck):
+    """Base class for user and domain verification and subclass
+    of DbCacheCheck. It check domain existence and then it try
+    to establish SMTP connection with mailhost for the domain
+    (MX, A or AAAA DNS records - see RFC2821, chapter 5).
+
+    Parameters (see descriptionn of parent class L{VerificationCheck}):
+      param
+        string key for data item that should be verified (default: None)
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.param = getattr(self, 'param', None)
+        DbCacheCheck.__init__(self, *args, **keywords)
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        PPolicyCheckBase.setParams(self, *args, **keywords)
+        self.param = keywords.get('param', self.param)
+        self.setState(lastState)
+
+
+    def dataHash(self, data):
+        """Compute hash only from used data fields."""
+        if self.param == None:
+            return 0
+        else:
+            return hash("=".join([ self.param, data.get(self.param) ]))
+
+
+    def doCheckReal(self, data):
+        if self.param == None or not data.has_key(self.param):
+            log.msg("[DBG] %s: no param" % self.getId())
+            return self.defaultAction, self.defaultActionEx
+
+        # RFC 2821, section 4.1.1.2
+        # empty MAIL FROM: reverse address may be null
+        if self.param == 'sender' and data[self.param] == '':
+            return self.defaultAction, self.defaultActionEx
+
+        # RFC 2821, section 4.1.1.3
+        # see RCTP TO: grammar
+        if self.param == 'recipient' and data[self.param] == 'Postmaster':
+            return self.defaultAction, self.defaultActionEx
+
+        user, domain = self.getUserDomain(data[self.param])
+        if user == None or domain == None:
+            log.msg("[WRN] %s: address for %s in unknown format: %s" %
+                    (self.getId(), self.param, data[self.param]))
+            return '550', "%s address format icorrect %s" % (self.param,
+                                                             data[self.param])
+
+        mailhosts = tools.getDomainMailhosts(domain)
+        if len(mailhosts) == 0:
+            log.msg("[INF] %s: no mailhost for %s" % (self.getId(), domain))
+            return '450', "Can't find mailserver for %s" % domain
+
+        action = self.defaultAction
+        actionEx = self.defaultActionEx
+
+        for mailhost in mailhosts:
+            code, codeEx = self.checkMailhost(mailhost, domain, user)
+            # FIXME: how many MX try? timeout?
+            if code != None:
+                if code < 400:
+                    action = 'OK'
+                    break
+                elif code < 500:
+                    action = '450'
+                    actionEx = codeEx
+                    continue
+                else:
+                    action = '550'
+                    actionEx = codeEx
+                    break
+        if code == None:
+            return self.defaultAction, self.defaultActionEx
+
+        return action, actionEx
+
+
+    def getUserDomain(self, address):
+        raise NotImplementedError("Implemented in subclass %s" % self.getId())
+
+
+    def _getUserDomain(self, address):
+        user = None
+        domain = None
+        if self.param in [ 'sender', 'recipient' ]:
+            try:
+                user, domain = address.split("@")
+            except ValueError:
+                pass
+        else:
+            user = 'postmaster'
+            domain = address
+        return user, domain
+
+        
+    def getKey(self, data):
+        return data.get(self.param)
+
+
+    def checkMailhost(self, mailhost, domain, user):
         """Check if something listening for incomming SMTP connection
-        for specified domain. First try to look in cached records
-        in memory, then in database and the last step is to try connect
-        to MX record(s) or if none exist then A record. For more details
-        see RFC2821, chapter 5."""
+        for mailhost. For details about status that can occur during
+        communication see RFC 2821, section 4.3.2"""
         import smtplib
         import socket
 
-        for mailhost in tools.getDomainMailhosts(domain):
-            try:
-                conn = smtplib.SMTP(mailhost)
-                conn.set_debuglevel(10) # FIXME: [DBG]
-                retcode, retmsg = conn.helo()
-                if retcode >= 400:
-                    return retcode, "Sender domain verification failed: %s" % retmsg
-                retcode, retmsg = conn.mail("postmaster@%s" %
-                                            socket.gethostname())
-                if retcode >= 400:
-                    return retcode, "Sender domain verification failed: %s" % retmsg
-                if user == None:
-                    retcode, retmsg = conn.rcpt("postmaster@%s" % domain)
-                    if retcode >= 400:
-                        return retcode, "Sender domain verification failed: %s" % retmsg
-                else:
-                    retcode, retmsg = conn.rcpt("%s@%s" % (user, domain))
-                    if retcode >= 400:
-                        return retcode, "Sender verification failed: %s" % retmsg
-                retcode, retmsg = conn.rset()
-                conn.quit()
-                conn.close()
-                if user == None:
-                    return 250, "Sender domain verification success"
-                else:
-                    return 250, "Sender verification success"
+        try:
+            conn = smtplib.SMTP(mailhost)
+            conn.set_debuglevel(10) # FIXME: [DBG]
+            code, retmsg = conn.helo()
+            if code >= 400:
+                return code, "%s verification HELO failed: %s" % (self.param,
+                                                                  retmsg)
+            code, retmsg = conn.mail("postmaster@%s" % socket.gethostname())
+            if code >= 400:
+                return code, "%s verification MAIL failed: %s" % (self.param,
+                                                                  retmsg)
+            code, retmsg = conn.rcpt("%s@%s" % (user, domain))
+            if code >= 400:
+                return code, "%s verification RCPT failed: %s" % (self.param,
+                                                                  retmsg)
+            code, retmsg = conn.rset()
+            conn.quit()
+            conn.close()
+            return 250, "Domain verification success"
 ##             SMTPRecipientsRefused
 ##             SMTPAuthenticationError
 ##             SMTPConnectError
@@ -1418,11 +1518,60 @@ class UserDomainCheck(PPolicyCheckBase):
 ##             SMTPSenderRefused
 ##             SMTPActionExException
 ##             SMTPServerDisconnected
-            except smtplib.SMTPException, err:
-                log.msg("[WRN] %s: SMTP connection to %s failed: %s" %
-                        (self.getId(), domain, str(err)))
+        except smtplib.SMTPException, err:
+            log.msg("[WRN] %s: SMTP connection to %s failed: %s" %
+                    (self.getId(), domain, str(err)))
 
-        return 450, "Sender domain verirication failed."
+        return 450, "Domain verirication failed."
+
+
+
+class DomainVerificationCheck(VerificationCheck):
+    """Check if sender/recipient or whatever reasonable is has correct
+    DNS records as mailhost and try to connect to this server.
+
+    Parameters (see descriptionn of parent class L{VerificationCheck}):
+      param
+        reasonable values are 'sender','recipient','helo_name' (default: None)
+      cacheTable
+        default: verification_domain
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.cacheTable = 'verification_domain'
+        VerificationCheck.__init__(self, *args, **keywords)
+
+
+    def getUserDomain(self, address):
+        user, domain = self._getUserDomain(address)
+        return 'postmaster', domain
+
+
+
+class UserVerificationCheck(VerificationCheck):
+    """Check if sender/recipient is accepted by mailserver. Be carefull
+    when turning on verification and first read
+    http://www.postfix.org/ADDRESS_VERIFICATION_README.html
+    about its limitation
+
+    Parameters (see descriptionn of parent class L{VerificationCheck}):
+      param
+        reasonable values are 'sender' and 'recipient' (default: None)
+      cacheTable
+        default: verification_sender/recipient
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.cacheTable = 'verification_user'
+        VerificationCheck.__init__(self, *args, **keywords)
+
+
+    def getUserDomain(self, address):
+        return self._getUserDomain(address)
+
+
 
 
 
@@ -1465,6 +1614,12 @@ if __name__ == "__main__":
              'ccert_issuer': '???',
              'ccert_fingerprint': '???',
              'size': '12345' }
+    if len(sys.argv) > 1:
+        obj = eval(sys.argv[1])
+        obj.doStartInt(factory=FakeFactory())
+        print obj.doCheckInt(data)
+        obj.doStopInt()
+        sys.exit()
     print ">>>>>>>>>>>>>>>>>>>>>>>>> GLOBAL CHECKS - BEGIN <<<<<<<<<<<<<<<<<<<<<<<<<"
     for checkClass in [ PPolicyCheckBase, DummyCheck, SimpleCheck,
                         OkCheck, Reject4xxCheck, Reject5xxCheck, RejectCheck,
@@ -1473,7 +1628,8 @@ if __name__ == "__main__":
                         RedirectCheck, WarnCheck,
                         AndCheck, OrCheck, NotCheck, IfCheck, If3Check,
                         SwitchCheck,
-                        AccessCheck, ListWBCheck, SPFCheck, UserDomainCheck ]:
+                        AccessCheck, ListWBCheck, SPFCheck,
+                        DomainVerificationCheck, UserVerificationCheck ]:
         check = checkClass(debug=True, param='sender')
         print check.getId()
         try:

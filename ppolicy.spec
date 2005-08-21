@@ -1,6 +1,6 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 1.0
+Version: 1.1
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -90,6 +90,9 @@ fi
 
 
 %changelog
+* Wed Aug 17 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
+- caching rewritten
+
 * Sun Aug  7 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
 - first public release 1.0
 
