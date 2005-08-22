@@ -1282,7 +1282,7 @@ class DbCacheCheck(PPolicyCheckBase):
       cacheTable
         database table name for caching data (default: None)
       cacheCols
-        dictionary { 'name': 'name VARCHAR(256)',
+        dictionary { 'name': 'name VARCHAR(255)',
                      'value': [ 'code VARCHAR(20)', 'ex VARCHAR(500)' ],
                      'expire': 'expire' }
         see RFC 2821, 4.5.3.1 Size limits and minimums
@@ -1302,7 +1302,7 @@ class DbCacheCheck(PPolicyCheckBase):
     def __init__(self, *args, **keywords):
         self.cacheTable = getattr(self, 'cacheTable', None)
         self.cacheCols = getattr(self, 'cacheCols',
-                                 { 'name': 'name VARCHAR(256)',
+                                 { 'name': 'name VARCHAR(255)',
                                    'value': [ 'code VARCHAR(20)',
                                               'ex VARCHAR(500)' ],
                                    'expire': 'expire' })
@@ -1573,6 +1573,114 @@ class UserVerificationCheck(VerificationCheck):
 
 
 
+class GreylistCheck(PPolicyCheckBase):
+    """Greylist implementation.
+
+    Parameters:
+      table:
+        greylist database table (default: greylist)
+      cacheCols
+        dictionary of greylist table columns
+      cacheExpire
+        expiration time for records in memory (default: 15 minutes)
+      cacheSize
+        max number of records in memory cache (default: 1000), 0 = all records
+      greyTime:
+        time we temporary reject unknown triplet sen+rec+ip (default: 10 min)
+      greyExpire:
+        expiration time of greylist record (default: 31 days)
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.table = 'greylist'
+        self.cols = { 'name': [ 'sender VARCHAR(255)',
+                                'recipient VARCHAR(255)',
+                                'client_address VARCHAR(50)' ],
+                      'value':  'value TIMESTAMP',
+                      'expire': 'expire' }
+        self.cacheExpire = 60*15
+        self.cacheSize = 1000
+        self.greyTime = 60*10
+        self.greyExpire = 60*60*24*31
+        PPolicyCheckBase.__init__(self, *args, **keywords)
+
+
+    def setParameters(self, *args, **keywords):
+        lastState = self.setState('stop')
+        PPolicyCheckBase.setParams(self, *args, **keywords)
+        self.table = keywords.get('table', self.table)
+        self.cols = keywords.get('cols', self.cols)
+        self.cacheExpire = keywords.get('cacheExpire', self.cacheExpire)
+        self.cacheSize = keywords.get('cacheSize', self.cacheSize)
+        self.greyTime = keywords.get('greyTime', self.greyTime)
+        self.greyExpire = keywords.get('greyExpire', self.greyExpire)
+        self.setState(lastState)
+
+
+    def dataHash(self, data):
+        """Compute hash only from used data fields."""
+        keys = sorted(data.keys())
+        return hash("\n".join([ "=".join([x, data[x]]) for x in keys if x in [ "sender", "recipient", "client_address" ] ]))
+
+
+    def doStart(self, *args, **keywords):
+        self.factory = keywords.get('factory', self.factory)
+        if self.factory != None:
+            self.getDbConnection = self.factory.getDbConnection
+        self.cache = tools.DbCache(self, self.table, self.cols, True,
+                                   self.cacheExpire, self.cacheSize)
+
+
+    def doCheck(self, data):
+        import spf
+        log.msg("[DBG] %s: running check" % self.getId())
+
+        sender = data.get('sender')
+        recipient = data.get('recipient')
+        client_name = data.get('client_name')
+        client_address = data.get('client_address')
+
+        # RFC 2821, section 4.1.1.2
+        # empty MAIL FROM: reverse address may be null
+        if sender == '':
+            return self.defaultAction, self.defaultActionEx
+
+        # RFC 2821, section 4.1.1.3
+        # see RCTP TO: grammar
+        if recipient == 'Postmaster':
+            return self.defaultAction, self.defaultActionEx
+
+        try:
+            user, domain = sender.split("@")
+        except ValueError:
+            log.msg("[WRN] %s: sender address in unknown format: %s" %
+                    (self.getId(), sender))
+            return '550', "sender address format icorrect %s" % sender
+
+        mailhosts = tools.getDomainMailhosts(domain)
+        spfres, spfstat, spfexpl = spf.check(i=client_address,
+                                             s=sender, h=client_name)
+        if client_address in mailhosts or spfres == 'pass':
+            greysubj = domain
+        else:
+            greysubj = client_address
+
+        greyTime = self.cache.get((sender, recipient, greysubj), None)
+        if greyTime == None:
+            greyTime = self.greyTime + time.time()
+        if greyTime > time.time():
+            action = '451'
+            actionEx = "You have been greylisted. This is part of our antispam procedure for %s domain. Your mail will be accepted in %ss" % (domain, int(greyTime - time.time()))
+        else:
+            action = self.defaultAction
+            actionEx = self.defaultActionEx
+
+        self.cache.set((sender, recipient, greysubj), greyTime,
+                       time.time() + self.greyExpire)
+
+        return action, actionEx
+
 
 
 class FakeFactory:
@@ -1629,7 +1737,8 @@ if __name__ == "__main__":
                         AndCheck, OrCheck, NotCheck, IfCheck, If3Check,
                         SwitchCheck,
                         AccessCheck, ListWBCheck, SPFCheck,
-                        DomainVerificationCheck, UserVerificationCheck ]:
+                        DomainVerificationCheck, UserVerificationCheck,
+                        GreylistCheck ]:
         check = checkClass(debug=True, param='sender')
         print check.getId()
         try:

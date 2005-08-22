@@ -1,5 +1,4 @@
 * implement modules
-  - graylisting
   - spam traps -> blacklist (realtime!)
   - real-time DOS detection/rejection
 
@@ -7,4 +6,5 @@
   - AccessCheck
   - ListWBCheck
   - DomainVerificationCheck, UserVerificationCheck
+  - GreylistCheck
   - DB cleanup task
