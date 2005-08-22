@@ -25,6 +25,7 @@ state IF, SWITCH with results of each module.
 postfix           >= 2.1           - http://www.postfix.org
 python            >= 2.3           - http://www.python.org
 python-twisted    >= 1.3           - http://twistedmatrix.com
+* MySQL           >= 3.23 (I hope) - http://www.mysql.com
 * dnspython       >= 1.3.3         - http://www.dnspython.org
 
 * required by some check modules
@@ -57,6 +58,7 @@ Rebuild SRPM package or install aplication directly from tgz package.
   python setup.py install
 
 
+
 2. Configuration
 
 2.1 PPolicy
@@ -82,6 +84,22 @@ Update configuration according following examples and adapt to your needs.
         check_policy_service inet:127.0.0.1:1030
         ...
     127.0.0.1:1030_time_limit = 3600
+
+
+2.2 Database configuration
+
+Database is used to pernamently store result of some expensive
+checks. In most cases it shoul be possible to run ppolicy without
+database backend but it is not recomended because of degraded
+performance and (may be) more bug (it was not fully tested without
+database).
+
+Only MySQL database was tested with ppolicy but it should not be
+difficult to adapt to any SQL database. You have to create new ppolicy
+database and change database connection information in configuration
+file ppolicy.conf. User you use to connect to ppolicy database must
+have rights to create new tables. All required tables are created
+automatically during ppolicy server startup.
 
 
 
