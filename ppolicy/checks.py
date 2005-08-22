@@ -170,6 +170,9 @@ class PPolicyCheckBase:
     def doStartInt(self, *args, **keywords):
         """Called by protocol factory once before doCheck is used."""
         log.msg("[DBG] %s: Starting" % self.getId())
+        self.factory = keywords.get('factory', self.factory)
+        if self.factory != None:
+            self.getDbConnection = self.factory.getDbConnection
         if self.cacheResult:
             self.cacheResultData = getattr(self, 'cacheResultData', None);
             if self.cacheResultData == None:
@@ -214,9 +217,12 @@ class PPolicyCheckBase:
         if self.cacheResult:
             action, actionEx = self.cacheResultData.get(dataHash, (None, None))
             if action != None:
-                log.msg("[DBG] %s: result cache hit" % self.getId())
+                log.msg("[DBG] %s: result cache hit (%s, %s)" %
+                        (self.getId(), action, actionEx))
                 return action, actionEx
         action, actionEx = self.doCheck(data)
+        log.msg("[DBG] %s: result (%s, %s)" %
+                (self.getId(), action, actionEx))
         if self.cacheResult:
             self.cacheResultData.set(dataHash, (action, actionEx))
         return action, actionEx
@@ -228,6 +234,15 @@ class PPolicyCheckBase:
         be called only if actionEx for requested data is not in cache.
         This method has to be implemented in child classes."""
         raise NotImplementedError("Don't call base class directly")
+
+
+    def getDbConnection(self):
+        """Get database connection from factory connection pool. You
+        have to provide reference to factory in doStartInt(factory=factory)
+        otherwise this method will throw exception because of no access
+        to the factory connection pool (in fact it use factory method
+        getDbConnection()"""
+        raise NotImplementedError("No connection function defined")
 
 
 
@@ -1058,9 +1073,6 @@ class AccessCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.factory = keywords.get('factory', self.factory)
-        if self.factory != None:
-            self.getDbConnection = self.factory.getDbConnection
         self.cache = tools.DbCache(self, self.table, self.cols, True,
                                    self.cacheExpire, self.cacheSize)
 
@@ -1089,10 +1101,6 @@ class AccessCheck(PPolicyCheckBase):
                 return action, actionEx
 
         return self.defaultAction, self.defaultActionEx
-
-
-    def getDbConnection(self):
-        raise Exception("No connection function defined")
 
 
 
@@ -1166,9 +1174,6 @@ class ListWBCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.factory = keywords.get('factory', self.factory)
-        if self.factory != None:
-            self.getDbConnection = self.factory.getDbConnection
         self.wlCache = tools.DbCache(self, self.whitelistTable,
                                      { 'name': self.whitelistColumn },
                                      True, self.cacheExpire, self.cacheSize)
@@ -1200,10 +1205,6 @@ class ListWBCheck(PPolicyCheckBase):
                 return 'REJECT', "%s %s is on blacklist" % (self.param, dta)
 
         return self.defaultAction, self.defaultActionEx
-
-
-    def getDbConnection(self):
-        raise Exception("No connection function defined")
 
 
 
@@ -1328,9 +1329,6 @@ class DbCacheCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.factory = keywords.get('factory', self.factory)
-        if self.factory != None:
-            self.getDbConnection = self.factory.getDbConnection
         self.cache = tools.DbCache(self, self.cacheTable, self.cacheCols,
                                    True, self.cacheExpire, self.cacheSize)
 
@@ -1368,10 +1366,6 @@ class DbCacheCheck(PPolicyCheckBase):
     def doCheckReal(self, data):
         raise NotImplementedError("You can't call base class %s directly" %
                                   self.getId())
-
-
-    def getDbConnection(self):
-        raise Exception("No connection function defined")
 
 
     def getKey(self, data):
@@ -1480,10 +1474,6 @@ class VerificationCheck(DbCacheCheck):
         return user, domain
 
         
-    def getKey(self, data):
-        return data.get(self.param)
-
-
     def checkMailhost(self, mailhost, domain, user):
         """Check if something listening for incomming SMTP connection
         for mailhost. For details about status that can occur during
@@ -1548,6 +1538,11 @@ class DomainVerificationCheck(VerificationCheck):
         return 'postmaster', domain
 
 
+    def getKey(self, data):
+        user, domain = self.getUserDomain(data.get(self.param))
+        return domain
+
+
 
 class UserVerificationCheck(VerificationCheck):
     """Check if sender/recipient is accepted by mailserver. Be carefull
@@ -1570,6 +1565,11 @@ class UserVerificationCheck(VerificationCheck):
 
     def getUserDomain(self, address):
         return self._getUserDomain(address)
+
+
+    def getKey(self, data):
+        user, domain = self.getUserDomain(data.get(self.param))
+        return "%s@%s" % (user, domain)
 
 
 
@@ -1625,9 +1625,6 @@ class GreylistCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.factory = keywords.get('factory', self.factory)
-        if self.factory != None:
-            self.getDbConnection = self.factory.getDbConnection
         self.cache = tools.DbCache(self, self.table, self.cols, True,
                                    self.cacheExpire, self.cacheSize)
 

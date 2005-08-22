@@ -18,11 +18,11 @@ import os, sys, imp
 config = {
     'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
     'databaseAPI'  : 'MySQLdb',
-    'database'     : { 'host' : 'localhost',
-                       'databasePort' : 3306,
-                       'databaseDB'   : 'ppolicy',
-                       'databaseUser' : 'ppolicy',
-                       'databasePass' : 'ppolicy',
+    'database'     : { 'host'   : 'localhost',
+                       'port'   : 3306,
+                       'db'     : 'ppolicy',
+                       'user'   : 'ppolicy',
+                       'passwd' : 'ppolicy',
                        },
     'listenPort'   : 1030,
     'checks'       : (),
@@ -57,10 +57,10 @@ for key in config.keys():
 
 application = service.Application("PPolicyServer")
 factory	= PPolicyServerFactory(PPolicyServerRequest)
-for check in config['checks']:
-    factory.addCheck(check)
-for task in config['tasks']:
-    factory.addTask(task)
+for chk in config['checks']:
+    factory.addCheck(chk)
+for tsk in config['tasks']:
+    factory.addTask(tsk)
 factory.databaseAPI = config['databaseAPI']
 factory.database = config['database']
 

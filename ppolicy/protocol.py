@@ -59,7 +59,7 @@ class PPolicyServerFactory:
 
         if self.dbConnPool == None:
             self.dbConnPool = adbapi.ConnectionPool(self.databaseAPI,
-                                                    self.database)
+                                                    **self.database)
             #self.dbConnPool.min = 3
             #self.dbConnPool.max = 5
             self.dbConnPool.noisy = 1
@@ -89,7 +89,7 @@ class PPolicyServerFactory:
         """Activate factory checks."""
         for check in self.checks:
 	    log.msg("[INF] Activate Check %s" % check.getId())
-	    check.doStartInt(self)
+	    check.doStartInt(self, factory=self)
 
 
     def __deactivateChecks(self):
@@ -280,10 +280,37 @@ if __name__ == "__main__":
     print "Module tests:"
     import sys, time
     log.startLogging(sys.stdout)
-    factory = PPolicyServerFactory(PPolicyServerRequest,
-                                   [ checks.DummyCheck(debug=True) ],
-                                   [ tasks.DummyTask(1, debug=True) ])
+
+    # default config
+    config = {
+        'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
+        'databaseAPI'  : 'MySQLdb',
+        'database'     : { 'host'   : 'localhost',
+                           'port'   : 3306,
+                           'db'     : 'ppolicy',
+                           'user'   : 'ppolicy',
+                           'passwd' : 'ppolicy',
+                           },
+        'listenPort'   : 1030,
+        'checks'       : ( checks.DummyCheck(debug=True), ),
+        'tasks'        : ( tasks.DummyTask(1, debug=True), ),
+        }
+
+    print ">>> Create Factory"
+    factory	= PPolicyServerFactory(PPolicyServerRequest)
+    for chk in config['checks']:
+        factory.addCheck(chk)
+    for tsk in config['tasks']:
+        factory.addTask(tsk)
+    factory.databaseAPI = config['databaseAPI']
+    factory.database = config['database']
+
+    print ">>> Test Db Connection"
+    factory.getDbConnection().cursor().execute("SHOW DATABASES")
+
+    print ">>> Start Factory"
     factory.doStart()
     time.sleep(5)
+    print ">>> Stop Factory"
     factory.doStop()
 

@@ -2,6 +2,8 @@
   - spam traps -> blacklist (realtime!)
   - real-time DOS detection/rejection
 
+* greylisting cache internal (db) failure => reject???
+
 * test:
   - AccessCheck
   - ListWBCheck
