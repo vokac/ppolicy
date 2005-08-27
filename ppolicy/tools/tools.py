@@ -11,9 +11,9 @@
 # $Id$
 #
 import time, threading
+import logging
 import dns.resolver
 import dns.exception
-from twisted.python import log
 
 
 #
@@ -63,7 +63,7 @@ def getFqdnIPs(domain, ipv6 = True):
                     ips.append(rdata.address)
                 break
             except dns.exception.Timeout:
-                log.msg("[DBG] DNS timeout (%s, %s), try #%s, query: %s [%s]" %
+                logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
                         (lifetime, timeout, _dnsMaxRetry - dnsretry,
                          domain, qtype))
                 lifetime *= 2
@@ -98,8 +98,8 @@ def getDomainMailhosts(domain, ipv6 = True):
                     ips.append(ip)
             break
         except dns.exception.Timeout:
-            log.msg("[DBG] DNS timeout (%s, %s), try #%s, query: %s [%s]" %
-                    (lifetime, timeout, _dnsMaxRetry - dnsretry, domain, 'MX'))
+            logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
+                        (lifetime, timeout, _dnsMaxRetry - dnsretry, domain, 'MX'))
             lifetime *= 2
             timeout *= 2
         except dns.resolver.NoAnswer:
@@ -307,6 +307,7 @@ class DbCache:
       parent - reference to Check object (needed for db connection)
       table - database table to read/save cached items
       cols - database column to store data (dictionary of name, value, expire)
+      error - propagate get/set error/exception (default: False)
       memCache - use memory cache (default: True)
       memExpire - expiration time of item in MemCache (default: 600s)
       memMaxSize - maximum item in MemCache (default: 0 - infinite)
@@ -322,7 +323,7 @@ class DbCache:
         def __init__(self, args = ""):
             Exception.__init__(self, args)
 
-    def __init__(self, parent, table, cols,
+    def __init__(self, parent, table, cols, error = False,
                  memCache = True, memExpire = 600, memMaxSize = 0):
         if parent == None or table == None or cols == None:
             raise DbCache.DbCacheError("Undefined required param: %s, %s, %s" %
@@ -341,6 +342,7 @@ class DbCache:
                 raise DbCache.DbCacheError("Unknown column %s in table %s" %
                                            (k, self.table))
             self.__createDbColsDef(k, v)
+        self.error = getattr(self, 'error', error)
         self.memCache = getattr(self, 'memCache', memCache)
         self.memExpire = getattr(self, 'memExpire', memExpire)
         self.memMaxSize = getattr(self, 'memMaxSize', memMaxSize)
@@ -412,7 +414,7 @@ class DbCache:
             finally:
                 cursor.close()
         except Exception, err:
-            log.msg("[ERR] %s: query '%s': %s" % (self.getId(), sql, err))
+            logging.log(logging.ERROR, "%s: query '%s': %s" % (self.getId(), sql, err))
 
 
     def __getAllCols(self):
@@ -494,8 +496,8 @@ class DbCache:
                 finally:
                     cursor.close()
             except Exception, err:
-                log.msg("[ERR] %s: error cleaning %s: %s" %
-                        (self.getId(), self.table, err))
+                logging.log(logging.ERROR, "%s: error cleaning %s: %s" %
+                            (self.getId(), self.table, err))
         self.cacheVal.clean()
 
 
@@ -517,15 +519,15 @@ class DbCache:
                 sql = "SELECT %s FROM %s" % (self.__getSelectExprCols(), self.table)
                 cursor.execute(sql)
                 self.cacheVal.reload(cursor.fetchall(), self.cols)
-                log.msg("[INF] %s: loaded %s rows from %s" %
-                        (self.getId(), cursor.rowcount, self.table))
+                logging.log(logging.INFO, "%s: loaded %s rows from %s" %
+                            (self.getId(), cursor.rowcount, self.table))
             finally:
                 cursor.close()
             self.lastReload = time.time()
         except Exception, err:
             # use only memory cache in case of DB problems
-            log.msg("[ERR] %s: error loading %s: %s" %
-                    (self.getId(), self.table, err))
+            logging.log(logging.ERROR, "%s: error loading %s: %s" %
+                        (self.getId(), self.table, err))
             self.cacheVal.clean()
 
 
@@ -547,8 +549,8 @@ class DbCache:
                     cursor.execute(sql)
                     if cursor.rowcount > 0:
                         if cursor.rowcount > 1:
-                            log.msg("[WRN] %s: more records in %s for %s" %
-                                    (self.getId(), self.table, key))
+                            logging.log(logging.WARN, "%s: more records in %s for %s" %
+                                        (self.getId(), self.table, key))
                         row = cursor.fetchone()
                         if row != None:
                             value = True
@@ -569,8 +571,11 @@ class DbCache:
                 finally:
                     cursor.close()
         except Exception, err:
-            log.msg("[ERR] %s: cache error (table: %s, key: %s, err: %s): %s" %
-                    (self.getId(), self.table, key, self.errorLimit, err))
+            logging.log(logging.ERROR, "%s: cache error (table: %s, key: %s, err: %s): %s" %
+                        (self.getId(), self.table, key, self.errorLimit, err))
+            if self.error:
+                self.lock.release()
+                raise err
             self.errorLimit -= 1
         self.lock.release()
         return retVal
@@ -629,11 +634,14 @@ class DbCache:
                 finally:
                     cursor.close()
         except IndexError, err:
-            log.msg("[ERR] %s: wrong number of parameters: %s" %
-                    (self.getId(), err))
+            logging.log(logging.ERROR, "%s: wrong number of parameters: %s" %
+                        (self.getId(), err))
         except Exception, err:
-            log.msg("[ERR] %s: cache error (table: %s, key: %s, err: %s): %s" %
-                    (self.getId(), self.table, key, self.errorLimit, err))
+            logging.log(logging.ERROR, "%s: cache error (table: %s, key: %s, err: %s): %s" %
+                        (self.getId(), self.table, key, self.errorLimit, err))
+            if self.error:
+                self.lock.release()
+                raise err
             self.errorLimit -= 1
         self.lock.release()
 
@@ -661,7 +669,8 @@ class FakeCheck:
 if __name__ == "__main__":
     print "Module tests:"
     import sys
-    log.startLogging(sys.stdout)
+    import twisted.python.log
+    twisted.python.log.startLogging(sys.stdout)
 
     print "##### DNS #####"
     print ">>>>> %s" % getFqdnIPs.__name__
