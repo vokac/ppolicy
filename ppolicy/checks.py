@@ -14,10 +14,10 @@
 # $Id$
 #
 import time, threading
-from twisted.python import log
+import logging
+import tools
 from twisted.python import components
 from twisted.internet import task
-import tools
 
 
 
@@ -177,7 +177,7 @@ class PPolicyCheckBase:
 
     def doStartInt(self, *args, **keywords):
         """Called by protocol factory once before doCheck is used."""
-        log.msg("[DBG] %s: Starting" % self.getId())
+        logging.log(logging.DEBUG, "%s: Starting" % self.getId())
         self.setState('start', *args, **keywords)
 
 
@@ -207,7 +207,7 @@ class PPolicyCheckBase:
 
     def doStopInt(self, *args, **keywords):
         """Called by protocol factory before shutdown."""
-        log.msg("[DBG] %s: Stopping" % self.getId())
+        logging.log(logging.DEBUG, "%s: Stopping" % self.getId())
         self.setState('stop', *args, **keywords)
 
 
@@ -235,7 +235,7 @@ class PPolicyCheckBase:
         """This method will ensure check result caching and should not
         be redefined. User checking should be implemented in doCheck
         method called by this method in case of no cached data available."""
-        log.msg("[DBG] %s: Checking..." % self.getId())
+        logging.log(logging.DEBUG, "%s: Checking..." % self.getId())
         if self._state != 'ready':
             return self.defaultAction, self.defaultActionEx
 
@@ -243,12 +243,12 @@ class PPolicyCheckBase:
         if self.cacheResult:
             action, actionEx = self.cacheResultData.get(dataHash, (None, None))
             if action != None:
-                log.msg("[DBG] %s: result cache hit (%s, %s)" %
-                        (self.getId(), action, actionEx))
+                logging.log(logging.DEBUG, "%s: result cache hit (%s, %s)" %
+                            (self.getId(), action, actionEx))
                 return action, actionEx
         action, actionEx = self.doCheck(data)
-        log.msg("[DBG] %s: result (%s, %s)" %
-                (self.getId(), action, actionEx))
+        logging.log(logging.DEBUG, "%s: result (%s, %s)" %
+                    (self.getId(), action, actionEx))
         if self.cacheResult:
             self.cacheResultData.set(dataHash, (action, actionEx))
         return action, actionEx
@@ -304,7 +304,7 @@ class DummyCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
         return 'DUNNO', None
 
 
@@ -339,7 +339,7 @@ class SimpleCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.action == None:
             action = self.defaultAction
@@ -541,10 +541,10 @@ class AndCheck(LogicCheck):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.checks == []:
-            log.msg("[WRN] %s: no check defined" % self.getId())
+            logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         dunno = False
@@ -620,10 +620,10 @@ class OrCheck(LogicCheck):
 
     def doCheck(self, data):
 
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.checks == []:
-            log.msg("[WRN] %s: no check defined" % self.getId())
+            logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         dunno = False
@@ -689,10 +689,10 @@ class NotCheck(LogicCheck):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.check == None:
-            log.msg("[WRN] %s: no check defined" % self.getId())
+            logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         action, actionEx = self.check.doCheckInt(data)
@@ -760,10 +760,10 @@ class EqCheck(LogicCheck):
 
 
     def doChecks(self, data):
-        log.msg("[DBG] %s: running checks" % self.getId())
+        logging.log(logging.DEBUG, "%s: running checks" % self.getId())
 
         if self.checks == []:
-            log.msg("[WRN] %s: no checks defined" % self.getId())
+            logging.log(logging.WARN, "%s: no checks defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         firstAction = None
@@ -869,10 +869,10 @@ class IfCheck(LogicCheck):
 
     def doCheck(self, data):
 
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.ifCheck == None:
-            log.msg("[WRN] %s: no ifCheck defined" % self.getId())
+            logging.log(logging.WARN, "%s: no ifCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         action, actionEx = self.ifCheck.doCheckInt(data)
@@ -887,8 +887,8 @@ class IfCheck(LogicCheck):
             check = self.rejectCheck
 
         if check == None:
-            log.msg("[WRN] %s: no check defined for result %s" %
-                    (self.getId(), action))
+            logging.log(logging.WARN, "%s: no check defined for result %s" %
+                        (self.getId(), action))
             return self.defaultAction, self.defaultActionEx
 
         return check.doCheckInt(data)
@@ -999,10 +999,10 @@ class If3Check(LogicCheck):
 
     def doCheck(self, data):
 
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.ifCheck == None:
-            log.msg("[WRN] %s: no ifCheck defined" % self.getId())
+            logging.log(logging.WARN, "%s: no ifCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         action, actionEx = self.ifCheck.doCheckInt(data)
@@ -1016,7 +1016,7 @@ class If3Check(LogicCheck):
             check = self.rejectCheck
 
         if check == None:
-            log.msg("[WRN] %s: no check defined for result %s" %
+            logging.log(logging.WARN, "%s: no check defined for result %s" %
                     (self.getId(), action))
             return self.defaultAction, self.defaultActionEx
 
@@ -1094,10 +1094,10 @@ class SwitchCheck(LogicCheck):
 
     def doCheck(self, data):
 
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.switchCheck == None:
-            log.msg("[WRN] %s: no switchCheck defined" % self.getId())
+            logging.log(logging.WARN, "%s: no switchCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         action, actionEx = self.switchCheck.doCheckInt(data)
@@ -1114,8 +1114,8 @@ class SwitchCheck(LogicCheck):
                 check = self.caseChecks[action]
 
         if check == None:
-            log.msg("[WRN] %s: no check defined for result %s" %
-                    (self.getId(), action))
+            logging.log(logging.WARN, "%s: no check defined for result %s" %
+                        (self.getId(), action))
             return self.defaultAction, self.defaultActionEx
 
         return check.doCheckInt(data)
@@ -1190,7 +1190,7 @@ class AccessCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.param == None:
             return self.defaultAction, self.defaultActionEx
@@ -1201,8 +1201,8 @@ class AccessCheck(PPolicyCheckBase):
             dtaArr = self.paramFunction(data.get(self.param))
 
         if dtaArr in [ None, [], [ None ] ]:
-            log.msg("[WRN] %s: no test data for %s" %
-                    (self.getId(), self.param))
+            logging.log(logging.WARN, "%s: no test data for %s" %
+                        (self.getId(), self.param))
             return self.defaultAction, self.defaultActionEx
 
         for dta in dtaArr:
@@ -1295,7 +1295,7 @@ class ListWBCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         if self.param == None:
             return self.defaultAction, self.defaultActionEx
@@ -1306,8 +1306,8 @@ class ListWBCheck(PPolicyCheckBase):
             dtaArr = self.paramFunction(data.get(self.param))
 
         if dtaArr in [ None, [], [ None ] ]:
-            log.msg("[WRN] %s: no test data for %s" %
-                    (self.getId(), self.param))
+            logging.log(logging.WARN, "%s: no test data for %s" %
+                        (self.getId(), self.param))
             return self.defaultAction, self.defaultActionEx
 
         for dta in dtaArr:
@@ -1354,7 +1354,7 @@ class SPFCheck(PPolicyCheckBase):
 
     def doCheck(self, data):
         """ check Request against SPF results in 'deny', 'unknown', 'pass'"""
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
         import spf
         sender = data.get('sender', '')
         client_address = data.get('client_address')
@@ -1363,15 +1363,15 @@ class SPFCheck(PPolicyCheckBase):
         if len(sender) > 0 and sender[-1] == '>': sender = sender[:-1]
 
         try:
-            log.msg("[DBG] %s: spf.check('%s', '%s', '%s')" %
-                    (self.getId(), client_address, sender, client_name))
+            logging.log(logging.DEBUG, "%s: spf.check('%s', '%s', '%s')" %
+                        (self.getId(), client_address, sender, client_name))
             result, mtastatus, mtaexpl = spf.check(i=client_address,
                                                    s=sender, h=client_name)
-            log.msg("[DBG] %s: result: %s, %s, %s" %
-                    (self.getId(), result, mtastatus, mtaexpl))
+            logging.log(logging.DEBUG, "%s: result: %s, %s, %s" %
+                        (self.getId(), result, mtastatus, mtaexpl))
         except Exception, error:
-            log.msg("[ERR] %s: checking SPF failed: %s" %
-                    (self.getId(), str(error)))
+            logging.log(logging.ERROR, "%s: checking SPF failed: %s" %
+                        (self.getId(), str(error)))
             return self.defaultAction, self.defaultActionEx
 
         if self.restrictive:
@@ -1446,7 +1446,7 @@ class DbCacheCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         key = self.getKey(data)
         if key != None:
@@ -1465,8 +1465,8 @@ class DbCacheCheck(PPolicyCheckBase):
             elif action in [ 'reject' ]:
                 expire = self.cacheNegative5xx
             else:
-                log.msg("[DBG] %s: unknown return action %s" %
-                        (self.getId(), action))
+                logging.log(logging.DEBUG, "%s: unknown return action %s" %
+                            (self.getId(), action))
                 return self.defaultAction, self.defaultActionEx
 
             if key != None:
@@ -1519,7 +1519,7 @@ class VerificationCheck(DbCacheCheck):
 
     def doCheckReal(self, data):
         if self.param == None or not data.has_key(self.param):
-            log.msg("[DBG] %s: no param" % self.getId())
+            logging.log(logging.DEBUG, "%s: no param" % self.getId())
             return self.defaultAction, self.defaultActionEx
 
         # RFC 2821, section 4.1.1.2
@@ -1536,14 +1536,14 @@ class VerificationCheck(DbCacheCheck):
 
         user, domain = self.getUserDomain(data[self.param])
         if user == None or domain == None:
-            log.msg("[WRN] %s: address for %s in unknown format: %s" %
-                    (self.getId(), self.param, data[self.param]))
+            logging.log(logging.WARN, "%s: address for %s in unknown format: %s" %
+                        (self.getId(), self.param, data[self.param]))
             return '550', "%s address format icorrect %s" % (self.param,
                                                              data[self.param])
 
         mailhosts = tools.getDomainMailhosts(domain)
         if len(mailhosts) == 0:
-            log.msg("[INF] %s: no mailhost for %s" % (self.getId(), domain))
+            logging.log(logging.INFO, "%s: no mailhost for %s" % (self.getId(), domain))
             return '450', "Can't find mailserver for %s" % domain
 
         action = self.defaultAction
@@ -1623,8 +1623,8 @@ class VerificationCheck(DbCacheCheck):
 ##             SMTPActionExException
 ##             SMTPServerDisconnected
         except smtplib.SMTPException, err:
-            log.msg("[WRN] %s: SMTP connection to %s failed: %s" %
-                    (self.getId(), domain, str(err)))
+            logging.log(logging.WARN, "%s: SMTP connection to %s failed: %s" %
+                        (self.getId(), domain, str(err)))
 
         return 450, "Domain verirication failed."
 
@@ -1750,7 +1750,7 @@ class GreylistCheck(PPolicyCheckBase):
 
     def doCheck(self, data):
         import spf
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         sender = data.get('sender')
         recipient = data.get('recipient')
@@ -1771,8 +1771,8 @@ class GreylistCheck(PPolicyCheckBase):
         try:
             user, domain = sender.split("@")
         except ValueError:
-            log.msg("[WRN] %s: sender address in unknown format: %s" %
-                    (self.getId(), sender))
+            logging.log(logging.WARN, "%s: sender address in unknown format: %s" %
+                        (self.getId(), sender))
             return '550', "sender address format icorrect %s" % sender
 
         mailhosts = tools.getDomainMailhosts(domain)
@@ -1786,7 +1786,7 @@ class GreylistCheck(PPolicyCheckBase):
         try:
             greyTime = self.cache.get((sender, recipient, greysubj), None)
         except:
-            log.msg("[WRN] %s: error getting data from Db" % self.getId())
+            logging.log(logging.WARN, "%s: error getting data from Db" % self.getId())
             if self.restrictive:
                 # in case of Db error siletly give up instead of
                 # blocking new unknown incomming mail
@@ -1807,7 +1807,7 @@ class GreylistCheck(PPolicyCheckBase):
             self.cache.set((sender, recipient, greysubj), greyTime,
                            time.time() + self.greyExpire)
         except:
-            log.msg("[WRN] %s: error storing data to db" % self.getId())
+            logging.log(logging.WARN, "%s: error storing data to db" % self.getId())
 
         return action, actionEx
 
@@ -1873,7 +1873,7 @@ class TrapCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
 
         sender = data.get('sender')
         recipient = data.get('recipient')
@@ -1936,7 +1936,7 @@ class DosCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
         return 'DUNNO', None
 
 
@@ -1962,7 +1962,7 @@ class DnsblCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        log.msg("[DBG] %s: running check" % self.getId())
+        logging.log(logging.DEBUG, "%s: running check" % self.getId())
         return 'DUNNO', None
 
 
@@ -1987,7 +1987,9 @@ class FakeFactory:
 if __name__ == "__main__":
     print "Module tests:"
     import sys, traceback
-    log.startLogging(sys.stdout)
+    import twisted.python.log
+    twisted.python.log.startLogging(sys.stdout)
+
     data = { 'request': 'smtpd_access_policy',
              'protocol_state': 'RCPT',
              'protocol_name': 'SMTP',
