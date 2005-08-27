@@ -9,12 +9,12 @@
 #
 # $Id$
 #
-from twisted.internet import protocol, interfaces, task
-from twisted.python import log
-from twisted.enterprise import adbapi
-from ppolicy import checks
-from ppolicy import tasks
 import string
+import logging
+import checks
+import tasks
+from twisted.internet import protocol, interfaces, task
+from twisted.enterprise import adbapi
 
 
 
@@ -34,18 +34,17 @@ class PPolicyServerFactory:
         self.databaseAPI = None
         self.database = None
         self.dbConnPool = None
-        #self.checkStateTask = task.LoopingCall(self__checkChecksState)
 
 
     def addCheck(self, check):
         """Add check to factory."""
-	log.msg("[INF] Adding check %s" % check.getId())
+	logging.log(logging.INFO, "Adding check %s" % check.getId())
 	self.checks.append(check)
 
 
     def addTask(self, taskInst):
         """Add check to task."""
-        log.msg("[INF] Adding task %s" % taskInst.getId())
+        logging.log(logging.INFO, "Adding task %s" % taskInst.getId())
         twistedTask = task.LoopingCall(taskInst.doTask)
         twistedTask.taskInst = taskInst
         twistedTask.name = taskInst.getId()
@@ -71,7 +70,8 @@ class PPolicyServerFactory:
     def __activateTasks(self):
         """Activate factory tasks."""
         for task in self.tasks:
-	    log.msg("[INF] Activate Task %s(%s)" % (task.name, task.interval))
+	    logging.log(logging.INFO, "Activate Task %s(%s)" %
+                        (task.name, task.interval))
             task.taskInst.doStart(self)
 	    task.start(task.interval)
 
@@ -79,7 +79,7 @@ class PPolicyServerFactory:
     def __deactivateTasks(self):
         """Deactivate factory tasks."""
         for task in self.tasks:
-	    log.msg("[INF] Deactivate Task %s" % task.name)
+	    logging.log(logging.INFO, "Deactivate Task %s" % task.name)
             if task.running:
                 task.stop()
             task.taskInst.doStop()
@@ -88,34 +88,25 @@ class PPolicyServerFactory:
     def __activateChecks(self):
         """Activate factory checks."""
         for check in self.checks:
-	    log.msg("[INF] Activate Check %s" % check.getId())
+	    logging.log(logging.INFO, "Activate Check %s" % check.getId())
 	    check.doStartInt(self, factory=self)
 
 
     def __deactivateChecks(self):
         """Deactivate factory checks."""
         for check in self.checks:
-	    log.msg("[INF] Deactivate Check %s" % check.getId())
+	    logging.log(logging.INFO, "Deactivate Check %s" % check.getId())
 	    check.doStopInt()
-
-
-    #def __checkChecksState(self):
-    #    """Check state of check modules and reload them if undefined."""
-    #    for check in self.checks:
-    #        log.msg("[DBG] Check state for %s" % check.getId())
-    #        if check.getState() == '???': # FIXME
-    #            pass
 
 
     def doStart(self):
 	"""Make sure startFactory is called."""
 	if not self.numPorts:
-            log.msg("[INF] Starting factory %s" % self)
+            logging.log(logging.INFO, "Starting factory %s" % self)
 	    self.startFactory()
 	self.numPorts = self.numPorts + 1
         self.__activateChecks()
 	self.__activateTasks()
-        #self.checkStateTask.start(60)
 
 
     def doStop(self):
@@ -123,10 +114,8 @@ class PPolicyServerFactory:
 	assert self.numPorts > 0
 	self.numPorts = self.numPorts - 1
 	if not self.numPorts:
-            log.msg("[INF] Stopping factory %s" % self)
+            logging.log(logging.INFO, "Stopping factory %s" % self)
 	    self.stopFactory()
-        #if self.checkStateTask.running == 1:
-        #    self.checkStateTask.stop()
 	self.__deactivateTasks()
         self.__deactivateChecks()
 
@@ -163,18 +152,18 @@ class PPolicyServerRequest(protocol.Protocol):
 
     def connectionMade(self):
         self.factory.numProtocols += 1
-        log.msg("[DBG] connection #%s made" % self.factory.numProtocols)
+        logging.log(logging.DEBUG, "connection #%s made" %
+                    self.factory.numProtocols)
         if self.factory.numProtocols > self.CONN_LIMIT:
-            log.msg("[ERR] connection limit (%s) reached, returning dunno" %
-                    self.CONN_LIMIT)
+            logging.log(logging.ERROR, "connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
             self.dataResponse(self.DEFAULT_ACTION, self.DEFAULT_ACTION_EX)
             #self.transport.write("Too many connections, try later") 
             self.transport.loseConnection()
 
 
     def connectionLost(self, reason):
-        log.msg("[DBG] connection %s lost: %s" %
-                (self.factory.numProtocols, reason))
+        logging.log(logging.DEBUG, "connection %s lost: %s" %
+                    (self.factory.numProtocols, reason))
         self.factory.numProtocols = self.factory.numProtocols-1
 
 
@@ -186,21 +175,21 @@ class PPolicyServerRequest(protocol.Protocol):
                 self.__doChecks()
         except Exception, err:
             import traceback
-            log.msg("[ERR] uncatched exception: %s" % str(err))
-            log.msg("[ERR] %s" % traceback.format_exc())
+            logging.log(logging.ERROR, "uncatched exception: %s" % str(err))
+            logging.log(logging.ERROR, "%s" % traceback.format_exc())
             # FIXME: default return action on garbage?
 
 
     def dataResponse(self, action=None, actionEx=None):
         """Check response"""
         if action == None:
-            log.msg("[DBG] action=dunno")
+            logging.log(logging.DEBUG, "action=dunno")
 	    self.transport.write("action=dunno\n\n")
         elif actionEx == None:
-            log.msg("[DBG] action=%s" % action)
+            logging.log(logging.DEBUG, "action=%s" % action)
 	    self.transport.write("action=%s\n\n" % action)
 	else:
-            log.msg("[DBG] action=%s %s" % (action, actionEx))
+            logging.log(logging.DEBUG, "action=%s %s" % (action, actionEx))
 	    self.transport.write("action=%s %s\n\n" % (action, actionEx))
 
 
@@ -216,14 +205,14 @@ class PPolicyServerRequest(protocol.Protocol):
                 action, actionEx = check.doCheckInt(self.data)
             except Exception, err:
                 import traceback
-                log.msg("[ERR] processing data for %s: %s" %
-                        (check.getId(), str(err)))
-                log.msg("[ERR] %s" % traceback.format_exc())
+                logging.log(logging.ERROR, "processing data for %s: %s" %
+                            (check.getId(), str(err)))
+                logging.log(logging.ERROR, "%s" % traceback.format_exc())
                 action = self.DEFAULT_ACTION
                 actionEx = self.DEFAULT_ACTION_EX
             if action == None:
-                log.msg("[WRN] module %s return None for action" %
-                        check.getId())
+                logging.log(logging.WARN, "module %s return None for action" %
+                            check.getId())
                 action = self.DEFAULT_ACTION
                 actionEx = self.DEFAULT_ACTION_EX
             if action.upper() in [ 'DUNNO', 'WARN' ]:
@@ -248,7 +237,7 @@ class PPolicyServerRequest(protocol.Protocol):
                 if self.data.has_key("request"):
                     return True
                 else:
-                    log.msg("[ERR] policy protocol error: request wasn't specified before empty line")
+                    logging.log(logging.ERROR, "policy protocol error: request wasn't specified before empty line")
                     return False
             try:
                 k, v = line.split('=')
@@ -266,12 +255,12 @@ class PPolicyServerRequest(protocol.Protocol):
                     #    self.clusterip = self.transport.getPeer().host
                     #    v = '%s_%s' % (self.clusterip, v)
                     self.data[k] = v
-                    log.msg("[DBG] input: %s=%s" % (k, v))
+                    logging.log(logging.DEBUG, "input: %s=%s" % (k, v))
                 else:
-                    log.msg("[WRN] unknown key %s (%s)" % (k, v))
+                    logging.log(logging.WARN, "unknown key %s (%s)" % (k, v))
             except ValueError:
-                log.msg("[WRN] garbage in input: %s" % line)
-        log.msg("[WRN] input was not ended by empty line")
+                logging.log(logging.WARN, "garbage in input: %s" % line)
+        logging.log(logging.WARN, "input was not ended by empty line")
         return False
 
 
@@ -279,10 +268,12 @@ class PPolicyServerRequest(protocol.Protocol):
 if __name__ == "__main__":
     print "Module tests:"
     import sys, time
-    log.startLogging(sys.stdout)
+    import twisted.python.log
+    twisted.python.log.startLogging(sys.stdout)
 
     # default config
     config = {
+        'logLevel'     : logging.DEBUG,
         'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
         'databaseAPI'  : 'MySQLdb',
         'database'     : { 'host'   : 'localhost',
