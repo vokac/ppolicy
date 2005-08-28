@@ -1,12 +1,11 @@
-* implement modules
-  - spam traps -> blacklist (realtime!)
-  - real-time DOS detection/rejection
-
-* greylisting cache internal (db) failure => reject???
+* implement tasks
+  - DB synchronization task(?)
 
 * test:
   - AccessCheck
   - ListWBCheck
   - DomainVerificationCheck, UserVerificationCheck
   - GreylistCheck
+  - TrapCheck
+  - DosCheck
   - DB cleanup task

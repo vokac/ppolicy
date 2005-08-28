@@ -9,14 +9,20 @@
 #
 # $Id$
 #
+import os, sys, imp
+import socket
+import logging
+from ppolicy.log import TwistedHandler
+from ppolicy.protocol import PPolicyServerRequest, PPolicyServerFactory
 from twisted.application import internet, service
 from twisted.internet import reactor, protocol
-from ppolicy.protocol import PPolicyServerRequest, PPolicyServerFactory
-import os, sys, imp
 
 # default config
 config = {
     'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
+    'logLevel'     : logging.ERROR,
+    'admin'        : 'postmaster',
+    'domain'       : socket.gethostname(),
     'databaseAPI'  : 'MySQLdb',
     'database'     : { 'host'   : 'localhost',
                        'port'   : 3306,
@@ -30,22 +36,32 @@ config = {
 }
 
 
-reactor.suggestThreadPoolSize(40)
+# logging
+twistedHandler = TwistedHandler()
+#twistedHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
+twistedHandler.setFormatter(logging.Formatter("[%(levelname)s](%(module)s:%(lineno)d) %(message)s"))
+logging.getLogger().addHandler(twistedHandler)
+logging.getLogger().setLevel(config['logLevel'])
 
 
+# import configuration file
 if not os.path.isfile(config['configFile']):
-    sys.stderr.write("Configuration file %s doesn't exist\n\n" %
-                     config['configFile'])
+    msg = "Configuration file %s doesn't exist" % config['configFile']
+    logging.log(logging.ERROR, msg)
+    sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
 try:
     ppolicy_config = imp.load_source("ppolicy_config", config['configFile'])
 except ImportError, err:
-    sys.stderr.write("Error importing config file %s: %s\n\n" %
-                     (config['configFile'], str(err)))
+    msg = "Error importing config file %s: %s" % (config['configFile'], err)
+    logging.log(logging.ERROR, msg)
+    sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 except Exception, err:
-    sys.stderr.write("Error loading config: %s\n\n" % str(err))
+    msg = "Error loading config: %s" % err
+    logging.log(logging.ERROR, msg)
+    sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
 
@@ -53,16 +69,11 @@ except Exception, err:
 for key in config.keys():
     if hasattr(ppolicy_config, key):
         config[key] = getattr(ppolicy_config, key)
+logging.getLogger().setLevel(config['logLevel'])
 
 
+# start twisted application
+reactor.suggestThreadPoolSize(40)
 application = service.Application("PPolicyServer")
-factory	= PPolicyServerFactory(PPolicyServerRequest)
-for chk in config['checks']:
-    factory.addCheck(chk)
-for tsk in config['tasks']:
-    factory.addTask(tsk)
-factory.databaseAPI = config['databaseAPI']
-factory.database = config['database']
-
-
+factory	= PPolicyServerFactory(PPolicyServerRequest, config)
 internet.TCPServer(config['listenPort'], factory).setServiceParent(application)

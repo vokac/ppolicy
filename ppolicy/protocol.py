@@ -25,15 +25,20 @@ class PPolicyServerFactory:
     __implements__ = (interfaces.IProtocolFactory,)
 
 
-    def __init__(self, protocol = None):
+    def __init__(self, protocol = None, config = {}):
         self.protocol = protocol
         self.checks = []
         self.tasks = []
         self.numPorts = 0
         self.numProtocols = 0
-        self.databaseAPI = None
-        self.database = None
         self.dbConnPool = None
+        self.config = config
+        self.databaseAPI = self.config.get('databaseAPI')
+        self.database = self.config.get('database')
+        for chk in self.config.get('checks'):
+            self.addCheck(chk)
+        for tsk in self.config.get('tasks'):
+            self.addTask(tsk)
 
 
     def addCheck(self, check):

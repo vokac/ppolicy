@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Startup script for a Twisted service.
+# Startup script for a Postfix Policy Twisted service.
 #
 # chkconfig: 2345 85 15
 # description: Start-up script for the Twisted service ppolicy.tap

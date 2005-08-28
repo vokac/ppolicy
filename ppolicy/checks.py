@@ -14,8 +14,9 @@
 # $Id$
 #
 import time, threading
+import socket
 import logging
-import tools
+from tools import cache, dnscache, spf, smtplib, dnsbl, utils
 from twisted.python import components
 from twisted.internet import task
 
@@ -95,6 +96,7 @@ class PPolicyCheckBase:
         self._stateLock = threading.Lock()
         self._state = 'initializing'
         self.factory = None
+        self.globalConfig = {}
         self.debug = getattr(self, 'debug', 0)
         self.defaultAction = getattr(self, 'defaultAction', 'DUNNO')
         self.defaultActionEx = getattr(self, 'defaultActionEx', None)
@@ -186,6 +188,7 @@ class PPolicyCheckBase:
         self.factory = keywords.get('factory', self.factory)
         if self.factory != None:
             self.getDbConnection = self.factory.getDbConnection
+            self.globalConfig = self.factory.config
 
 
     def doStart(self, *args, **keywords):
@@ -198,9 +201,9 @@ class PPolicyCheckBase:
         if self.cacheResult:
             self.cacheResultData = getattr(self, 'cacheResultData', None);
             if self.cacheResultData == None:
-                self.cacheResultData = tools.MemCache(self.cacheResultLifetime,
+                self.cacheResultData = cache.MemCache(self.cacheResultLifetime,
                                                       self.cacheResultSize)
-            self.cacheResultData.clean()
+            self.cacheResultData.clear()
         else:
             self.cacheResultData = None
 
@@ -235,9 +238,10 @@ class PPolicyCheckBase:
         """This method will ensure check result caching and should not
         be redefined. User checking should be implemented in doCheck
         method called by this method in case of no cached data available."""
-        logging.log(logging.DEBUG, "%s: Checking..." % self.getId())
+        logging.log(logging.DEBUG, "%s: doCheck started" % self.getId())
+
         if self._state != 'ready':
-            return self.defaultAction, self.defaultActionEx
+            return action, actionEx
 
         dataHash = self.dataHash(data)
         if self.cacheResult:
@@ -246,11 +250,27 @@ class PPolicyCheckBase:
                 logging.log(logging.DEBUG, "%s: result cache hit (%s, %s)" %
                             (self.getId(), action, actionEx))
                 return action, actionEx
-        action, actionEx = self.doCheck(data)
-        logging.log(logging.DEBUG, "%s: result (%s, %s)" %
-                    (self.getId(), action, actionEx))
-        if self.cacheResult:
-            self.cacheResultData.set(dataHash, (action, actionEx))
+
+        checkRes = self.doCheck(data)
+
+        action = self.defaultAction
+        actionEx = self.defaultActionEx
+        actionExpire = time.time() + self.cacheResultLifetime
+
+        if type(checkRes) == type(()) or type(checkRes) == type([]):
+            action = checkRes[0]
+            if len(checkRes) > 1:
+                actionEx = checkRes[1]
+            if len(checkRes) > 2:
+                actionExpire = checkRes[2]
+        else:
+            action = checkRes
+
+        logging.log(logging.DEBUG, "%s: result (%s, %s, %s)" %
+                    (self.getId(), action, actionEx, actionExpire))
+
+        if self.cacheResult and actionExpire > time.time():
+            self.cacheResultData.set(dataHash, (action, actionEx), actionExpire)
         return action, actionEx
 
 
@@ -304,8 +324,7 @@ class DummyCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-        return 'DUNNO', None
+        return 'DUNNO', None, None
 
 
 
@@ -339,8 +358,6 @@ class SimpleCheck(PPolicyCheckBase):
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.action == None:
             action = self.defaultAction
         else:
@@ -349,7 +366,7 @@ class SimpleCheck(PPolicyCheckBase):
         if self.actionEx == None:
             actionEx = self.defaultActionEx
         else:
-            actionEx = tools.safeSubstitute(self.actionEx, data)
+            actionEx = utils.safeSubstitute(self.actionEx, data)
 
         return action, actionEx
 
@@ -469,6 +486,7 @@ class LogicCheck(PPolicyCheckBase):
     """
 
     def __init__(self, *args, **keywords):
+        self.cacheResult = getattr(self, 'cacheResult', False)
         PPolicyCheckBase.__init__(self, *args, **keywords)
 
 
@@ -541,8 +559,6 @@ class AndCheck(LogicCheck):
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.checks == []:
             logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -619,9 +635,6 @@ class OrCheck(LogicCheck):
 
 
     def doCheck(self, data):
-
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.checks == []:
             logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -689,8 +702,6 @@ class NotCheck(LogicCheck):
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.check == None:
             logging.log(logging.WARN, "%s: no check defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -760,8 +771,6 @@ class EqCheck(LogicCheck):
 
 
     def doChecks(self, data):
-        logging.log(logging.DEBUG, "%s: running checks" % self.getId())
-
         if self.checks == []:
             logging.log(logging.WARN, "%s: no checks defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -836,24 +845,24 @@ class IfCheck(LogicCheck):
         if self.ifCheck != None:
             self.ifCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not ifCheck.cacheResult:
+                if not self.ifCheck.cacheResult:
                     cacheResult = False
-                if ifCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = ifCheck.cacheResultLifetime
+                if self.ifCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.ifCheck.cacheResultLifetime
         if self.okCheck != None:
             self.okCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not okCheck.cacheResult:
+                if not self.okCheck.cacheResult:
                     cacheResult = False
-                if okCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = okCheck.cacheResultLifetime
+                if self.okCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.okCheck.cacheResultLifetime
         if self.rejectCheck != None:
             self.rejectCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not rejectCheck.cacheResult:
+                if not self.rejectCheck.cacheResult:
                     cacheResult = False
-                if rejectCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = rejectCheck.cacheResultLifetime
+                if self.rejectCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.rejectCheck.cacheResultLifetime
         self.cacheResult = cacheResult
         self.cacheResultLifetime = cacheResultLifetime
 
@@ -868,9 +877,6 @@ class IfCheck(LogicCheck):
 
 
     def doCheck(self, data):
-
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.ifCheck == None:
             logging.log(logging.WARN, "%s: no ifCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -957,31 +963,31 @@ class If3Check(LogicCheck):
         if self.ifCheck != None:
             self.ifCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not ifCheck.cacheResult:
+                if not self.ifCheck.cacheResult:
                     cacheResult = False
-                if ifCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = ifCheck.cacheResultLifetime
+                if self.ifCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.ifCheck.cacheResultLifetime
         if self.okCheck != None:
             self.okCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not okCheck.cacheResult:
+                if not self.okCheck.cacheResult:
                     cacheResult = False
-                if okCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = okCheck.cacheResultLifetime
+                if self.okCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.okCheck.cacheResultLifetime
         if self.rejectCheck != None:
             self.rejectCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not rejectCheck.cacheResult:
+                if not self.rejectCheck.cacheResult:
                     cacheResult = False
-                if rejectCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = rejectCheck.cacheResultLifetime
+                if self.rejectCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.rejectCheck.cacheResultLifetime
         if self.dunnoCheck != None:
             self.dunnoCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not dunnoCheck.cacheResult:
+                if not self.dunnoCheck.cacheResult:
                     cacheResult = False
-                if dunnoCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = dunnoCheck.cacheResultLifetime
+                if self.dunnoCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.dunnoCheck.cacheResultLifetime
         self.cacheResult = cacheResult
         self.cacheResultLifetime = cacheResultLifetime
 
@@ -998,9 +1004,6 @@ class If3Check(LogicCheck):
 
 
     def doCheck(self, data):
-
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.ifCheck == None:
             logging.log(logging.WARN, "%s: no ifCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -1070,10 +1073,10 @@ class SwitchCheck(LogicCheck):
         if self.switchCheck != None:
             self.switchCheck.doStartInt(*args, **keywords)
             if cacheResult:
-                if not switchCheck.cacheResult:
+                if not self.switchCheck.cacheResult:
                     cacheResult = False
-                if switchCheck.cacheResultLifetime < cacheResultLifetime:
-                    cacheResultLifetime = switchCheck.cacheResultLifetime
+                if self.switchCheck.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = self.switchCheck.cacheResultLifetime
         for check in self.caseChecks.values():
             check.doStartInt(*args, **keywords)
             if cacheResult:
@@ -1093,9 +1096,6 @@ class SwitchCheck(LogicCheck):
 
 
     def doCheck(self, data):
-
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.switchCheck == None:
             logging.log(logging.WARN, "%s: no switchCheck defined" % self.getId())
             return self.defaultAction, self.defaultActionEx
@@ -1185,13 +1185,11 @@ class AccessCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.cache = tools.DbCache(self, self.table, self.cols, True, False,
+        self.cache = cache.DbCache(self, self.table, self.cols, True, False,
                                    self.cacheExpire, self.cacheSize)
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.param == None:
             return self.defaultAction, self.defaultActionEx
 
@@ -1286,17 +1284,15 @@ class ListWBCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.wlCache = tools.DbCache(self, self.whitelistTable, False,
+        self.wlCache = cache.DbCache(self, self.whitelistTable, False,
                                      { 'name': self.whitelistColumn },
                                      True, self.cacheExpire, self.cacheSize)
-        self.blCache = tools.DbCache(self, self.blacklistTable, False,
+        self.blCache = cache.DbCache(self, self.blacklistTable, False,
                                      { 'name': self.blacklistColumn },
                                      True, self.cacheExpire, self.cacheSize)
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         if self.param == None:
             return self.defaultAction, self.defaultActionEx
 
@@ -1354,8 +1350,6 @@ class SPFCheck(PPolicyCheckBase):
 
     def doCheck(self, data):
         """ check Request against SPF results in 'deny', 'unknown', 'pass'"""
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-        import spf
         sender = data.get('sender', '')
         client_address = data.get('client_address')
         client_name = data.get('client_name')
@@ -1441,13 +1435,11 @@ class DbCacheCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.cache = tools.DbCache(self, self.cacheTable, self.cacheCols, False,
+        self.cache = cache.DbCache(self, self.cacheTable, self.cacheCols, False,
                                    True, self.cacheExpire, self.cacheSize)
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         key = self.getKey(data)
         if key != None:
             action, actionEx = self.cache.get(key, (None, None))
@@ -1494,11 +1486,14 @@ class VerificationCheck(DbCacheCheck):
     Parameters (see descriptionn of parent class L{VerificationCheck}):
       param
         string key for data item that should be verified (default: None)
+      timeout
+        set SMTP connection timeout (default: 20s)
     """
 
 
     def __init__(self, *args, **keywords):
         self.param = getattr(self, 'param', None)
+        self.timeout = getattr(self, 'timeout', None)
         DbCacheCheck.__init__(self, *args, **keywords)
 
 
@@ -1506,6 +1501,7 @@ class VerificationCheck(DbCacheCheck):
         lastState = self.setState('stop')
         PPolicyCheckBase.setParams(self, *args, **keywords)
         self.param = keywords.get('param', self.param)
+        self.timeout = keywords.get('timeout', self.timeout)
         self.setState(lastState)
 
 
@@ -1541,7 +1537,7 @@ class VerificationCheck(DbCacheCheck):
             return '550', "%s address format icorrect %s" % (self.param,
                                                              data[self.param])
 
-        mailhosts = tools.getDomainMailhosts(domain)
+        mailhosts = dnscache.getDomainMailhosts(domain)
         if len(mailhosts) == 0:
             logging.log(logging.INFO, "%s: no mailhost for %s" % (self.getId(), domain))
             return '450', "Can't find mailserver for %s" % domain
@@ -1557,11 +1553,12 @@ class VerificationCheck(DbCacheCheck):
                     action = 'OK'
                     break
                 elif code < 500:
-                    action = '450'
-                    actionEx = codeEx
+                    if action == self.defaultAction:
+                        action = str(code)
+                        actionEx = codeEx
                     continue
                 else:
-                    action = '550'
+                    action = str(code)
                     actionEx = codeEx
                     break
         if code == None:
@@ -1592,17 +1589,17 @@ class VerificationCheck(DbCacheCheck):
         """Check if something listening for incomming SMTP connection
         for mailhost. For details about status that can occur during
         communication see RFC 2821, section 4.3.2"""
-        import smtplib
-        import socket
 
         try:
-            conn = smtplib.SMTP(mailhost)
-            conn.set_debuglevel(10) # FIXME: [DBG]
+            conn = smtplib.SMTP(mailhost, timeout=self.timeout)
+            if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                conn.set_debuglevel(10)
             code, retmsg = conn.helo()
             if code >= 400:
                 return code, "%s verification HELO failed: %s" % (self.param,
                                                                   retmsg)
-            code, retmsg = conn.mail("postmaster@%s" % socket.gethostname())
+            code, retmsg = conn.mail("postmaster@%s" %
+                                     self.globalConfig.get('domain'))
             if code >= 400:
                 return code, "%s verification MAIL failed: %s" % (self.param,
                                                                   retmsg)
@@ -1613,20 +1610,17 @@ class VerificationCheck(DbCacheCheck):
             code, retmsg = conn.rset()
             conn.quit()
             conn.close()
-            return 250, "Domain verification success"
-##             SMTPRecipientsRefused
-##             SMTPAuthenticationError
-##             SMTPConnectError
-##             SMTPDataError
-##             SMTPHeloError
-##             SMTPSenderRefused
-##             SMTPActionExException
-##             SMTPServerDisconnected
+            return 250, "Address verification success"
         except smtplib.SMTPException, err:
-            logging.log(logging.WARN, "%s: SMTP connection to %s failed: %s" %
-                        (self.getId(), domain, str(err)))
+            msg = "SMTP communication with %s failed: %s" % (domain, err)
+            logging.log(logging.WARN, "%s: %s" (self.getId(), msg))
+            return 450, "Address verirication failed. %s" % msg
+        except socket.error, err:
+            msg = "Socket communication with %s failed: %s" % (domain, err)
+            logging.log(logging.WARN, "%s: %s" (self.getId(), msg))
+            return 450, "Address verirication failed. %s" % msg
 
-        return 450, "Domain verirication failed."
+        return 450, "Address verirication failed."
 
 
 
@@ -1744,14 +1738,11 @@ class GreylistCheck(PPolicyCheckBase):
 
 
     def doStart(self, *args, **keywords):
-        self.cache = tools.DbCache(self, self.table, self.cols, True, True,
+        self.cache = cache.DbCache(self, self.table, self.cols, True, True,
                                    self.cacheExpire, self.cacheSize)
 
 
     def doCheck(self, data):
-        import spf
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         sender = data.get('sender')
         recipient = data.get('recipient')
         client_name = data.get('client_name')
@@ -1775,7 +1766,7 @@ class GreylistCheck(PPolicyCheckBase):
                         (self.getId(), sender))
             return '550', "sender address format icorrect %s" % sender
 
-        mailhosts = tools.getDomainMailhosts(domain)
+        mailhosts = dnscache.getDomainMailhosts(domain)
         spfres, spfstat, spfexpl = spf.check(i=client_address,
                                              s=sender, h=client_name)
         if client_address in mailhosts or spfres == 'pass':
@@ -1788,17 +1779,17 @@ class GreylistCheck(PPolicyCheckBase):
         except:
             logging.log(logging.WARN, "%s: error getting data from Db" % self.getId())
             if self.restrictive:
+                return '451', "%s module problem, try resend later or contact %s" % (self.getId(), self.globalConfig.get('admin'))
+            else:
                 # in case of Db error siletly give up instead of
                 # blocking new unknown incomming mail
                 return self.defaultAction, self.defaultActionEx
-            else:
-                return '451', "%s module problem, try resend later or contact %s" % (self.getId(), 'FIXME: global config contact')
 
         if greyTime == None:
             greyTime = self.greyTime + time.time()
         if greyTime > time.time():
             action = '451'
-            actionEx = "You have been greylisted. This is part of our antispam procedure for %s domain. Your mail will be accepted in %ss" % (domain, int(greyTime - time.time()))
+            actionEx = "You have been greylisted. This is part of our antispam procedure for %s domain. Your mail will be accepted in approximately %ss. In case of further problems contact %s" % (domain, int(greyTime - time.time()), self.globalConfig.get('admin'))
         else:
             action = self.defaultAction
             actionEx = self.defaultActionEx
@@ -1819,15 +1810,29 @@ class TrapCheck(PPolicyCheckBase):
     the trap, all mail from that client will be blocked for defined time.
 
     Parameters:
+      trapRecipientTable:
+        trapRecipientTable database table (default: trapRecipientTable)
+      trapRecipientCols
+        dictionary of trapRecipientTable table columns
+      trapClientTable:
+        trapClientTable database table (default: trapClientTable)
+      trapClientCols
+        dictionary of trapClientTable table columns
+      cacheExpire
+        expiration time for records in memory (default: 15 minutes)
+      cacheSize
+        max number of records in memory cache (default: 1000), 0 = all records
       trapTime
+        client blacklist time if trapLimit reached (default: 4 hours)
       trapLimit
+        number of traps touched by one client before it is blacklisted
     """
 
 
     def __init__(self, *args, **keywords):
-        self.trapAddress = 'trapAddress'
-        self.trapAddressCols = { 'name': 'recipient' }
-        self.trapClient = 'trapClient'
+        self.trapRecipientTable = 'trapRecipientTable'
+        self.trapRecipientCols = { 'name': 'recipient' }
+        self.trapClientTable = 'trapClientTable'
         self.trapClientCols = { 'name': 'client',
                                 'value': 'arrivals' } # arrival time 'tm:tm:..'
         self.trapTime = 60*60*4
@@ -1840,8 +1845,12 @@ class TrapCheck(PPolicyCheckBase):
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
         PPolicyCheckBase.setParams(self, *args, **keywords)
-##         self.trapAddress = keywords.get('trapAddress', self.trapAddress)
-##         self.trapClient = keywords.get('trapClient', self.trapClient)
+        self.trapRecipientTable = keywords.get('trapRecipientTable', self.trapRecipientTable)
+        self.trapRecipientCols = keywords.get('trapRecipientCols', self.trapRecipientCols)
+        self.trapClientTable = keywords.get('trapClientTable', self.trapClientTable)
+        self.trapClientCols = keywords.get('trapClientCols', self.trapClientCols)
+        self.cacheExpire = keywords.get('cacheExpire', self.cacheExpire)
+        self.cacheSize = keywords.get('cacheSize', self.cacheSize)
         self.trapTime = keywords.get('trapTime', self.trapTime)
         self.trapLimit = keywords.get('trapLimit', self.trapLimit)
         self.setState(lastState)
@@ -1856,25 +1865,23 @@ class TrapCheck(PPolicyCheckBase):
     def doStart(self, *args, **keywords):
         self.cacheAddress = getattr(self, 'cacheAddress', None)
         if self.cacheAddress == None:
-            self.cacheAddress = tools.DbCache(self, self.trapAddress,
-                                              self.trapAddressCols,
-                                              True, False,
+            self.cacheAddress = cache.DbCache(self, self.trapRecipientTable,
+                                              self.trapRecipientCols,
+                                              False, True,
                                               self.cacheExpire, 0)
         else:
-            self.cacheAddress.clean()
+            self.cacheAddress.clear()
         self.cacheClient = getattr(self, 'cacheClient', None)
         if self.cacheClient == None:
-            self.cacheClient = tools.DbCache(self, self.trapClient,
+            self.cacheClient = cache.DbCache(self, self.trapClientTable,
                                              self.trapClientCols,
-                                             True, False,
+                                             False, True,
                                              self.cacheExpire, 0)
         else:
-            self.cacheClient.clean()
+            self.cacheClient.clear()
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-
         sender = data.get('sender')
         recipient = data.get('recipient')
         client_address = data.get('client_address')
@@ -1916,58 +1923,184 @@ class TrapCheck(PPolicyCheckBase):
 
 
 class DosCheck(PPolicyCheckBase):
-    """Dummy check module for testing."""
+    """Limit number of incomming mail with same parameters (reject with
+    temporary failed). You can e.g. limit number of messages that can
+    be accepted by one recipient from one sender in defined period of
+    time e.g. 1 hour. It will divide time interval into several parts
+    and agregate information about number of incomming mails.
+
+    Parameters:
+      params
+        parameters that will be used to test equality (default: [])
+      paramsFunction
+        function to run on parameter (default: [])
+      limitCount
+        number of messages accepted during limitTime period (default: 1000)
+      limitTime
+        time in which we accept only limitCount messages (default: 1 hour)
+      limitGran
+        data collection granularity (default: 10)
+    """
 
 
     def __init__(self, *args, **keywords):
-        self.someParam = None
+        self.params = []
+        self.paramsFunction = []
+        self.limitCount = 1000
+        self.limitTime = 60*60
+        self.limitGran = 10
+        self.cache = {}
         PPolicyCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
         PPolicyCheckBase.setParams(self, *args, **keywords)
-        self.someParam = keywords.get('someParam', self.someParam)
+        params = keywords.get('params', self.params)
+        if type(params) == str:
+            self.params = [ params ]
+        elif type(params) == tuple:
+            self.params = list(params)
+        else:
+            self.params = params
+        paramsFunction = keywords.get('paramsFunction', self.paramsFunction)
+        if type(self.paramsFunction) == str:
+            self.paramsFunction = []
+            for i in range(0, len(self.params)):
+                self.paramsFunction.append(paramsFunction)
+        elif type(self.paramsFunction) == tuple:
+            self.paramsFunction = list(paramsFunction)
+        else:
+            self.paramsFunction = paramsFunction
+        self.limitCount = keywords.get('limitCount', self.limitCount)
+        self.limitTime = keywords.get('limitTime', self.limitTime)
+        self.limitGran = keywords.get('limitGran', self.limitGran)
         self.setState(lastState)
 
 
     def dataHash(self, data):
-        return hash
+        """Compute hash only from used data fields."""
+        if self.params == []:
+            return 0
+        keys = sorted(data.keys())
+        return hash("\n".join([ "=".join([x, data[x]]) for x in keys if x in self.params ]))
+
+
+    def doStart(self, *args, **keywords):
+        self.cache.clear()
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-        return 'DUNNO', None
+        if self.params == []:
+            return self.defaultAction, self.defaultActionEx
+
+        dtaArr = {}
+        keyArr = []
+        for param in self.params:
+            if self.paramsFunction == None:
+                dtaArr[param] = [ data.get(param) ]
+            else:
+                dtaArr[param] = self.paramsFunction(data.get(param))
+            keyArrNew = []
+            for dta in dtaArr:
+                if len(keyArr) == 0:
+                    if len(self.params) == 1:
+                        keyArrNew.append(dta)
+                    else:
+                        keyArrNew.append((dta, ))
+                else:
+                    for key in keyArr:
+                        keyArrNew.append(key + (dta, ))
+            keyArr = keyArrNew
+
+        hasDosKey = False
+        for key in keyArr:
+            dos = self.__checkDos(key)
+            if not hasDosKey and dos:
+                hasDosKey = True
+
+
+        if hasDosKey:
+            return '451', "DOS attack limit reached. In case of further problems contact %s" % self.globalConfig['admin']
+        else:
+            return 'OK', None
+
+
+    def __checkDos(self, key):
+        data, aggr = self.cache.get(key, (None, None))
+        if data != None:
+            if aggr < time.time():
+                sh = long((time.time() - aggr) / (self.limitTime / self.limitGran))
+                if sh > len(data):
+                    data = []
+                else:
+                    for i in range(0, sh):
+                        data.insert(0, 0)
+                        if len(data) > self.limitGran:
+                            data.pop()
+                aggr = time.time()
+            data[0] += 1
+        else:
+            data = [ 1 ]
+            aggr = time.time()
+
+        self.cache.set(key, (data, aggr))
+
+        return sum(data) > self.limitCount
 
 
 
 class DnsblCheck(PPolicyCheckBase):
-    """Dnsbl http://rbls.org/."""
+    """Check client address with defined blacklista.
+
+    Parameters:
+      dns
+        blacklist DNS service (default: None)
+      type
+        search type (default: 'A')
+      retval
+        we need not only positive DNS query but also matching
+        result (default: None)
+    """
 
 
     def __init__(self, *args, **keywords):
-        self.someParam = None
+        self.dns = None
+        self.type = 'A'
+        self.retval = None
         PPolicyCheckBase.__init__(self, *args, **keywords)
 
 
     def setParams(self, *args, **keywords):
         lastState = self.setState('stop')
         PPolicyCheckBase.setParams(self, *args, **keywords)
-        self.someParam = keywords.get('someParam', self.someParam)
+        self.dns = keywords.get('dns', self.dns)
+        self.type = keywords.get('type', self.type)
+        self.retval = keywords.get('retval', self.retval)
         self.setState(lastState)
 
 
     def dataHash(self, data):
-        return hash
+        return hash("=".join([ 'client_address', data.get('client_address') ]))
 
 
     def doCheck(self, data):
-        logging.log(logging.DEBUG, "%s: running check" % self.getId())
-        return 'DUNNO', None
+        client_address = data.get('client_address')
+        if client_address == None:
+            return self.defaultAction, self.defaultActionEx
+
+        if dnsbl.check(client_address, self.dns, self.type, self.retval):
+            return '551', "Mail from %s blacklisted in %s" % (client_address,
+                                                              self.dns)
+        else:
+            return self.defaultAction, self.defaultActionEx
 
 
 
 class FakeFactory:
+    def __init__(self):
+        self.config = {}
+
     def getDbConnection(self):
         import MySQLdb
 
@@ -2033,7 +2166,7 @@ if __name__ == "__main__":
             print check.doCheckInt(data)
             check.doStopInt()
         except Exception, err:
-            print "ERROR: %s" % str(err)
+            print "ERROR: %s" % err
             print traceback.print_exc()
     print ">>>>>>>>>>>>>>>>>>>>>>>>> GLOBAL CHECKS - END <<<<<<<<<<<<<<<<<<<<<<<<<"
 

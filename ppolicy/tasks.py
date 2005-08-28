@@ -11,7 +11,7 @@
 # $Id$
 #
 import time
-from twisted.python import log
+import logging
 
 
 class NotImplementedException(Exception):
@@ -76,7 +76,7 @@ class DummyTask(PPolicyServerTaskBase):
 
 
     def doTask(self):
-        log.msg("[DBG] running task: %s" % self.getId())
+        logging.log(logging.DEBUG, "running task: %s" % self.getId())
 
 
 class StateRestarterTask(PPolicyServerTaskBase):
@@ -94,12 +94,12 @@ class StateRestarterTask(PPolicyServerTaskBase):
 
 
     def doTask(self):
-        log.msg("[DBG] running task: %s" % self.getId())
+        logging.log(logging.DEBUG, "running task: %s" % self.getId())
         for check in self.checks:
             if check.getState() != 'ready':
-                log.msg("[DBG] Check state: %s not ready - restarting" %
-                        check.getId())
-                check.doStartInt()
+                logging.log(logging.DEBUG, "Check state: %s not ready" %
+                            check.getId())
+                check.doRestartInt()
 
 
 
@@ -125,7 +125,7 @@ class DatabaseCleanupTask(PPolicyServerTaskBase):
 
 
     def doTask(self):
-        log.msg("[DBG] running task: %s" % self.getId())
+        logging.log(logging.DEBUG, "running task: %s" % self.getId())
         try:
             conn = self.getDbConnection()
             cursor = conn.cursor()
@@ -133,8 +133,8 @@ class DatabaseCleanupTask(PPolicyServerTaskBase):
                          (self.table, self.column, time.time()))
             cursor.close()
         except Exception, err:
-            log.msg("[ERR] %s: cleaning cache %s failed: %s" %
-                    (self.getId(), self.table, str(err)))
+            logging.log(logging.ERROR, "%s: cleaning cache %s failed: %s" %
+                        (self.getId(), self.table, str(err)))
 
 
 
@@ -170,7 +170,7 @@ class DatabaseSyncTask(PPolicyServerTaskBase):
 
 
     def doTask(self):
-        log.msg("[DBG] running task: %s" % self.getId())
+        logging.log(logging.DEBUG, "running task: %s" % self.getId())
         # FIXME: implement
 
 
@@ -178,7 +178,9 @@ class DatabaseSyncTask(PPolicyServerTaskBase):
 if __name__ == "__main__":
     print "Module tests:"
     import sys, traceback
-    log.startLogging(sys.stdout)
+    import twisted.python.log
+    twisted.python.log.startLogging(sys.stdout)
+
     for taskClass in [ PPolicyServerTaskBase, DummyTask ]:
         task = taskClass()
         print task.getId()

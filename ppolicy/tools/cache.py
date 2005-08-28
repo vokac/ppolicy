@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Tasks:
-#   Dummy
+# Data caching
 #
 # Copyright (c) 2005 JAS
 #
@@ -12,164 +11,9 @@
 #
 import time, threading
 import logging
-import dns.resolver
-import dns.exception
-
 
 #
-# DNS
-#
-
-# DNS query parameters
-_dnsResolvers = {}
-_dnsCache = dns.resolver.Cache()
-_dnsMaxRetry = 3
-_dnsLifetime = 3.0
-_dnsTimeout = 1.0
-
-
-def getResolver(lifetime, timeout):
-    resolver = _dnsResolvers.get((lifetime, timeout))
-    if resolver == None:
-        resolver = dns.resolver.Resolver()
-        resolver.lifetime = lifetime
-        resolver.timeout = timeout
-        resolver.cache = _dnsCache
-        _dnsResolvers[(lifetime, timeout)] = resolver
-    return resolver
-
-
-def getFqdnIPs(domain, ipv6 = True):
-    """Return IP addresses for FQDN. Optional parametr @ipv6 specify
-    if IPv6 addresses should be added too (default: True)"""
-
-    ips = []
-    dnsretry = _dnsMaxRetry
-    lifetime = _dnsLifetime
-    timeout = _dnsTimeout
-
-    if ipv6:
-        types = [ 'A', 'AAAA' ]
-    else:
-        types = [ 'A' ]
-
-    for qtype in types:
-        dnsretry = _dnsMaxRetry
-        while dnsretry > 0:
-            dnsretry -= 1
-            try:
-                answer = getResolver(lifetime, timeout).query(domain, qtype)
-                for rdata in answer:
-                    ips.append(rdata.address)
-                break
-            except dns.exception.Timeout:
-                logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
-                        (lifetime, timeout, _dnsMaxRetry - dnsretry,
-                         domain, qtype))
-                lifetime *= 2
-                timeout *= 2
-            except dns.exception.DNSException:
-                # no results or DNS problem
-                break
-    return ips
-
-
-def getDomainMailhosts(domain, ipv6 = True):
-    """Return IP addresses of mail exchangers for the domain
-    sorted by priority."""
-
-    ips = []
-    dnsretry = _dnsMaxRetry
-    lifetime = _dnsLifetime
-    timeout = _dnsTimeout
-
-    while dnsretry > 0:
-        dnsretry -= 1
-        try:
-            # try to find MX records
-            answer = getResolver(lifetime, timeout).query(domain, 'MX')
-            fqdnPref = {}
-            for rdata in answer:
-                fqdnPref[rdata.preference] = rdata.exchange.to_text(True)
-            fqdnPrefKeys = fqdnPref.keys()
-            fqdnPrefKeys.sort()
-            for key in fqdnPrefKeys:
-                for ip in getFqdnIPs(fqdnPref[key], ipv6):
-                    ips.append(ip)
-            break
-        except dns.exception.Timeout:
-            logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
-                        (lifetime, timeout, _dnsMaxRetry - dnsretry, domain, 'MX'))
-            lifetime *= 2
-            timeout *= 2
-        except dns.resolver.NoAnswer:
-            # search for MX failed, try A (AAAA) record
-            for ip in getFqdnIPs(domain, ipv6):
-                ips.append(ip)
-            break
-        except dns.exception.DNSException:
-            # no results or DNS problem
-            break
-    return [ ip for ip in ips if ip not in [ '127.0.0.1', '0.0.0.0',
-                                             '::0', '::1' ] ]
-
-
-#
-# Param functions
-# def paramFunction(string):
-#     return [ "str1", "str2", ... ]
-#
-
-def funcMailToPostfixLookup(mail, split = True, user = True, userAt = True):
-    if mail == None or mail == '':
-        return []
-    try:
-        username, domain = mail.split("@")
-        domainParts = domain.split(".")
-    except ValueError:
-        return []
-    if not split:
-        if user:
-            return [ "%s@%s" % (username, ".".join(domainParts)) ]
-        else:
-            return [ "%s" % ".".join(domainParts) ]
-    retVal = []
-    if user:
-        retVal.append("%s@%s" % (username, ".".join(domainParts)))
-    while len(domainParts) > 0:
-        retVal.append("%s" % ".".join(domainParts))
-        domainParts.pop(0)
-    if userAt:
-        retVal.append("%s@" % username)
-    return retVal
-def funcMailToUserDomain(mail, split = False):
-    return funcMailToPostfixLookup(mail, split, True, False)
-def funcMailToUserDomainSplit(mail):
-    return funcMailToUserDomain(mail, True)
-def funcMailToDomain(mail, split = False):
-    return funcMailToPostfixLookup(mail, split, False, False)
-def funcMailToDomainSplit(mail):
-    return funcMailToDomain(mail, True)
-
-
-def safeSubstitute(text, dict, unknown = 'UNKNOWN'):
-    """Replace keywords in text with data from dictionary. If there is
-    not matching key in dictionary, use unknown."""
-    import re
-    retVal = text
-    keywords = re.findall("%(\(.*?\))", text)
-    replace = []
-    for keyword in keywords:
-        if not dict.has_key(keyword[1:-1]):
-            replace.append(".\(%s\)." % keyword[1:-1])
-    for repl in replace:
-        retVal = re.sub(repl, unknown, retVal)
-    return retVal % dict
-
-
-
-#
-# Classes for data caching
+# Memory cache
 #
 class MemCache:
     """Base class for cache. It implements memory caching and provide
@@ -193,7 +37,7 @@ class MemCache:
         self.lock = threading.Lock()
 
 
-    def __cleanCache(self, all = False):
+    def __clearCache(self, all = False):
         """If cache is full clear CLEAR_FACTOR. It is not thread safe
         and has to be called with acquired lock."""
         if all:
@@ -214,20 +58,20 @@ class MemCache:
                     del self.cacheExp[keyToDel]
 
 
-    def clean(self):
-        """Clean all records in memory cache."""
+    def clear(self):
+        """Clear all records in memory cache."""
         self.lock.acquire()
         try:
-            self.__cleanCache(True)
+            self.__clearCache(True)
         finally:
             self.lock.release()
 
 
     def reload(self, data = None, cols = None):
-        """Clean/Reload data cache."""
+        """Clear/Reload data cache."""
         self.lock.acquire()
         try:
-            self.__cleanCache(True)
+            self.__clearCache(True)
             if data != None:
                 # FIXME: cols
                 nameLen = len(cols.get('name', []))
@@ -286,7 +130,7 @@ class MemCache:
         self.lock.acquire()
         try:
             if self.memMaxSize > 0 and len(self.cacheUse) >= self.memMaxSize:
-                self.__cleanCache()
+                self.__clearCache()
             self.cacheVal[key] = val
             if self.memExpire > 0:
                 if exp == 0:
@@ -299,6 +143,9 @@ class MemCache:
 
 
 
+#
+# Database cache
+#
 class DbCache:
     """Pernament database cache. It can use MemCache for speedup access
     regularly requested records.
@@ -346,7 +193,7 @@ class DbCache:
         self.memCache = getattr(self, 'memCache', memCache)
         self.memExpire = getattr(self, 'memExpire', memExpire)
         self.memMaxSize = getattr(self, 'memMaxSize', memMaxSize)
-        if memCache:
+        if self.memCache:
             self.cacheVal = MemCache(memExpire, memMaxSize)
         else:
             self.cacheVal = None
@@ -485,7 +332,7 @@ class DbCache:
         return self.useDb
 
 
-    def clean(self, db = False):
+    def clear(self, db = False):
         if db:
             try:
                 sql = "DELETE FROM %s" % self.table
@@ -496,9 +343,10 @@ class DbCache:
                 finally:
                     cursor.close()
             except Exception, err:
-                logging.log(logging.ERROR, "%s: error cleaning %s: %s" %
+                logging.log(logging.ERROR, "%s: error clearing %s: %s" %
                             (self.getId(), self.table, err))
-        self.cacheVal.clean()
+        if self.cacheVal != None:
+            self.cacheVal.clear()
 
 
     def reload(self):
@@ -514,7 +362,7 @@ class DbCache:
                     cursor.execute(sql)
                     row = cursor.fetchone()
                     if self.memMaxSize > row[0]:
-                        self.cacheVal.clean()
+                        self.cacheVal.clear()
                         return
                 sql = "SELECT %s FROM %s" % (self.__getSelectExprCols(), self.table)
                 cursor.execute(sql)
@@ -528,7 +376,7 @@ class DbCache:
             # use only memory cache in case of DB problems
             logging.log(logging.ERROR, "%s: error loading %s: %s" %
                         (self.getId(), self.table, err))
-            self.cacheVal.clean()
+            self.cacheVal.clear()
 
 
     def get(self, key, default = None):
@@ -539,7 +387,8 @@ class DbCache:
             if self.memExpire > 0 and self.memMaxSize == 0:
                 if self.lastReload < time.time() - self.memExpire:
                     self.reload()
-            retVal = self.cacheVal.get(key, default)
+            if self.memCache:
+                retVal = self.cacheVal.get(key, default)
             if retVal == default and self.__useDb() and self.memMaxSize > 0:
                 sql = "SELECT %s FROM %s" % (self.__getSelectExprCols([ 'value', 'expire' ]), self.table)
                 sql += " WHERE %s" % self.__getWhere(key)
@@ -565,7 +414,8 @@ class DbCache:
                             expire = time.time() + self.memExpire
                             if self.cols.has_key('expire') and time.time() + self.memExpire > row[len(row)-1]:
                                 expire = row[len(row)-1]
-                            self.cacheVal.set(key, value, expire)
+                            if self.memCache:
+                                self.cacheVal.set(key, value, expire)
                             if expire >= time.time():
                                 retVal = value
                 finally:
@@ -585,7 +435,8 @@ class DbCache:
         """Set data in cache."""
         self.lock.acquire()
         try:
-            self.cacheVal.set(key, val, self.memExpire)
+            if self.memCache:
+                self.cacheVal.set(key, val, self.memExpire)
             if self.__useDb():
                 sql = "SELECT COUNT(*) FROM %s" % self.table
                 sql += " WHERE %s" % self.__getWhere(key)
@@ -671,23 +522,6 @@ if __name__ == "__main__":
     import sys
     import twisted.python.log
     twisted.python.log.startLogging(sys.stdout)
-
-    print "##### DNS #####"
-    print ">>>>> %s" % getFqdnIPs.__name__
-    for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
-                    "bimbod.fjfi.cvut.cz", "nmsd.fjfi.cvut.cz",
-                    "unknown.fjfi.cvut.cz", "sh.cvut.cz",
-                    "nightmare.sh.cvut.cz" ]:
-        print ">>> %s" % domain
-        print getFqdnIPs(domain)
-    print
-    print ">>>>> %s" % getDomainMailhosts.__name__
-    for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
-                    "bimbod.fjfi.cvut.cz", "nmsd.fjfi.cvut.cz",
-                    "unknown.fjfi.cvut.cz", "sh.cvut.cz",
-                    "nightmare.sh.cvut.cz" ]:
-        print ">>> %s" % domain
-        print getDomainMailhosts(domain)
 
     print "##### MemCache #####"
     memCache = MemCache(30, 10)

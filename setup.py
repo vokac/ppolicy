@@ -18,13 +18,13 @@ doclines = __doc__.split("\n")
 
 setup(
     name            = "ppolicy",
-    version         = "1.0",
+    version         = '1.3',
     author          = "Petr Vokac",
     author_email    = "vokac@kmlinux.fjfi.cvut.cz",
-    url             = "http://kmlinux.fjfi.cvut.cz/~vokac/ppolicy",
+    url             = "http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy",
     license         = "GPL",
     platforms       = [ "any" ],
-    packages        = ["ppolicy"],
+    packages        = ["ppolicy", "ppolicy.tools"],
     scripts         = [],
     description = doclines[0],
     long_description = "\n".join(doclines[2:]),

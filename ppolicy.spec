@@ -1,6 +1,6 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 1.1
+Version: 1.3
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -90,10 +90,29 @@ fi
 
 
 %changelog
-* Wed Aug 17 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
+* Sat Aug 26 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.3-1
+- update 1.3
+- added DosCheck module
+- added TrapCheck module
+- added DnsblCheck module (with dummy dnsbl class)
+- splitted tools package
+- DbCache can optionaly throw exception in case of Db error
+- disable graylisting if DbCache throw exception
+- added timeout parameter to modules using SMTP
+- disabled caching for logic modules (can be enabled in config file)
+- changed caching for And, Or, ... checks (using lowest values of all checks)
+- changed logging to default python logging class and twistedHandler
+
+* Mon Aug 22 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.2-1
+- added GreylistCheck module
+- module testing
+- finished DomainVerificationCheck and UserVerificationCheck module
+- finished database/mem caching
+
+* Wed Aug 17 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.1-1
 - caching rewritten
 
-* Sun Aug  7 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
+* Sun Aug  7 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.0-1
 - first public release 1.0
 
 * Sat Jul 30 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
