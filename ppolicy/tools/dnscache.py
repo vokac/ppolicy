@@ -33,7 +33,7 @@ def getResolver(lifetime, timeout):
     return resolver
 
 
-def getFqdnIPs(domain, ipv6 = True):
+def getIpForName(domain, ipv6 = True):
     """Return IP addresses for FQDN. Optional parametr @ipv6 specify
     if IPv6 addresses should be added too (default: True)"""
 
@@ -68,6 +68,37 @@ def getFqdnIPs(domain, ipv6 = True):
     return ips
 
 
+def getNameForIp(ip):
+    """Return domain name for the IP using reverse record resolution."""
+
+    ips = []
+    dnsretry = _dnsMaxRetry
+    lifetime = _dnsLifetime
+    timeout = _dnsTimeout
+
+    ipaddr = ip.split('.')
+    ipaddr.reverse()
+    ipaddr = '.'.join(ipaddr) + '.in-addr.arpa'
+
+    dnsretry = _dnsMaxRetry
+    while dnsretry > 0:
+        dnsretry -= 1
+        try:
+            answer = getResolver(lifetime, timeout).query(ipaddr, 'PTR')
+            for rdata in answer:
+                ips.append(rdata.target.to_text(True))
+            break
+        except dns.exception.Timeout:
+            logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [PTR]" %
+                        (lifetime, timeout, _dnsMaxRetry - dnsretry, ipaddr))
+            lifetime *= 2
+            timeout *= 2
+        except dns.exception.DNSException:
+            # no results or DNS problem
+            break
+    return ips
+
+
 def getDomainMailhosts(domain, ipv6 = True):
     """Return IP addresses of mail exchangers for the domain
     sorted by priority."""
@@ -88,7 +119,7 @@ def getDomainMailhosts(domain, ipv6 = True):
             fqdnPrefKeys = fqdnPref.keys()
             fqdnPrefKeys.sort()
             for key in fqdnPrefKeys:
-                for ip in getFqdnIPs(fqdnPref[key], ipv6):
+                for ip in getIpForName(fqdnPref[key], ipv6):
                     ips.append(ip)
             break
         except dns.exception.Timeout:
@@ -98,7 +129,7 @@ def getDomainMailhosts(domain, ipv6 = True):
             timeout *= 2
         except dns.resolver.NoAnswer:
             # search for MX failed, try A (AAAA) record
-            for ip in getFqdnIPs(domain, ipv6):
+            for ip in getIpForName(domain, ipv6):
                 ips.append(ip)
             break
         except dns.exception.DNSException:
@@ -115,13 +146,13 @@ if __name__ == "__main__":
     twisted.python.log.startLogging(sys.stdout)
 
     print "##### DNS #####"
-    print ">>>>> %s" % getFqdnIPs.__name__
+    print ">>>>> %s" % getIpForName.__name__
     for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
                     "bimbod.fjfi.cvut.cz", "nmsd.fjfi.cvut.cz",
                     "unknown.fjfi.cvut.cz", "sh.cvut.cz",
                     "nightmare.sh.cvut.cz" ]:
         print ">>> %s" % domain
-        print getFqdnIPs(domain)
+        print getIpForName(domain)
     print
     print ">>>>> %s" % getDomainMailhosts.__name__
     for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
