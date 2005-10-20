@@ -241,7 +241,7 @@ class PPolicyCheckBase:
         logging.log(logging.DEBUG, "%s: doCheck started" % self.getId())
 
         if self._state != 'ready':
-            return action, actionEx
+            return self.defaultAction, self.defaultActionEx
 
         dataHash = self.dataHash(data)
         if self.cacheResult:
@@ -714,6 +714,84 @@ class NotCheck(LogicCheck):
             return 'OK', "%s ok" % self.getId()
         else:
             return 'REJECT', "%s failed" % self.getId()
+
+
+
+class AtLeastCheck(LogicCheck):
+    """Run defined checks and return success if at least defined number
+    return success.
+
+    Parameters:
+      checks
+        array of "check" class instances (default: [])
+      number
+        number of checks has to be successfull (default: 0)
+        negative number means allowed number of unsuccessfull checks
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.checks = []
+        self.number = 0
+        LogicCheck.__init__(self, *args, **keywords)
+
+
+    def getId(self):
+        checks = ",".join(map(lambda x: x.getId(), self.checks))
+        return "%s(%s;%s)" % (self.id, self.number, checks)
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        LogicCheck.setParams(self, *args, **keywords)
+        self.checks = keywords.get('checks', self.checks)
+        self.number = keywords.get('number', self.number)
+        self.setState(lastState)
+
+
+    def doStart(self, *args, **keywords):
+        cacheResult = self.cacheResult
+        cacheResultLifetime = self.cacheResultLifetime
+        for check in self.checks:
+            check.doStartInt(*args, **keywords)
+            if cacheResult:
+                if not check.cacheResult:
+                    cacheResult = False
+                if check.cacheResultLifetime < cacheResultLifetime:
+                    cacheResultLifetime = check.cacheResultLifetime
+        self.cacheResult = cacheResult
+        self.cacheResultLifetime = cacheResultLifetime
+
+
+    def doStop(self, *args, **keywords):
+        for check in self.checks:
+            check.doStopInt(*args, **keywords)
+
+
+    def doCheck(self, data):
+        if self.checks == []:
+            logging.log(logging.WARN, "%s: no check defined" % self.getId())
+            return self.defaultAction, self.defaultActionEx
+
+        if self.number < 0:
+            required = len(self.checks)+self.number
+        else:
+            required = self.number
+
+        for check in self.checks:
+            if required == 0:
+                break
+            action, actionEx = check.doCheckInt(data)
+            logic = self.getLogicValue(action)
+            if logic == None:
+                pass
+            elif logic:
+                required -= 1
+
+        if required == 0:
+            return 'OK', "%s all ok" % self.getId()
+        else:
+            return '451', "%s failed" % self.getId()
 
 
 
@@ -2097,6 +2175,102 @@ class DnsblCheck(PPolicyCheckBase):
 
 
 
+class ResolveCheck(PPolicyCheckBase):
+    """Try to resolve ip->name, name->ip, ip->name->ip, name->ip->name.
+
+    Parameters:
+      param
+        which parameter from data received from postfix should be used
+        (default: None)
+      paramFunction
+        function which will be called on param data. It can be used to
+        separate user from domain in email address, ... Its return has
+        to be array of strins and each will be checked with white/black
+        list. (default: None)
+      type
+        ip->name, name->ip, ip->name->ip, name->ip->name (default: None)
+    """
+
+
+    def __init__(self, *args, **keywords):
+        self.param = None
+        self.paramFunction = None
+        self.type = None
+        PPolicyCheckBase.__init__(self, *args, **keywords)
+
+
+    def setParams(self, *args, **keywords):
+        lastState = self.setState('stop')
+        PPolicyCheckBase.setParams(self, *args, **keywords)
+        self.param = keywords.get('param', self.param)
+        self.paramFunction = keywords.get('paramFunction', self.paramFunction)
+        self.type = keywords.get('type', self.type)
+        self.setState(lastState)
+
+
+    def dataHash(self, data):
+        if self.param == None:
+            return 0
+        else:
+            return hash("=".join([ self.param, data.get(self.param) ]))
+
+
+    def doCheck(self, data):
+        if self.param == None:
+            return self.defaultAction, self.defaultActionEx
+
+        if self.paramFunction == None:
+            dtaArr = [ data.get(self.param) ]
+        else:
+            dtaArr = self.paramFunction(data.get(self.param))
+
+        if dtaArr in [ None, [], [ None ] ]:
+            logging.log(logging.WARN, "%s: no test data for %s" %
+                        (self.getId(), self.param))
+            return self.defaultAction, self.defaultActionEx
+
+        for dta in dtaArr:
+            if not self.__testResolve(dta, self.type.lower()):
+                return '451', "Can't resolve %s or DNS misconfiguration" % dta
+
+        return self.defaultAction, self.defaultActionEx
+
+
+    def __testResolve(self, dta, resType):
+        retval = False
+        if resType == 'ip->name':
+            if dnscache.getNameForIp(dta) == None:
+                retval = False
+            else:
+                retval = True
+        elif resType == 'name->ip':
+            if dnscache.getIpForName(dta) == None:
+                retval = False
+            else:
+                retval = True
+        elif resType == 'ip->name->ip':
+            name = dnscache.getNameForIp(dta)
+            if name == None:
+                retval = False
+            ips = dnscache.getIpForName(name)
+            if ips != None and dta in ips:
+                retval = True
+            else:
+                retval = False
+        elif resType == 'name->ip->name':
+            ips = dnscache.getIpForName(dta)
+            if ips == None:
+                retval = False
+            for ip in ips:
+                name = dnscache.nameForIp(ip)
+                if name != None and name.lower() == dta.lower():
+                    retval = True
+                else:
+                    retval = False
+        return retval
+
+
+
 class FakeFactory:
     def __init__(self):
         self.config = {}
@@ -2153,11 +2327,12 @@ if __name__ == "__main__":
                         DeferIfRejectCheck, DeferIfPermitCheck, DiscardCheck,
                         DunnoCheck, FilterCheck, HoldCheck, PrependCheck,
                         RedirectCheck, WarnCheck,
-                        AndCheck, OrCheck, NotCheck, IfCheck, If3Check,
-                        SwitchCheck,
+                        AndCheck, OrCheck, NotCheck, AtLeastCheck,
+                        IfCheck, If3Check, SwitchCheck,
                         AccessCheck, ListWBCheck, SPFCheck,
                         DomainVerificationCheck, UserVerificationCheck,
-                        GreylistCheck, TrapCheck, DosCheck, DnsblCheck ]:
+                        GreylistCheck, TrapCheck, DosCheck, DnsblCheck,
+                        ResolveCheck ]:
         check = checkClass(debug=True, param='sender')
         print check.getId()
         try:
