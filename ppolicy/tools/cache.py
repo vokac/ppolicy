@@ -135,7 +135,7 @@ class MemCache:
             if self.memExpire > 0:
                 if exp == 0:
                     exp = self.memExpire
-                self.cacheExp[key] = time.time() + exp
+                self.cacheExp[key] = exp
             if self.memMaxSize > 0:
                 self.cacheUse[key] = time.time()
         finally:
@@ -436,7 +436,7 @@ class DbCache:
         self.lock.acquire()
         try:
             if self.memCache:
-                self.cacheVal.set(key, val, self.memExpire)
+                self.cacheVal.set(key, val, time.time() + self.memExpire)
             if self.__useDb():
                 sql = "SELECT COUNT(*) FROM %s" % self.table
                 sql += " WHERE %s" % self.__getWhere(key)
