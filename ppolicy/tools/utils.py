@@ -17,14 +17,13 @@ def safeSubstitute(text, dict, unknown = 'UNKNOWN'):
     not matching key in dictionary, use unknown."""
     import re
     retVal = text
-    keywords = re.findall("%(\(.*?\))", text)
-    replace = []
+    keywords = re.findall("(%\(.*?\))", text)
     for keyword in keywords:
-        if not dict.has_key(keyword[1:-1]):
-            replace.append(".\(%s\)." % keyword[1:-1])
-    for repl in replace:
-        retVal = re.sub(repl, unknown, retVal)
-    return retVal % dict
+        if dict.has_key(keyword[2:-1]):
+            retVal = retVal.replace(keyword, dict[keyword[2:-1]])
+        else:
+            retVal = retVal.replace(keyword, 'UNKNOWN')
+    return retVal
 
 
 
