@@ -1,26 +1,41 @@
 #!/bin/sh
 NAME=ppolicy
-VERSION=1.3
+VERSION=2.0
 RELEASE=1
+RPMDIR=${HOME}/rpmbuild
 
 perl -p -i -e "s/^Version: .*/Version: ${VERSION}/" ppolicy.spec
 perl -p -i -e "s/^Release: .*/Release: ${RELEASE}/" ppolicy.spec
 perl -p -i -e "s/^(\s*version\s*=\s*).*(,.*)\$/\1'${VERSION}'\2/" setup.py
 
-mkdir -p ${NAME}-${VERSION}/${NAME}/tools
+ppolicy/test.py --doc > MODULES
+
+mkdir -p ${NAME}-${VERSION}
+#mkdir -p ${NAME}-${VERSION}/doc
+mkdir -p ${NAME}-${VERSION}/${NAME}
 cp \
 NEWS \
 README \
+MODULES \
 TODO \
 setup.py \
 ppolicy.conf \
 ppolicy.init \
 ppolicy.spec \
 ppolicy.tap \
+ppolicy.sql \
 ${NAME}-${VERSION}
 
-cp ppolicy/*.py ${NAME}-${VERSION}/${NAME}
-cp ppolicy/tools/*.py ${NAME}-${VERSION}/${NAME}/tools
+#cp ppolicy.xml ${NAME}-${VERSION}/doc
+find ppolicy -name "*.py" | while read FILE; do
+  mkdir -p ${NAME}-${VERSION}/`dirname ${FILE}`
+  cp ${FILE} ${NAME}-${VERSION}/${FILE}
+done
+#xsltproc -o ${NAME}-${VERSION}/doc/ppolicy.html /usr/share/sgml/docbook/xsl-stylesheets/xhtml/docbook.xsl ${NAME}-${VERSION}/doc/ppolicy.xml
+#links -dump -no-home -no-numbering -no-references ${NAME}-${VERSION}/doc/ppolicy.html > ${NAME}-${VERSION}/doc/ppolicy.txt
+#xsltproc -o ${NAME}-${VERSION}/doc/ppolicy.fo /usr/share/sgml/docbook/xsl-stylesheets/fo/docbook.xsl ${NAME}-${VERSION}/doc/ppolicy.xml
+#fop -fo ${NAME}-${VERSION}/doc/ppolicy.fo -pdf ${NAME}-${VERSION}/doc/ppolicy.pdf
+#rm -rf ${NAME}-${VERSION}/doc/ppolicy.fo
 
 #tar cjf ${NAME}-${VERSION}.tar.bz2 ${NAME}-${VERSION}
 tar czf ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}
@@ -28,9 +43,15 @@ tar czf ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}
 rm -rf ${NAME}-${VERSION}
 
 rpmbuild -ta ${NAME}-${VERSION}.tar.gz
-mv -f ${HOME}/workspace/rpmbuild/SRPMS/${NAME}-${VERSION}*.src.rpm .
-mv -f ${HOME}/workspace/rpmbuild/RPMS/noarch/${NAME}-${VERSION}*.noarch.rpm .
+mv -f ${RPMDIR}/SRPMS/${NAME}-${VERSION}*.src.rpm .
+mv -f ${RPMDIR}/RPMS/noarch/${NAME}-${VERSION}*.noarch.rpm .
 #rpmsign --addsign ${NAME}-${VERSION}*.noarch.rpm
 if [ ${RELEASE//[0-9]/} == "rc" ]; then
+  mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
+fi
+if [ ${RELEASE//[0-9]/} == "alpha" ]; then
+  mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
+fi
+if [ ${RELEASE//[0-9]/} == "beta" ]; then
   mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
 fi

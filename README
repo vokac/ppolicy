@@ -1,20 +1,24 @@
                 Modular Python Postfix Policy Server
                 ====================================
 
-Modular Python Postfix Policy Server is tool for extending postfix
-checking capabilities and can reduce mailserver load rejecting
-incorrect mail during SMTP connection. It was made with stress to hight
-reliability and performance by providing multilevel caching of
-required data and results.
+Modular Python Postfix Policy Server is tool for extending Postfix
+checking capabilities. It uses Postfix access policy delegation
+(http://www.postfix.org/SMTPD_POLICY_README.html) to check incomming
+SMTP request and accept or reject it according provided data. It can
+reduce mailserver load with rejecting incorrect mail during SMTP
+connection. It was made with stress to hight reliability and performance
+by providing multilevel caching of required data and results.
 
 Because it has modular design it can be easily extended by custom
 modules (only one method has to be implemented and everything else is
-handled automatically). By default it provide dummy modules returning
-actions confirming postfix access(5) actions, SPF checking, domain
-mailhost checking, sender/recipient verification, black/white listing,
-list conforming postfix access(5) table, greylisting, spam traps, ...
-It also provide configuration mechanism to make logical AND, OR, NOT
-and IF, three state IF, SWITCH with results of each module.
+handled automatically). By default it provide modules for SPF
+checking, domain mailhost checking, sender/recipient verification,
+black/white listing, greylisting, spam traps, ...
+
+You can configure how to use all modules by implementing one simple
+method in config file. It provide to you ability to define check
+dependencies and use different modules according to the result of
+previous.
 
 
 
@@ -49,12 +53,12 @@ rpm -Uvh ppolicy-1.x.x.noarch.rpm
 Rebuild SRPM package or install application directly from tgz package.
 
 * building SRPM:
-  rpmbuild --rebuild ppolicy-1.x.x.src.rpm
-  rpm -Uvh /path/to/builded/package/ppolicy-1.x.x.noarch.rpm
+  rpmbuild --rebuild ppolicy-2.x.x.src.rpm
+  rpm -Uvh /path/to/builded/package/ppolicy-2.x.x.noarch.rpm
 
 * building tgz:
-  tar xzf ppolicy-1.x.x.tar.gz
-  cd ppolicy-1.x.x
+  tar xzf ppolicy-2.x.x.tar.gz
+  cd ppolicy-2.x.x
   python setup.py install
 
 
@@ -66,11 +70,12 @@ Rebuild SRPM package or install application directly from tgz package.
 Configuration of ppolicy daemon is done through ppolicy.conf file. Default
 location for this file is /etc/postfix/ppolicy.conf. If you place this file
 somewhere else than you have to change this information in ppolicy.tap
-twisted bootstrap file.
+twisted bootstrap file thas is installed by default to /usr/bin.
 
-There are plenty of comments and examples in ppolicy.conf so you should
-be able to adapt it to your needs. For details about particular check
-modules you can read class description in checks.py.
+There are plenty of comments and examples in ppolicy.conf so you
+should be able to adapt it to your needs. For details about particular
+check modules you can read class description in source file or
+documentation exported in file MODULES.
 
 
 2.2 Postfix configuration
@@ -81,12 +86,12 @@ Update configuration according following examples and adapt to your needs.
     smtpd_recipient_restrictions =
         ...
         reject_unauth_destination
-        check_policy_service inet:127.0.0.1:1030
+        check_policy_service inet:127.0.0.1:10030
         ...
-    127.0.0.1:1030_time_limit = 3600
+    127.0.0.1:10030_time_limit = 3600
 
 
-2.2 Database configuration
+2.3 Database configuration
 
 Database is used to permanently store result of some expensive
 checks. In most cases it should be possible to run ppolicy without
@@ -101,64 +106,39 @@ file ppolicy.conf. User you use to connect to ppolicy database must
 have rights to create new tables. All required tables are created
 automatically during ppolicy server startup.
 
+New (MySQL) database can be created using ppolicy.sql template, but
+you should first change predefined password. To run this SQL script
+you need database user with CREATE DATABASE privileges, e.g.:
+
+mysql --hostname=localhost --user=root --password=secret < ppolicy.sql
+
 
 
 3. Modules
 
 3.1 Existing modules
 
-3.1.1 Base
+* Dnsbl
+* DOS
+* Dummy
+* DumpDataDB
+* DumpDataFile
+* Greylist
+* List
+* Resolve
+* SPF
+* Trap
+* Verification
 
-* PPolicyCheckBase - base module class
-* DummyCheck - dummy testing module
-
-3.1.2 Simple Modules
-
-* SimpleCheck - base class for all following modules inheriting from
-    PPolicyCheckBase
-* OkCheck
-* Reject4xxCheck
-* Reject5xxCheck
-* RejectCheck
-* DeferIfRejectCheck
-* DeferIfPermitCheck
-* DiscardCheck
-* DunnoCheck
-* FilterCheck
-* HoldCheck
-* PrependCheck
-* RedirectCheck
-* WarnCheck
-
-3.1.3 Logical operator and conditional calling of modules
-
-* LogicCheck - base class for all logical modules inheriting from
-    PPolicyCheckBase
-* AndCheck
-* OrCheck
-* NotCheck
-* EqCheck
-* IfCheck
-* If3Check
-* SwitchCheck
-
-3.1.4 Real modules
-
-* ListCheck
-* ListWBCheck
-* SPFCheck
-* DomainVerificationCheck
-* UserVerificationCheck
-* GreylistCheck
+Detailed descriptions of all modules are in file MODULES. There are
+also information about all parameters and basic examples how to use it.
 
 
 3.2. Writing new modules
 
 Before you start to write custom modules look at IPPolicyServerCheck,
-PPolicyServerCheckBase, DummyCheck. There are plenty of comments that
-can be useful to know. If your module use database look at some
-example e.g. ListsCheck module. You can see how to get connection from
-database pool.
+Base and mainly Dummy module. There are plenty of comments that can be
+useful to know.
 
 
 

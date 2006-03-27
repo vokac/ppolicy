@@ -1,8 +1,24 @@
+Changes in PPolicy 2.0 (Mar 26 2006)
+====================================
+- checking framework rewritten
+- each module in separate file
+- checking flow defined in ppolicy.conf using python code
+- modules passed basic tests
+
+
+Changes in PPolicy 1.4b4 (Dec 3 2005)
+=====================================
+- added AtLeastCheck (to specify that at least X from Y checks must be OK)
+- added ResolveCheck
+- script to create ppolicy MySQL database
+- bug fixes
+
+
 Changes in PPolicy 1.3 (Aug 28 2005)
-=======================================
+====================================
 - added DosCheck module
 - added TrapCheck module
-- added DnsblCheck module (with dummy dnsbl class)
+- added DnsblCheck module
 - splitted tools package
 - DbCache can optionaly throw exception in case of Db error
 - disable graylisting if DbCache throw exception

@@ -19,7 +19,7 @@ from twisted.internet import reactor, protocol
 
 # default config
 config = {
-    'configFile'   : '/home/vokac/workspace/ppolicy/ppolicy.conf',
+    'configFile'   : '/etc/postfix/ppolicy.conf',
     'logLevel'     : logging.ERROR,
     'admin'        : 'postmaster',
     'domain'       : socket.gethostname(),
@@ -28,11 +28,11 @@ config = {
                        'port'   : 3306,
                        'db'     : 'ppolicy',
                        'user'   : 'ppolicy',
-                       'passwd' : 'ppolicy',
+                       'passwd' : 'secret',
                        },
-    'listenPort'   : 1030,
-    'checks'       : (),
-    'tasks'        : (),
+    'listenPort'   : 10030,
+    'check'        : lambda x: ('dunno', ''),
+    'modules'      : {},
 }
 
 

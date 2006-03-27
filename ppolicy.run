@@ -3,5 +3,17 @@ BASE=/home/vokac/workspace
 PPBASE=${BASE}/ppolicy
 PYTHON_PATH=${BASE}
 
+if [ $# -gt 0 -a "x$1" == "xrestart" ]; then
+  PID=`ps -eo pid,cmd | grep ppolicy | grep twistd | sed 's/ *//' | sed 's/ .*//'`
+  if [ x$PID != "x" ]; then
+    echo "killing ${PID}"
+    kill $PID
+  fi
+fi
+
 /usr/bin/twistd --rundir=${PPBASE} --file=${PPBASE}/ppolicy.tap --python=${PPBASE}/ppolicy.tap --no_save --logfile=${PPBASE}/ppolicy.log --pidfile=${PPBASE}/ppolicy.pid
 
+cat << EOF
+To stop running ppolicy:
+kill `ps -eo pid,cmd | grep ppolicy | grep twistd | sed 's/ *//' | sed 's/ .*//'`
+EOF

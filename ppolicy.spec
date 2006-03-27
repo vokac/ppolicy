@@ -1,6 +1,6 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 1.3
+Version: 2.0
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -10,11 +10,13 @@ BuildArch: noarch
 Requires: python-twisted >= 1.3, dnspython >= 1.3.3, MySQL-python >= 1.0.0
 
 %description
-Modular Python Postfix Policy Server is tool for extending postfix
-checking capabilities and can reduce mailserver load rejecting
-icorrect mail during SMTP connection. It was made with stress to hight
-reliability and performance by providing multilevel caching of
-required data and results.
+Modular Python Postfix Policy Server is tool for extending Postfix
+checking capabilities. It uses Postfix access policy delegation
+(http://www.postfix.org/SMTPD_POLICY_README.html) to check incomming
+SMTP request and accept or reject it according provided data. It can
+reduce mailserver load with rejecting incorrect mail during SMTP
+connection. It was made with stress to hight reliability and performance
+by providing multilevel caching of required data and results.
 
 
 %prep
@@ -28,7 +30,7 @@ python setup.py build
 %install
 [ ! -z "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != '/' ] && rm -rf "$RPM_BUILD_ROOT"
 
-python setup.py install --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+python setup.py install --optimize=2 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
@@ -49,7 +51,7 @@ if [ $1 = 2 ]; then # upgrade
 else # install
   if [ -x /sbin/chkconfig ]; then
     /sbin/chkconfig --add ppolicy
-    #/sbin/chkconfig --level 35 ppolicy
+    #/sbin/chkconfig --level 2345 ppolicy
   fi
   # start ppolicy
   /etc/init.d/ppolicy start || true
@@ -59,9 +61,9 @@ else # install
     smtpd_recipient_restrictions =
         ...
         reject_unauth_destination
-        check_policy_service inet:127.0.0.1:1030
+        check_policy_service inet:127.0.0.1:10030
         ...
-    127.0.0.1:1030_time_limit = 3600
+    127.0.0.1:10030_time_limit = 3600
 
 EOF
 fi
@@ -75,7 +77,7 @@ if [ $1 = 0 ]; then # uninstall
   fi
   # Removing postfix config
   mv /etc/postfix/main.cf /etc/postfix/main.cf.tmp
-  cat /etc/postfix/main.cf.tmp | grep -v 'check_policy_service inet:127.0.0.1:1030' > /etc/postfix/main.cf
+  cat /etc/postfix/main.cf.tmp | grep -v 'check_policy_service inet:127.0.0.1:10030' > /etc/postfix/main.cf
   /etc/init.d/postfix reload || true
 fi
 
@@ -90,6 +92,12 @@ fi
 
 
 %changelog
+* Sun Mar 26 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.0-1
+- checking framework rewritten
+- each module in separate file
+- checking flow defined in ppolicy.conf using python code
+- modules passed basic tests
+
 * Sat Aug 26 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.3-1
 - update 1.3
 - added DosCheck module
