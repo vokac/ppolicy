@@ -62,10 +62,11 @@ class DumpDataDB(Base):
     def check(self, data):
         try:
             conn = self.factory.getDbConnection()
-            conn.autocommit(False) # begin()
+            # conn.autocommit(False) # begin() # this is not well supported in old MySQLdb
             try:
                 tableName = self.getParam('tableName')
                 cursor = conn.cursor()
+                cursor.execute("START TRANSACTION")
 
                 sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % tableName
                 logging.getLogger().debug("SQL: %s" % sql)
@@ -82,11 +83,13 @@ class DumpDataDB(Base):
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
 
+                cursor.execute("COMMIT")
                 cursor.close()
-                conn.commit()
+                # conn.commit()
             except Exception, e:
+                cursor.execute("ROLLBACK")
                 cursor.close()
-                conn.rollback
+                # conn.rollback
                 raise e
         except Exception, e:
             logging.getLogger().error("can't write into database: %s" % e)
