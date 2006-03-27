@@ -61,12 +61,12 @@ class PPolicyServerFactory:
             modType = v[0]
             modParams = v[1]
             if modType == None or modType == '':
-                logging.log(logging.ERROR, "Type was not defined for module %s" % modName)
+                logging.getLogger().error("Type was not defined for module %s" % modName)
                 raise Exception("Type was not defined for module %s" % modName)
             if not self.modules.has_key(modName):
-                logging.log(logging.INFO, "Adding module %s[%s(%s)]" % (modType, modName, modParams))
+                logging.getLogger().info("Adding module %s[%s(%s)]" % (modType, modName, modParams))
             else:
-                logging.log(logging.WARN, "Redeclaration of module %s[%s(%s)]" % (modType, modName, modParams))
+                logging.getLogger().warn("Redeclaration of module %s[%s(%s)]" % (modType, modName, modParams))
             globals()[modType] = eval("__import__('%s', globals(),  locals(), [])" % modType)
             obj = eval("%s.%s('%s', self, **%s)" % (modType, modType, modName, modParams))
             self.modules[modName] = obj
@@ -75,21 +75,21 @@ class PPolicyServerFactory:
     def __startChecks(self):
         """Start factory modules."""
         for modName, modObj in self.modules.items():
-	    logging.log(logging.INFO, "Start module %s" % modObj.getId())
+	    logging.getLogger().info("Start module %s" % modObj.getId())
             modObj.start()
 
 
     def __stopChecks(self):
         """Stop factory modules."""
         for modName, modObj in self.modules.items():
-	    logging.log(logging.INFO, "Stop module %s" % modObj.getId())
+	    logging.getLogger().info("Stop module %s" % modObj.getId())
             modObj.stop()
 
 
     def doStart(self):
 	"""Make sure startFactory is called."""
 	if not self.numPorts:
-            logging.log(logging.INFO, "Starting factory %s" % self)
+            logging.getLogger().info("Starting factory %s" % self)
 	    self.startFactory()
 	self.numPorts = self.numPorts + 1
         self.__startChecks()
@@ -100,7 +100,7 @@ class PPolicyServerFactory:
 	assert self.numPorts > 0
 	self.numPorts = self.numPorts - 1
 	if not self.numPorts:
-            logging.log(logging.INFO, "Stopping factory %s" % self)
+            logging.getLogger().info("Stopping factory %s" % self)
 	    self.stopFactory()
         self.__stopChecks()
 
@@ -138,17 +138,17 @@ class PPolicyServerRequest(protocol.Protocol):
 
     def connectionMade(self):
         self.factory.numProtocols += 1
-        logging.log(logging.DEBUG, "connection #%s made" %
+        logging.getLogger().debug("connection #%s made" %
                     self.factory.numProtocols)
         if self.factory.numProtocols > self.CONN_LIMIT:
-            logging.log(logging.ERROR, "connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
+            logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
             self.dataResponse(self.DEFAULT_ACTION, self.DEFAULT_ACTION_EX)
             #self.transport.write("Too many connections, try later") 
             self.transport.loseConnection()
 
 
     def connectionLost(self, reason):
-        logging.log(logging.DEBUG, "connection %s lost: %s" %
+        logging.getLogger().debug("connection %s lost: %s" %
                     (self.factory.numProtocols, reason))
         self.factory.numProtocols = self.factory.numProtocols-1
 
@@ -165,8 +165,8 @@ class PPolicyServerRequest(protocol.Protocol):
                 self.dataResponse()
         except Exception, err:
             import traceback
-            logging.log(logging.ERROR, "uncatched exception: %s" % str(err))
-            logging.log(logging.ERROR, "%s" % traceback.format_exc())
+            logging.getLogger().error("uncatched exception: %s" % str(err))
+            logging.getLogger().error("%s" % traceback.format_exc())
             # default return action on garbage?
             self.dataResponse()
 
@@ -174,13 +174,13 @@ class PPolicyServerRequest(protocol.Protocol):
     def dataResponse(self, action=None, actionEx=None):
         """Check response"""
         if action == None:
-            logging.log(logging.DEBUG, "output: action=dunno")
+            logging.getLogger().debug("output: action=dunno")
 	    self.transport.write("action=dunno\n\n")
         elif actionEx == None:
-            logging.log(logging.DEBUG, "output: action=%s" % action)
+            logging.getLogger().debug("output: action=%s" % action)
 	    self.transport.write("action=%s\n\n" % action)
 	else:
-            logging.log(logging.DEBUG, "output: action=%s %s" % (action, actionEx))
+            logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
 	    self.transport.write("action=%s %s\n\n" % (action, actionEx))
 
 
@@ -193,7 +193,7 @@ class PPolicyServerRequest(protocol.Protocol):
                 if retData.has_key("request"):
                     return retData
                 else:
-                    logging.log(logging.ERROR, "policy protocol error: request wasn't specified before empty line")
+                    logging.getLogger().error("policy protocol error: request wasn't specified before empty line")
                     return None
             try:
                 k, v = line.split('=')
@@ -206,7 +206,7 @@ class PPolicyServerRequest(protocol.Protocol):
 #                          "size" ]:
 #                    self.data[k] = v
 #                else:
-#                    logging.log(logging.WARN, "unknown key %s (%s)" % (k, v))
+#                    logging.getLogger().warn("unknown key %s (%s)" % (k, v))
                 if k == 'sender' or k == 'recipient':
                     if len(v) != 0 and v[0] == '<': v = v[1:]
                     if len(v) != 0 and v[-1] == '<': v = v[:-1]
@@ -214,10 +214,10 @@ class PPolicyServerRequest(protocol.Protocol):
                 #    self.clusterip = self.transport.getPeer().host
                 #    v = '%s_%s' % (self.clusterip, v)
                 retData[k] = v
-                logging.log(logging.DEBUG, "input: %s=%s" % (k, v))
+                logging.getLogger().debug("input: %s=%s" % (k, v))
             except ValueError:
-                logging.log(logging.WARN, "garbage in input: %s" % line)
-        logging.log(logging.WARN, "input was not ended by empty line")
+                logging.getLogger().warn("garbage in input: %s" % line)
+        logging.getLogger().warn("input was not ended by empty line")
         if retData.has_key("request"):
             return retData
         else:

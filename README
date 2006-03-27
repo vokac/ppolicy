@@ -70,7 +70,7 @@ Rebuild SRPM package or install application directly from tgz package.
 Configuration of ppolicy daemon is done through ppolicy.conf file. Default
 location for this file is /etc/postfix/ppolicy.conf. If you place this file
 somewhere else than you have to change this information in ppolicy.tap
-twisted bootstrap file thas is installed by default to /usr/bin.
+twisted bootstrap file thas is installed by default to /usr/sbin.
 
 There are plenty of comments and examples in ppolicy.conf so you
 should be able to adapt it to your needs. For details about particular

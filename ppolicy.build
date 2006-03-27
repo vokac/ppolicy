@@ -46,12 +46,12 @@ rpmbuild -ta ${NAME}-${VERSION}.tar.gz
 mv -f ${RPMDIR}/SRPMS/${NAME}-${VERSION}*.src.rpm .
 mv -f ${RPMDIR}/RPMS/noarch/${NAME}-${VERSION}*.noarch.rpm .
 #rpmsign --addsign ${NAME}-${VERSION}*.noarch.rpm
-if [ ${RELEASE//[0-9]/} == "rc" ]; then
+if [ x${RELEASE//[0-9]/} == "xrc" ]; then
   mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
 fi
-if [ ${RELEASE//[0-9]/} == "alpha" ]; then
+if [ x${RELEASE//[0-9]/} == "xalpha" ]; then
   mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
 fi
-if [ ${RELEASE//[0-9]/} == "beta" ]; then
+if [ x${RELEASE//[0-9]/} == "xbeta" ]; then
   mv ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}${RELEASE/[0-9]/}.tar.gz
 fi

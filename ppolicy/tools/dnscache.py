@@ -57,7 +57,7 @@ def getIpForName(domain, ipv6 = True):
                     ips.append(rdata.address)
                 break
             except dns.exception.Timeout:
-                logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
+                logging.getLogger().debug("DNS timeout (%s, %s), try #%s, query: %s [%s]" %
                         (lifetime, timeout, _dnsMaxRetry - dnsretry,
                          domain, qtype))
                 lifetime *= 2
@@ -89,7 +89,7 @@ def getNameForIp(ip):
                 ips.append(rdata.target.to_text(True))
             break
         except dns.exception.Timeout:
-            logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [PTR]" %
+            logging.getLogger().debug("DNS timeout (%s, %s), try #%s, query: %s [PTR]" %
                         (lifetime, timeout, _dnsMaxRetry - dnsretry, ipaddr))
             lifetime *= 2
             timeout *= 2
@@ -123,7 +123,7 @@ def getDomainMailhosts(domain, ipv6 = True):
                     ips.append(ip)
             break
         except dns.exception.Timeout:
-            logging.log(logging.DEBUG, "DNS timeout (%s, %s), try #%s, query: %s [%s]" %
+            logging.getLogger().debug("DNS timeout (%s, %s), try #%s, query: %s [%s]" %
                         (lifetime, timeout, _dnsMaxRetry - dnsretry, domain, 'MX'))
             lifetime *= 2
             timeout *= 2

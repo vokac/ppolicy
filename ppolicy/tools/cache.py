@@ -261,7 +261,7 @@ class DbCache:
             finally:
                 cursor.close()
         except Exception, err:
-            logging.log(logging.ERROR, "%s: query '%s': %s" % (self.getId(), sql, err))
+            logging.getLogger().error("%s: query '%s': %s" % (self.getId(), sql, err))
 
 
     def __getAllCols(self):
@@ -343,7 +343,7 @@ class DbCache:
                 finally:
                     cursor.close()
             except Exception, err:
-                logging.log(logging.ERROR, "%s: error clearing %s: %s" %
+                logging.getLogger().error("%s: error clearing %s: %s" %
                             (self.getId(), self.table, err))
         if self.cacheVal != None:
             self.cacheVal.clear()
@@ -367,14 +367,14 @@ class DbCache:
                 sql = "SELECT %s FROM %s" % (self.__getSelectExprCols(), self.table)
                 cursor.execute(sql)
                 self.cacheVal.reload(cursor.fetchall(), self.cols)
-                logging.log(logging.INFO, "%s: loaded %s rows from %s" %
+                logging.getLogger().info("%s: loaded %s rows from %s" %
                             (self.getId(), cursor.rowcount, self.table))
             finally:
                 cursor.close()
             self.lastReload = time.time()
         except Exception, err:
             # use only memory cache in case of DB problems
-            logging.log(logging.ERROR, "%s: error loading %s: %s" %
+            logging.getLogger().error("%s: error loading %s: %s" %
                         (self.getId(), self.table, err))
             self.cacheVal.clear()
 
@@ -398,7 +398,7 @@ class DbCache:
                     cursor.execute(sql)
                     if cursor.rowcount > 0:
                         if cursor.rowcount > 1:
-                            logging.log(logging.WARN, "%s: more records in %s for %s" %
+                            logging.getLogger().warn("%s: more records in %s for %s" %
                                         (self.getId(), self.table, key))
                         row = cursor.fetchone()
                         if row != None:
@@ -421,7 +421,7 @@ class DbCache:
                 finally:
                     cursor.close()
         except Exception, err:
-            logging.log(logging.ERROR, "%s: cache error (table: %s, key: %s, err: %s): %s" %
+            logging.getLogger().error("%s: cache error (table: %s, key: %s, err: %s): %s" %
                         (self.getId(), self.table, key, self.errorLimit, err))
             if self.error:
                 self.lock.release()
@@ -485,10 +485,10 @@ class DbCache:
                 finally:
                     cursor.close()
         except IndexError, err:
-            logging.log(logging.ERROR, "%s: wrong number of parameters: %s" %
+            logging.getLogger().error("%s: wrong number of parameters: %s" %
                         (self.getId(), err))
         except Exception, err:
-            logging.log(logging.ERROR, "%s: cache error (table: %s, key: %s, err: %s): %s" %
+            logging.getLogger().error("%s: cache error (table: %s, key: %s, err: %s): %s" %
                         (self.getId(), self.table, key, self.errorLimit, err))
             if self.error:
                 self.lock.release()
