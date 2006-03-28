@@ -1,10 +1,12 @@
-Changes in PPolicy 2.0 (Mar 26 2006)
-====================================
+Changes in PPolicy 2.0.1 (Mar 28 2006)
+======================================
 - checking framework rewritten
 - each module in separate file
 - checking flow defined in ppolicy.conf using python code
 - modules passed basic tests
 - make logging compatible with python 2.3
+- support for older MySQLdb that doesn't support autocommit(false)
+- added ListDyn module
 
 
 Changes in PPolicy 1.4b4 (Dec 3 2005)

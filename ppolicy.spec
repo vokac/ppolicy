@@ -1,7 +1,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.0
-Release: 2
+Version: 2.0.1
+Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -84,7 +84,7 @@ fi
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-#%doc README INSTALL
+%doc NEWS README MODULES TODO ppolicy.sql ppolicy.conf
 %config(noreplace) %{_sysconfdir}/postfix/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
@@ -92,8 +92,13 @@ fi
 
 
 %changelog
+* Tue Mar 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.0.1-1
+- added ListDyn module
+- bugfixes
+
 * Mon Mar 27 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.0-2
 - make logging compatible with python 2.3
+- support for older MySQLdb that doesn't support autocommit(false)
 
 * Sun Mar 26 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.0-1
 - checking framework rewritten

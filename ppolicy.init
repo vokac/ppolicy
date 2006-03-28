@@ -52,14 +52,20 @@ start() {
 	--python=$file \
 	--no_save \
 	--logfile=$logfile
-    #status $prog
+    retval=$?
+    echo
+    # [ $retval -eq 0 ] && touch $lockfile
+    return $retval
 }
 
 stop() {
     # Stop daemon
     echo -n "Stopping $prog (twistd):"
     [ -f ${pidfile} ] && kill `cat "${pidfile}"`
-    #status $prog
+    retval=$?
+    echo
+    # [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
 }
 
 restart() {

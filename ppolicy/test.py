@@ -32,7 +32,7 @@ class FakeFactory:
         return conn
 
 
-def run(name, param = None, **keywords):
+def run(name, param = None, count = 1, **keywords):
     print "Testing module: %s(%s)" % (name, str(keywords))
     print ">> import"
     globals()[name] = eval("__import__('%s', globals(),  locals(), [])" % name)
@@ -43,9 +43,8 @@ def run(name, param = None, **keywords):
     print ">> start"
     obj.start()
     print ">> check"
-    print obj.check(data)
-    print obj.check(data)
-    print obj.check(data)
+    for i in range(0, count):
+        print obj.check(data)
     print ">> stop"
     obj.stop()
 
@@ -109,7 +108,7 @@ if __name__ == "__main__":
              'size': '12345' }
     if len(sys.argv) > 1:
         if sys.argv[1] == '--doc':
-            for module in [ 'Dnsbl', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'Resolve', 'SPF', 'Trap', 'Verification' ]:
+            for module in [ 'Dnsbl', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'ListDyn', 'Resolve', 'SPF', 'Trap', 'Verification' ]:
                 doc(module)
             sys.exit()
         moduleName = sys.argv[1]
@@ -124,4 +123,10 @@ if __name__ == "__main__":
 #    run('DumpDataDB', tableName='dump')
 #    run('List', paramName='sender')
 #    run('DOS', 'params="sender"')
-    run('DOS', 'params=["sender","client_address"], limitCount=100, limitTime=10')
+#    run('DOS', 'params=["sender","client_address"], limitCount=100, limitTime=10')
+    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
+    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
+    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+    run('ListDyn', "mapping=[('sender',None,None)], operation='remove'")
+    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")

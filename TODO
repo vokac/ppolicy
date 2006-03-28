@@ -1,3 +1,7 @@
+* result caching !!!
+* log files rotation
+* module start - handle exception during module start (and exit?)
+
 * config file grammar
 
 * implement tasks
