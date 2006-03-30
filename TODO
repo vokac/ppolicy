@@ -1,6 +1,8 @@
+* hash, check parameters should be *args, **keywords
 * result caching !!!
 * log files rotation
 * module start - handle exception during module start (and exit?)
+* Verification - persistend cache using List?
 
 * config file grammar
 

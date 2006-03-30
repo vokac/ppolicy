@@ -120,9 +120,9 @@ class Verification(Base):
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
             if vtype == 'domain':
-                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) == LOWER('%s')" % (tableName, domain)
+                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) = LOWER('%s')" % (tableName, domain)
             else:
-                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) == LOWER('%s@%s')" % (tableName, user, domain)
+                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) = LOWER('%s@%s')" % (tableName, user, domain)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             row = cursor.fetchone()
@@ -141,7 +141,9 @@ class Verification(Base):
 
         for mailhost in mailhosts:
             # FIXME: how many MX try? timeout?
+            logging.getLogger().debug("trying to check %s for %s@%s" % (mailhost, user, domain))
             code, codeEx = self.checkMailhost(mailhost, domain, user)
+            logging.getLogger().debug("checking returned: %s (%s)" % (code, codeEx))
             # FIXME: store result in database
             if code != None and code > 0:
                 break
