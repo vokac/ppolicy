@@ -22,6 +22,9 @@ class Dummy(Base):
     Module arguments (see output of getParams method):
     test1, test2
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... ok 
         0 .... undefined (default for this module)
@@ -51,19 +54,21 @@ class Dummy(Base):
         pass
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
         """Compute hash from data which is then used as index
         to the result cache. Changing this function in subclasses
         and using only required fields for hash can improve cache
         usage and performance."""
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return 0
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
         """check request data againts policy and returns tuple of status
         code and optional info. The meaning of status codes is folloving:
             < 0 check failed
             = 0 check uknown (e.g. required resource not available)
             > 0 check succeded
         """
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return 0, 'dummy'

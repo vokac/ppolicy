@@ -1,4 +1,4 @@
-* hash, check parameters should be *args, **keywords
+* check modules for hashArg and check parameters change
 * result caching !!!
 * log files rotation
 * module start - handle exception during module start (and exit?)

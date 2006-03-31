@@ -26,6 +26,9 @@ class DumpDataDB(Base):
     Module arguments (see output of getParams method):
     tableName
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         this module always return 0 (undefined result)
 
@@ -59,7 +62,8 @@ class DumpDataDB(Base):
         cursor.close()
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         try:
             conn = self.factory.getDbConnection()
             # conn.autocommit(False) # begin() # this is not well supported in old MySQLdb

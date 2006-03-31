@@ -35,6 +35,9 @@ class Verification(Base):
     Module arguments (see output of getParams method):
     param, timeout, type
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... verification was successfull
         0 .... undefined (e.g. DNS error, SMTP error, ...)
@@ -76,12 +79,14 @@ class Verification(Base):
         cursor.close()
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
         return hash("%s=%s" % (param, data.get(param)))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
         paramValue = data.get(param, '')
         vtype = self.getParam('vtype')

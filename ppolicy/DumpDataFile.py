@@ -26,6 +26,9 @@ class DumpDataFile(Base):
     Module arguments (see output of getParams method):
     fileName
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         this module always return 0 (undefined result)
 
@@ -51,7 +54,8 @@ class DumpDataFile(Base):
         self.file.close()
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         try:
             self.file.write("date=%s\n" % time.time())
             for k,v in data.items():

@@ -48,12 +48,8 @@ class PPolicyServerFactory:
         return self.dbConnPool.connect()
 
 
-    def getConfig(self, key):
-        return self.config.get(key)
-
-
-    def getModules(self):
-        return self.modules
+    def getConfig(self, key, default = None):
+        return self.config.get(key, default)
 
 
     def __addChecks(self, modules):
@@ -84,6 +80,20 @@ class PPolicyServerFactory:
         for modName, modObj in self.modules.items():
 	    logging.getLogger().info("Stop module %s" % modObj.getId())
             modObj.stop()
+
+
+    def check(self, name, *args, **keywords):
+        """Called from config file. We should cache results here."""
+        # FIXME: cache results
+        if not self.modules.has_key(name):
+            raise Exception("Module named \"%s\" was not defined" % name)
+        try:
+            obj = self.modules.get(name)
+            return obj.check(*args, **keywords)
+        except Exception, e:
+            logging.getLogger().error("failed to call method of \"%s\" module: %s" % (name, e))
+            # raise e
+            return 0, "%s failed with exception" % name
 
 
     def doStart(self):
@@ -124,32 +134,29 @@ class PPolicyServerFactory:
 class PPolicyServerRequest(protocol.Protocol):
 
     CONN_LIMIT = 100
-    DEFAULT_ACTION = 'DUNNO'
-    DEFAULT_ACTION_EX = None
 
 
     def __init__(self, factory):
         self.data = {}
         self.factory = factory
         self.check = factory.getConfig('check')
-        self.modules = factory.getModules()
+        self.returnOnFatalError = factory.getConfig('returnOnFatalError', ('dunno', None))
+        self.returnOnConnLimit = factory.getConfig('returnOnConnLimit', ('dunno', None))
 	self.finished = False
 
 
     def connectionMade(self):
         self.factory.numProtocols += 1
-        logging.getLogger().debug("connection #%s made" %
-                    self.factory.numProtocols)
+        logging.getLogger().debug("connection #%s made" % self.factory.numProtocols)
         if self.factory.numProtocols > self.CONN_LIMIT:
             logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
-            self.dataResponse(self.DEFAULT_ACTION, self.DEFAULT_ACTION_EX)
+            self.dataResponse(self.returnOnConnLimit[0], self.returnOnConnLimit[1])
             #self.transport.write("Too many connections, try later") 
             self.transport.loseConnection()
 
 
     def connectionLost(self, reason):
-        logging.getLogger().debug("connection %s lost: %s" %
-                    (self.factory.numProtocols, reason))
+        logging.getLogger().debug("connection %s lost: %s" % (self.factory.numProtocols, reason))
         self.factory.numProtocols = self.factory.numProtocols-1
 
 
@@ -158,17 +165,16 @@ class PPolicyServerRequest(protocol.Protocol):
         try:
             parsedData = self.__parseData(data)
             if parsedData != None:
-                action, actionEx = self.check(self.modules, parsedData)
+                action, actionEx = self.check(self.factory, parsedData)
                 self.dataResponse(action, actionEx)
             else:
-                # default return action on garbage?
+                # default return action for garbage?
                 self.dataResponse()
         except Exception, err:
             import traceback
             logging.getLogger().error("uncatched exception: %s" % str(err))
             logging.getLogger().error("%s" % traceback.format_exc())
-            # default return action on garbage?
-            self.dataResponse()
+            self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
 
 
     def dataResponse(self, action=None, actionEx=None):
@@ -197,16 +203,6 @@ class PPolicyServerRequest(protocol.Protocol):
                     return None
             try:
                 k, v = line.split('=')
-#                if k in [ "request", "protocol_state", "protocol_name",
-#                          "helo_name", "queue_id", "sender", "recipient",
-#                          "client_address", "client_name",
-#                          "reverse_client_name", "instance",
-#                          "sasl_method", "sasl_username", "sasl_sender",
-#                          "ccert_subject", "ccert_issuer", "ccert_fingerprint",
-#                          "size" ]:
-#                    self.data[k] = v
-#                else:
-#                    logging.getLogger().warn("unknown key %s (%s)" % (k, v))
                 if k == 'sender' or k == 'recipient':
                     if len(v) != 0 and v[0] == '<': v = v[1:]
                     if len(v) != 0 and v[-1] == '<': v = v[:-1]
@@ -233,8 +229,10 @@ if __name__ == "__main__":
 
     # default config
     config = {
-        'logLevel'     : logging.DEBUG,
         'configFile'   : '../ppolicy.conf',
+        'logLevel'     : logging.DEBUG,
+        'admin'        : 'postmaster',
+        'domain'       : socket.gethostname(),
         'databaseAPI'  : 'MySQLdb',
         'database'     : { 'host'   : 'localhost',
                            'port'   : 3306,
@@ -243,7 +241,10 @@ if __name__ == "__main__":
                            'passwd' : 'secret',
                            },
         'listenPort'   : 10030,
-        'check'        : lambda x: ('200', 'dummy check'),
+        'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
+        'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
+        'check'        : lambda x: ('dunno', ''),
+        'modules'      : {},
         }
 
     print ">>> Create Factory"

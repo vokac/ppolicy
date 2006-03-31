@@ -44,6 +44,9 @@ class ListDyn(Base):
     Module arguments (see output of getParams method):
     tableName, [ (paramName, paramFunction, tableColumn), ...], expiration
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         add, remove
             1 .... operation was successfull
@@ -90,7 +93,8 @@ class ListDyn(Base):
         return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('tableName'), self.getParam('operation'))
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         mapping = self.getParam('mapping')
         return hash("\n".join(map(lambda x: "%s=%s" % (x[0], data.get(x[0])), mapping)))
 
@@ -139,7 +143,8 @@ class ListDyn(Base):
         cursor.close()
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         tableName = self.getParam('tableName')
         mapping = self.getParam('mapping')
         operation = self.getParam('operation')

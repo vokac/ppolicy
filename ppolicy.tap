@@ -31,6 +31,8 @@ config = {
                        'passwd' : 'secret',
                        },
     'listenPort'   : 10030,
+    'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
+    'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
     'check'        : lambda x: ('dunno', ''),
     'modules'      : {},
 }

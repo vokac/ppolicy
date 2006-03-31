@@ -23,6 +23,9 @@ class Dnsbl(Base):
     Module arguments (see output of getParams method):
     name
 
+    Check arguments:
+        None
+
     Check returns:
         1 .... listed in dnsbl
         0 .... unknown error (e.g. DNS problems)
@@ -37,12 +40,13 @@ class Dnsbl(Base):
                }
 
 
-    def dataHash(self, data):
-        return hash("client_address=%s" % data.get('client_address'))
+    def hashArg(self, *args, **keywords):
+        client_address = args[0]
+        return hash("client_address=%s" % client_address)
 
 
-    def check(self, data):
-        client_address = data.get('client_address')
+    def check(self, *args, **keywords):
+        client_address = args[0]
 
 #        if dnsbl.check(client_address, self.dns, self.type, self.retval):
 #            return 1, "%s blacklisted in %s" % (client_address, self.dns)

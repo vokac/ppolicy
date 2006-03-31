@@ -23,6 +23,9 @@ class List(Base):
     Module arguments (see output of getParams method):
     paramName, paramFunction, tableName, tableColumn
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... parameter was found in db
         0 .... failed to check (request doesn't include required param, database error, ...)
@@ -46,7 +49,8 @@ class List(Base):
         return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('tableName'), self.getParam('paramName'))
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         paramName = self.getParam('paramName')
         return hash("=".join([ paramName, data.get(paramName) ]))
 
@@ -70,7 +74,8 @@ class List(Base):
         cursor.close()
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         paramName = self.getParam('paramName')
         paramFunction = self.getParam('paramFunction', None)
 

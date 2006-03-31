@@ -23,6 +23,9 @@ class Resolve(Base):
     Module arguments (see output of getParams method):
     param, paramFunction, type
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... all tranlation were successfull and equal
         0 .... problem resolving ip or name (DNS error)
@@ -50,12 +53,14 @@ class Resolve(Base):
                 raise ParamError("%s has to be specified for this module" % attr)
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
         return hash("%s=%s" % (param, data.get(param)))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
         paramFunction = self.getParam('paramFunction')
         resolveType = self.getParam('type')

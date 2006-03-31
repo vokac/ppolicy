@@ -64,10 +64,10 @@ class IPPolicyCheck(components.Interface):
     def stop(self):
         """Called when changing state to 'stopped'."""
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
         """Hash for data relevant for this module."""
 
-    def check(self, data):
+    def check(self, *args, **keywords):
         """check request stored data againts policy and returns tuple
         of check status code and optional info. The meaning of status
         codes is folloving:
@@ -86,10 +86,13 @@ class IPPolicyCheck(components.Interface):
 class Base(object):
     """Base class for postfix policy check modules. Normally you have
     to overide "check" method and in some cases also "start", "stop"
-    and "dataHash"
+    and "hashArg"
 
     Module arguments (see output of getParams method):
     factory, cachePositive, cacheNegative
+
+    Check arguments:
+        None
 
     Check returns:
         throws NotImplementedError
@@ -201,16 +204,32 @@ class Base(object):
         pass
 
 
-    def dataHash(self, data):
-        """Compute hash from data which is then used as index
-        to the result cache. Changing this function in subclasses
-        and using only required fields for hash can improve cache
-        usage and performance."""
-        keys = sorted(data.keys())
-        return hash("\n".join([ "=".join([x, data[x]]) for x in keys ]))
+    def dataArg(self, pos = -1, key = None, default = None, *args, **keywords):
+        """We accept arguments in predefined order or as key=value pairs.
+        This method can be used to return right value without regart whitch
+        method was used."""
+        if pos >= 0 and len(args) > pos:
+            return args[pos]
+        if Key != None:
+            return keywords.get(key, default)
+        return default
 
 
-    def check(self, data):
+    def hashArg(self, *args, **keywords):
+        """Compute hash from parameters which is then used as index to
+        the result cache. Changing this function in subclasses and
+        using only required fields for hash can improve cache usage
+        and performance.
+
+        For good hash better algorithm should be used, e.g. Item 7 in
+        Joshua Bloch's Effective Java Programming Language Guide"""
+
+        keys = sorted(keywords.keys())
+        keywordsTuple = tuple([ "=".join([x, keywords[x]]) for x in keys ])
+        return hash("\n".join(args + keywordsTuple))
+
+
+    def check(self, *args, **keywords):
         """check request data againts policy and returns tuple of status
         code and optional info. The meaning of status codes is folloving:
             < 0 check failed

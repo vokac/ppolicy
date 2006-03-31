@@ -33,6 +33,9 @@ class SPF(Base):
     Module arguments (see output of getParams method):
     restrictive
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... SPF passed
         0 .... exception checking SPF (unknown result
@@ -53,12 +56,14 @@ class SPF(Base):
         return "%s[%s(%s)]" % (self.type, self.name, self.getParam('restrictive'))
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), [ 'sender', 'client_address', 'client_name' ])))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
         """ check Request against SPF results in 'deny', 'unknown', 'pass'"""
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         sender = data.get('sender')
         client_address = data.get('client_address')
         client_name = data.get('client_name')

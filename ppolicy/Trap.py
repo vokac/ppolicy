@@ -26,6 +26,9 @@ class Trap(Base):
     Module arguments (see output of getParams method):
     traps, tableName, tableCols, expire, limit
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... request from client that send many mail touched our mail traps
         0 .... some problem
@@ -63,11 +66,13 @@ class Trap(Base):
         del(self.trap)
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return hash("client_address=%s" % data.get('client_address'))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         expire = self.getParam('expire')
         sender = data.get('sender')
         recipient = data.get('recipient')

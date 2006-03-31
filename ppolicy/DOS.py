@@ -28,6 +28,9 @@ class DOS(Base):
     Module arguments (see output of getParams method):
     params, paramsFunction, limitCount, limitTime, limitGran
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... frequency reached defined limit
         0 .... unrelated error (e.g. database problem)
@@ -82,14 +85,16 @@ class DOS(Base):
         del(self.cache)
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         params = self.getParam('params')
         keys = sorted(data.keys())
         return hash("\n".join([ "=".join([x, data[x]]) for x in keys if x in params ]))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
         # normalize data and get all possible keys
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         dtaArr = {}
         keyArr = []
         for param, paramFunct in self.paramsFunct:

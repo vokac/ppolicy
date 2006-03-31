@@ -73,7 +73,7 @@ def doc(name, **keywords):
             else:
                 print line
     if not paramsPrinted:
-        print "Parameters:"
+        print "Module arguments:"
         for k,v in obj.getParams().items():
             print "    %s (%s)\n        %s" % (k, v[1], v[0])
     print
@@ -119,14 +119,14 @@ if __name__ == "__main__":
         run(moduleName, **moduleParams)
         sys.exit()
 
-#    run('DumpDataFile', fileName='test.dat')
+    run('DumpDataFile', fileName='test.dat')
 #    run('DumpDataDB', tableName='dump')
 #    run('List', paramName='sender')
 #    run('DOS', 'params="sender"')
 #    run('DOS', 'params=["sender","client_address"], limitCount=100, limitTime=10')
-    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
-    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
-    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
-    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
-    run('ListDyn', "mapping=[('sender',None,None)], operation='remove'")
-    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+#    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
+#    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
+#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+#    run('ListDyn', "mapping=[('sender',None,None)], operation='remove'")
+#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")

@@ -32,6 +32,9 @@ class Greylist(Base):
     Module arguments (see output of getParams method):
     tableName
 
+    Check arguments:
+        data ... all input data in dict
+
     Check returns:
         1 .... was seen before
         0 .... some error occured (database, dns, ...)
@@ -73,11 +76,13 @@ class Greylist(Base):
         cursor.close()
 
 
-    def dataHash(self, data):
+    def hashArg(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), [ 'sender', 'recipient', 'client_address' ])))
 
 
-    def check(self, data):
+    def check(self, *args, **keywords):
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
         sender = data.get('sender')
         recipient = data.get('recipient')
         client_name = data.get('client_name')
