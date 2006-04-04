@@ -26,7 +26,7 @@ class DOS(Base):
     because badly choosed parameters can exhause a lot of memory.
 
     Module arguments (see output of getParams method):
-    params, paramsFunction, limitCount, limitTime, limitGran
+    params, limitCount, limitTime, limitGran
 
     Check arguments:
         data ... all input data in dict
@@ -45,11 +45,11 @@ class DOS(Base):
     """
 
     PARAMS = { 'params': ('parameters that will be used to test equality', None),
-               'paramsFunction': ('function to run on parameter', None),
                'limitCount': ('number of messages accepted during limitTime period', 1000),
                'limitTime': ('time period for limitCount messages', 60*60),
                'limitGran': ('data collection granularity', 10),
                'cachePositive': (None, 0),
+               'cacheUnknown': (None, 0),
                'cacheNegative': (None, 0),
                }
 
@@ -64,20 +64,8 @@ class DOS(Base):
             params = [ params ]
         elif type(params) == tuple:
             params = list(params)
+        self.setParam('params', params)
 
-        paramsFunction = self.getParam('paramsFunction')
-        paramsFunct = []
-        for i in range(0, len(params)):
-            if paramsFunction == None:
-                paramsFunct.append((params[i], None))
-            else:
-                if type(paramsFunction) == str:
-                    paramsFunct.append((params[i], paramsFunction))
-                elif type(paramsFunction) == list or type(paramsFunction) == tuple:
-                    if len(paramsFunction) > i:
-                        paramsFunct.append((params[i], paramsFunction[i]))
-
-        self.paramsFunct = paramsFunct
         self.cache = {}
 
 
@@ -88,32 +76,27 @@ class DOS(Base):
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
         params = self.getParam('params')
-        keys = sorted(data.keys())
+        keys = data.keys()
+        keys.sort()
         return hash("\n".join([ "=".join([x, data[x]]) for x in keys if x in params ]))
 
 
     def check(self, *args, **keywords):
         # normalize data and get all possible keys
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        dtaArr = {}
-        keyArr = []
-        for param, paramFunct in self.paramsFunct:
-            if paramFunct == None:
-                dtaArr[param] = [ data.get(param) ]
-            else:
-                dtaArr[param] = paramFunct(data.get(param))
-            keyArrNew = []
-            for dta in dtaArr[param]:
-                if len(keyArr) == 0:
-                    keyArrNew.append((dta, ))
-                else:
-                    for key in keyArr:
-                        keyArrNew.append(key + (dta, ))
-            keyArr = keyArrNew
+        param = self.getParam('param')
+        paramValue = data.get(param)
+
+        if type(paramValue) == tuple:
+            paramValue = list(tuple)
+        if type(paramValue) != list:
+            paramValue = [ paramValue ]
+        if paramValue == []:
+            paramValue = [ '' ]
 
         # test frequency for all keys
         hasDosKey = False
-        for key in keyArr:
+        for key in paramValue:
             dos = self.__checkDos(key)
             if not hasDosKey and dos:
                 hasDosKey = True

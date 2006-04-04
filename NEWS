@@ -1,3 +1,13 @@
+Changes in PPolicy 2.1.0 (Apr 4 2006)
+=====================================
+- in memory cache for modules result (cachePositive, cacheUnknown, cacheNegative)
+- changed check method parameters (custom parameters can be defined)
+- ListDyn updates - changes in constructor parameters
+- Verification use ListDyn for persistent cache
+- names of some parameters was changed (tableName -> table, ...)
+- python 2.3 compatibility fixes
+
+
 Changes in PPolicy 2.0.1 (Mar 28 2006)
 ======================================
 - checking framework rewritten

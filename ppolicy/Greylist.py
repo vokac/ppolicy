@@ -30,7 +30,7 @@ class Greylist(Base):
     load of remote server.
 
     Module arguments (see output of getParams method):
-    tableName
+    table
 
     Check arguments:
         data ... all input data in dict
@@ -45,13 +45,14 @@ class Greylist(Base):
         define('greylist1', 'Greylist')
         # greylisting module with own database table "grey", delay set
         # to 1 minute and expiration time of triplets to 1 year
-        define('greylist2', 'Greylist', tableName="grey", delay=60, expiration=86400*365)
+        define('greylist2', 'Greylist', table="grey", delay=60, expiration=86400*365)
     """
 
-    PARAMS = { 'tableName': ('greylist database table', 'greylist'),
+    PARAMS = { 'table': ('greylist database table', 'greylist'),
                'delay': ('how long to delay mail we see its triplet first time', 10*60),
                'expiration': ('expiration of triplets in database', 60*60*24*31),
                'cachePositive': (None, 0), # handle own cache
+               'cacheUnknown': (None, 0),  #
                'cacheNegative': (None, 0), # in this module
                }
 
@@ -60,17 +61,17 @@ class Greylist(Base):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
-        tableName = self.getParam('tableName')
-        if tableName == None:
-            raise ParamError('tableName has to be specified for this module')
+        table = self.getParam('table')
+        if table == None:
+            raise ParamError('table has to be specified for this module')
 
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME)" % tableName
+        sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME)" % table
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
 
-        sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`expire`) < UNIX_TIMESTAMP()" % tableName
+        sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`expire`) < UNIX_TIMESTAMP()" % table
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
         cursor.close()
@@ -119,9 +120,9 @@ class Greylist(Base):
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
-            tableName = self.getParam('tableName')
+            table = self.getParam('table')
 
-            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (tableName, sender, recipient, greysubj)
+            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, sender, recipient, greysubj)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             greylistDelay = self.getParam('delay')
@@ -141,7 +142,7 @@ class Greylist(Base):
                     retInfo = 'greylisting in progress, mail will be accepted in %ss' % greylistDelay
                 try:
                     # this is not critical so do it in separate try section
-                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (tableName, greylistExpire, sender, recipient, greysubj)
+                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, greylistExpire, sender, recipient, greysubj)
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
                 except Exception, e:
@@ -150,7 +151,7 @@ class Greylist(Base):
                 # insert new
                 retCode = -1
                 retInfo = 'greylist in progress: %ss' % greylistDelay
-                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (tableName, sender, recipient, greysubj, greylistDelay, greylistExpire)
+                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender, recipient, greysubj, greylistDelay, greylistExpire)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
 

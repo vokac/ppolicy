@@ -23,12 +23,11 @@ class ListDyn(Base):
     modules, ...
 
     One of the most important parameter is "mapping". It is used to
-    map request parameters (or its data returned by paramFunction) to
-    database columns.
+    map request parameters database columns.
 
     Second very important parametr is "operation". With this parameter
-    you specify what this module should do with passed request. Also
-    result returned from check method depends on this operation.
+    you specify what this module should do by default with passed request.
+    Also result returned from check method depends on this operation.
     add ...... add new data to database
     remove ... remove all matching data from database
     check .... check if database include data from request
@@ -42,10 +41,11 @@ class ListDyn(Base):
     is temporarly unreachable).
 
     Module arguments (see output of getParams method):
-    tableName, [ (paramName, paramFunction, tableColumn), ...], expiration
+    table, columns, [ (paramName, tableColumn), ...], expiration
 
     Check arguments:
         data ... all input data in dict
+        operation ... add/remove/check operation that overide the default
 
     Check returns:
         add, remove
@@ -59,14 +59,16 @@ class ListDyn(Base):
 
     Examples:
         # module for checking if sender is in database table list
-        define('list1', 'ListDyn', tableName='list', mapping=[ ("sender", None, None), ])
+        define('list1', 'ListDyn', table='list', mapping={ "sender": "mail", })
     """
 
-    PARAMS = { 'tableName': ('name of database table where to search parameter', 'list'),
-               'mapping': ('mapping between params and database columns', None),
+    PARAMS = { 'table': ('name of database table where to search parameter', 'list'),
+               'criteria': ('names of input data keys used to identify data row(s)', None),
+               'value': ('data contains value column', True),
+               'softExpire': ('information that record will be soon expired (0 == never))', None),
+               'hardExpire': ('expiration time for the record (0 == never)', None),
+               'mapping': ('mapping between params and database columns', {}),
                'operation': ('list operation (add/remove/check)', 'check'),
-               'softExpire': ('information that record will be soon expired', None),
-               'hardExpire': ('expiration time for the record', None),
                }
 
     COLSIZE = { 'request': 25,
@@ -90,54 +92,61 @@ class ListDyn(Base):
                 }
 
     def getId(self):
-        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('tableName'), self.getParam('operation'))
+        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('operation'))
 
 
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        mapping = self.getParam('mapping')
-        return hash("\n".join(map(lambda x: "%s=%s" % (x[0], data.get(x[0])), mapping)))
+        criteria = self.getParam('criteria')
+        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), criteria)))
 
 
     def start(self):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
-        for attr in [ 'tableName', 'mapping', 'operation' ]:
+        for attr in [ 'table', 'criteria', 'mapping', 'operation', 'softExpire', 'hardExpire' ]:
             if self.getParam(attr) == None:
-                raise ParamError("%s has to be specified for this module" % attr)
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
-        tableName = self.getParam('tableName')
+        table = self.getParam('table')
+        criteria = self.getParam('criteria')
+        value = self.getParam('value')
         mapping = self.getParam('mapping')
         operation = self.getParam('operation')
+        softExpire = int(self.getParam('softExpire'))
+        hardExpire = int(self.getParam('hardExpire'))
+
+        if len(criteria) == 0:
+            raise ParamError("you have to specify at least on criteria")
 
         if operation not in [ 'add', 'remove', 'check' ]:
             raise ParamError("unknown operation %s" % operation)
 
+        # hash to table columns mapping
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
         cols = []
-        for param in mapping:
-            if param[2] == None:
-                paramCol = param[0]
-            else:
-                paramCol = param[2]
-            cols.append("`%s` VARCHAR(%i) NOT NULL" % (paramCol, ListDyn.COLSIZE.get(paramCol, 255)))
-        softExpire = self.getParam('softExpire')
-        hardExpire = self.getParam('hardExpire')
-        if softExpire == None or softExpire == 0:
-            softExpire = ""
-        else:
-            softExpire = ",`soft_expire` DATETIME"
-        if hardExpire == None or hardExpire == 0:
-            hardExpire = ""
-        else:
-            hardExpire = ", `hard_expire` DATETIME"
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (%s%s%s)" % (tableName, ",".join(cols), softExpire, hardExpire)
+        for dictName in criteria:
+            colName = mapping.get(dictName, dictName)
+            cols.append("`%s` VARCHAR(%i) NOT NULL" % (colName, ListDyn.COLSIZE.get(colName, 255)))
+        if value:
+            colName = mapping.get('value', 'value')
+            cols.append("`%s` VARCHAR(%i) NOT NULL" % (colName, ListDyn.COLSIZE.get(colName, 255)))
+        if softExpire > 0:
+            colName = mapping.get('soft_expire', 'soft_expire')
+            cols.append("`%s` DATETIME NOT NULL" % colName)
+        if hardExpire > 0:
+            colName = mapping.get('hard_expire', 'hard_expire')
+            cols.append("`%s` DATETIME NOT NULL" % colName)
+
+        # create database table if not exist
+        sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols))
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
-        if hardExpire != "":
-            sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`hard_expire`) < UNIX_TIMESTAMP()" % tableName
+        if hardExpire > 0:
+            colName = mapping.get('hard_expire', 'hard_expire')
+            sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`%s`) < UNIX_TIMESTAMP()" % (table, colName)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
         cursor.close()
@@ -145,115 +154,125 @@ class ListDyn(Base):
 
     def check(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        tableName = self.getParam('tableName')
-        mapping = self.getParam('mapping')
-        operation = self.getParam('operation')
-        softExpire = self.getParam('softExpire')
-        hardExpire = self.getParam('hardExpire')
+        operation = self.dataArg(1, 'operation', None, *args, **keywords)
+        value = self.dataArg(2, 'value', '', *args, **keywords)
+        softExpire = self.dataArg(3, 'softExpire', None, *args, **keywords)
+        hardExpire = self.dataArg(4, 'hardExpire', None, *args, **keywords)
 
-        expireCols = ""
-        expireVals = ""
-        expireCheck = ""
-        expireUpdate = ""
-        if softExpire != None and softExpire != 0:
-            expireCols += ", `soft_expire`"
-            expireVals += ", FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire
-            expireCheck += ", UNIX_TIMESTAMP(`soft_expire`) - UNIX_TIMESTAMP() AS `soft_expire`"
-            expireUpdate += "`soft_expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire
-        else:
-            softExpire = None
-        if hardExpire != None and hardExpire != 0:
-            expireCols += ", `hard_expire`"
-            expireVals += ", FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire
-            expireCheck += ", UNIX_TIMESTAMP(`hard_expire`) - UNIX_TIMESTAMP() AS `hard_expire`"
-            if len(expireUpdate): expireUpdate += ", "
-            expireUpdate += "`hard_expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire
-        else:
-            hardExpire = None
+        table = self.getParam('table')
+        criteria = self.getParam('criteria')
+        useValue = self.getParam('value')
+        mapping = self.getParam('mapping')
+        if operation == None: operation = self.getParam('operation')
+        if softExpire == None: softExpire = int(self.getParam('softExpire'))
+        if hardExpire == None: hardExpire = int(self.getParam('hardExpire'))
 
         # create all parameter combinations (cartesian product)
-        parX = []
-        for param in mapping:
-            paramName = param[0]
-            paramFunc = param[1]
-            if param[2] == None:
-                paramCol = param[0]
-            else:
-                paramCol = param[2]
+        valX = []
+        for dictName in criteria:
+            colName = mapping.get(dictName, dictName)
 
-            if paramFunc == None:
-                paramVal = data.get(paramName, '')
+            dictVal = data.get(dictName, '')
+            if type(dictVal) == tuple:
+                dictVal = list(tuple)
+            if type(dictVal) != list:
+                dictVal = [ dictVal ]
+            if dictVal == []:
+                dictVal = [ '' ]
+            if len(valX) == 0:
+                for val in dictVal:
+                    valX.append([(dictName, colName, val)])
             else:
-                paramVal = paramFunc(data.get(paramName))
-            if type(paramVal) == tuple:
-                paramVal = list(tuple)
-            if type(paramVal) != list:
-                paramVal = [ paramVal ]
-            if paramVal == []:
-                paramVal = [ '' ]
-            if len(parX) == 0:
-                for par in paramVal:
-                    parX.append([(paramName, paramCol, par)])
-            else:
-                parXnew = []
-                for pX in parX:
-                    for par in paramVal:
-                        parXnew.append(pX + [(paramName, paramCol, par)])
-                parX = parXnew
+                valXnew = []
+                for pX in valX:
+                    for val in dictVal:
+                        valXnew.append(pX + [(dictName, colName, val)])
+                valX = valXnew
+
+        colNVadd = {}
+        if softExpire != 0:
+            colNVadd[mapping.get('soft_expire', 'soft_expire')] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire
+        if hardExpire != 0:
+            colNVadd[mapping.get('hard_expire', 'hard_expire')] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire
+        if useValue:
+            colNVadd[mapping.get('value', 'value')] = "'%s'" % value
 
         # add/remove/check data in database
-        retVal = 0
+        retCode = -1
+        retVal = []
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
 
-            for par in parX:
-                parCols = []
-                parValues = []
-                parCV = []
-                for parName, parCol, parValue in par:
-                    parCols.append(parCol)
-                    parValues.append(parValue)
-                    parCV.append("`%s`='%s'" % (parCol, parValue))
+            for val in valX:
+                colNV = {}
+                for dictName, colName, dictValue in val:
+                    colNV[colName] = "'%s'" % dictValue
 
+                where = " AND ".join([ "`%s`=%s" % (x,y) for x,y in colNV.items() ])
                 if operation == 'add':
-                    sql = "SELECT 1 AS `xxx` FROM `%s` WHERE %s" % (tableName, " AND ".join(parCV))
+                    sql = "SELECT 1 FROM `%s` WHERE %s" % (table, where)
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
                     if int(cursor.rowcount) == 0:
-                        sql = "INSERT INTO `%s` (`%s`%s) VALUES ('%s'%s)" % (tableName, "`,`".join(parCols), expireCols, "','".join(parValues), expireVals)
+                        colNames = "`" + "`,`".join(colNV.keys() + colNVadd.keys()) + "`"
+                        colValues = ",".join(colNV.values() + colNVadd.values())
+                        sql = "INSERT INTO `%s` (%s) VALUES (%s)" % (table, colNames, colValues)
                         logging.getLogger().debug("SQL: %s" % sql)
                         cursor.execute(sql)
                     else:
-                        if len(expireUpdate) > 0:
-                            sql = "UPDATE `%s` SET %s WHERE %s" % (tableName, expireUpdate, " AND ".join(parCV))
+                        if useValue or softExpire != 0 or hardExpire != 0:
+                            sfExp = []
+                            if softExpire != 0:
+                                colName = mapping.get('soft_expire', 'soft_expire')
+                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                            if hardExpire != 0:
+                                colName = mapping.get('hard_expire', 'hard_expire')
+                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                            if useValue:
+                                colName = mapping.get('value', 'value')
+                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                            sql = "UPDATE `%s` SET %s WHERE %s" % (table, ",".join(sfExp), where)
                             logging.getLogger().debug("SQL: %s" % sql)
                             cursor.execute(sql)
                 elif operation == 'remove':
-                    sql = "DELETE FROM `%s` WHERE %s" % (tableName, " AND ".join(parCV))
+                    sql = "DELETE FROM `%s` WHERE %s" % (table, where)
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
                 elif operation == 'check':
-                    sql = "SELECT 1 AS `xxx`%s FROM `%s` WHERE %s" % (expireCheck, tableName, " AND ".join(parCV))
+                    sfExp = []
+                    if softExpire != 0:
+                        colName = mapping.get('soft_expire', 'soft_expire')
+                        sfExp.append("UNIX_TIMESTAMP(`%s`) - UNIX_TIMESTAMP() AS `%s`" % (colName, colName))
+                    if hardExpire != 0:
+                        colName = mapping.get('hard_expire', 'hard_expire')
+                        sfExp.append("UNIX_TIMESTAMP(`%s`) - UNIX_TIMESTAMP() AS `%s`" % (colName, colName))
+                    if useValue:
+                        colName = mapping.get('value', 'value')
+                        sfExp.append("`%s`" % colName)
+                    if len(sfExp) == 0:
+                        sfExp.append("1")
+                    sql = "SELECT %s FROM `%s` WHERE %s" % (",".join(sfExp), table, where)
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
+                    retCodeNew = -1
                     if int(cursor.rowcount) > 0:
+                        retCodeNew = 1
                         row = cursor.fetchone()
-                        retVal = 1
-                        if softExpire != None:
-                            if row[1] < 0:
-                                retVal = 2
-                        if hardExpire != None:
-                            if softExpire != None:
-                                if row[2] < 0:
-                                    retVal = -1
-                            else:
-                                if row[1] < 0:
-                                    retVal = -1
+                        if softExpire != 0 and row[0] < 0:
+                            retCodeNew = 2
+                        if useValue:
+                            valPos = 0
+                            if softExpire != 0: valPos += 1
+                            if hardExpire != 0: valPos += 1
+                            retVal.append((retCodeNew, row[valPos]))
+                    if retCodeNew > retCode:
+                        retCode = retCodeNew
+                    if not useValue and retCode > 0:
                         break
 
             if operation != 'check':
-                retVal = 1
+                retCode = 1
 
             cursor.close()
         except Exception, e:
@@ -267,5 +286,7 @@ class ListDyn(Base):
         elif operation == 'remove':
             return 1, '%s: remove operation successfull' % self.getId()
         elif operation == 'check':
-            if retVal > 0: return 1, '%s: request parameter is in list' % self.getId()
-            else: return -1, '%s: request parameter is not in list' % self.getId()
+            if useValue:
+                return retCode, retVal
+            else:
+                return retCode, "%s: check operation" % self.getId()

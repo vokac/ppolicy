@@ -32,21 +32,35 @@ class FakeFactory:
         return conn
 
 
-def run(name, param = None, count = 1, **keywords):
-    print "Testing module: %s(%s)" % (name, str(keywords))
+modules = {}
+
+
+def create(name, mtype, **keywords):
+    print "Creating module: %s(%s)" % (name, str(keywords))
+    if modules.has_key(name):
+        print ">> redefinition of existing module"
     print ">> import"
-    globals()[name] = eval("__import__('%s', globals(),  locals(), [])" % name)
-    if param == None:
-        obj = eval("%s.%s('%s', FakeFactory(), **keywords)" % (name, name, name))
-    else:
-        obj = eval("%s.%s('%s', FakeFactory(), %s)" % (name, name, name, param))
+    globals()[mtype] = eval("__import__('%s', globals(),  locals(), [])" % mtype)
+    modules[name] = eval("%s.%s('%s', FakeFactory(), **keywords)" % (mtype, mtype, mtype))
     print ">> start"
-    obj.start()
-    print ">> check"
-    for i in range(0, count):
-        print obj.check(data)
+    modules[name].start()
+
+
+def clean(name):
+    if not modules.has_key(name):
+        print ">> module %s doesn't exist" % name
+        return
     print ">> stop"
-    obj.stop()
+    modules[name].stop()
+    del(modules[name])
+
+
+def run(name, *args, **keywords):
+    if not modules.has_key(name):
+        print ">> module %s doesn't exist" % name
+        return
+    print ">> check"
+    print modules[name].check(*args, **keywords)
 
 
 def doc(name, **keywords):
@@ -116,17 +130,22 @@ if __name__ == "__main__":
         for arg in sys.argv[2:]:
             arg1, arg2 = arg.split("=", 2)
             moduleParams[arg1] = arg2
-        run(moduleName, **moduleParams)
+        create(moduleName, moduleName, **moduleParams)
+        run(moduleName, data)
+        clean(moduleName)
         sys.exit()
 
-    run('DumpDataFile', fileName='test.dat')
-#    run('DumpDataDB', tableName='dump')
-#    run('List', paramName='sender')
+#    create('test1', 'DumpDataFile', fileName='test.dat')
+#    run('test1', data)
+#    clean('test1')
+#    run('DumpDataDB', table='dump')
+#    run('List', param='sender')
 #    run('DOS', 'params="sender"')
 #    run('DOS', 'params=["sender","client_address"], limitCount=100, limitTime=10')
-#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
-#    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
-#    run('ListDyn', "mapping=[('sender',None,None)], operation='add', softExpire=10, hardExpire=10")
-#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
-#    run('ListDyn', "mapping=[('sender',None,None)], operation='remove'")
-#    run('ListDyn', "mapping=[('sender',None,None)], softExpire=10, hardExpire=10")
+#    run('ListDyn', criteria=["sender"])
+#    run('ListDyn', criteria=["sender"], operation="add")
+#    run('ListDyn', criteria=["sender"])
+#    run('ListDyn', criteria=["sender"], operation="add")
+#    run('ListDyn', criteria=["sender"])
+#    run('ListDyn', criteria=["sender"], operation='remove')
+#    run('ListDyn', criteria=["sender"])

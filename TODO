@@ -1,8 +1,6 @@
-* check modules for hashArg and check parameters change
-* result caching !!!
+* error when using *args in check method
+
 * log files rotation
-* module start - handle exception during module start (and exit?)
-* Verification - persistend cache using List?
 
 * config file grammar
 

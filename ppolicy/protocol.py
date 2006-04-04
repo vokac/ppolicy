@@ -9,8 +9,9 @@
 #
 # $Id$
 #
-import string
+import sys, time, string
 import logging
+import threading
 from twisted.internet import protocol, interfaces, task
 from twisted.enterprise import adbapi
 
@@ -31,6 +32,9 @@ class PPolicyServerFactory:
         self.config = config
         self.modules = {}
         self.__addChecks(self.getConfig('modules'))
+        self.cacheValue = {}
+        self.cacheExpire = {}
+        self.cacheLock = threading.Lock()
 
 
     def getDbConnection(self):
@@ -65,35 +69,94 @@ class PPolicyServerFactory:
                 logging.getLogger().warn("Redeclaration of module %s[%s(%s)]" % (modType, modName, modParams))
             globals()[modType] = eval("__import__('%s', globals(),  locals(), [])" % modType)
             obj = eval("%s.%s('%s', self, **%s)" % (modType, modType, modName, modParams))
-            self.modules[modName] = obj
+            self.modules[modName] = [ obj, False ]
 
 
     def __startChecks(self):
         """Start factory modules."""
-        for modName, modObj in self.modules.items():
-	    logging.getLogger().info("Start module %s" % modObj.getId())
-            modObj.start()
+        for modName, modVal in self.modules.items():
+	    logging.getLogger().info("Start module %s" % modVal[0].getId())
+            try:
+                modVal[0].start()
+                modVal[1] = True
+            except Exception, e:
+                logging.getLogger().error("Start module %s failed: %s" % (modVal[0].getId(), e))
 
 
     def __stopChecks(self):
         """Stop factory modules."""
-        for modName, modObj in self.modules.items():
-	    logging.getLogger().info("Stop module %s" % modObj.getId())
-            modObj.stop()
+        for modName, modVal in self.modules.items():
+	    logging.getLogger().info("Stop module %s" % modVal[0].getId())
+            try:
+                modVal[0].stop()
+                modVal[1] = False
+            except Exception, e:
+                logging.getLogger().error("Stop module %s failed: %s" % (modVal[0].getId(), e))
 
 
     def check(self, name, *args, **keywords):
         """Called from config file. We should cache results here."""
-        # FIXME: cache results
         if not self.modules.has_key(name):
             raise Exception("Module named \"%s\" was not defined" % name)
         try:
-            obj = self.modules.get(name)
-            return obj.check(*args, **keywords)
+            obj, running = self.modules.get(name)
+            if not running:
+                obj.start()
+            hashArg = str(obj.hashArg(*args, **keywords))
+            code, codeEx = self.__cacheGet(name+hashArg)
+            if code == None:
+                #logging.getLogger().debug("running %s.check(%s, %s)" % (name, args, keywords))
+                code, codeEx = obj.check(*args, **keywords)
+                self.__cacheSet(name+hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
+            logging.getLogger().debug("%s result: %s (%s)" % (name, code, codeEx))
+            return code, codeEx
         except Exception, e:
             logging.getLogger().error("failed to call method of \"%s\" module: %s" % (name, e))
             # raise e
             return 0, "%s failed with exception" % name
+
+
+    def __cacheGet(self, key):
+        self.cacheLock.acquire()
+        #logging.getLogger().debug("__cacheGet for %s" % key)
+        try:
+            if self.cacheExpire.has_key(key) and self.cacheExpire[key] < time.time():
+                return self.cacheValue[key]
+        except Exception, e:
+            self.cacheLock.release()
+            raise e
+        self.cacheLock.release()
+        return None, None
+
+
+    def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+        self.cacheLock.acquire()
+        #logging.getLogger().debug("__cacheSet for %s (%s, %s)" % (key, code, codeEx))
+        try:
+            # full cache 3/4 cleanup?
+            if len(self.cacheExpire) > 1000:
+                exp = self.cacheExpire.values()
+                exp.sort()
+                expTr = exp[3*len(exp)/4]
+                if expTr < time.time():
+                    expTr = time.time()
+                toDelArr = [ name for name, exp in self.cacheExpire.items() if exp < expTr ]
+                for toDel in toDelArr:
+                    del(self.cacheValue[toDel])
+                    del(self.cacheExpire[toDel])
+            if code > 0 and cachePositive > 0:
+                self.cacheValue[key] = (code, codeEx)
+                self.cacheExpire[key] = time.time() + cachePositive
+            if code == 0 and cacheUnknown > 0:
+                self.cacheValue[key] = (code, codeEx)
+                self.cacheExpire[key] = time.time() + cacheUnknown
+            if code < 0 and cacheNegative > 0:
+                self.cacheValue[key] = (code, codeEx)
+                self.cacheExpire[key] = time.time() + cacheNegative
+        except Exception, e:
+            self.cacheLock.release()
+            raise e
+        self.cacheLock.release()
 
 
     def doStart(self):
@@ -173,7 +236,7 @@ class PPolicyServerRequest(protocol.Protocol):
         except Exception, err:
             import traceback
             logging.getLogger().error("uncatched exception: %s" % str(err))
-            logging.getLogger().error("%s" % traceback.format_exc())
+            logging.getLogger().error("%s" % traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
             self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
 
 
@@ -223,7 +286,7 @@ class PPolicyServerRequest(protocol.Protocol):
 
 if __name__ == "__main__":
     print "Module tests:"
-    import sys, time
+    import sys, time, socket
     import twisted.python.log
     twisted.python.log.startLogging(sys.stdout)
 

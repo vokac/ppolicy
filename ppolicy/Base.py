@@ -89,7 +89,7 @@ class Base(object):
     and "hashArg"
 
     Module arguments (see output of getParams method):
-    factory, cachePositive, cacheNegative
+    factory, cachePositive, cacheUnknown, cacheNegative
 
     Check arguments:
         None
@@ -102,6 +102,7 @@ class Base(object):
 
     PARAMS = { 'factory': ('reference to factory instance', None),
                'cachePositive': ('maximum time for caching positive result', 60*15),
+               'cacheUnknown': ('maximum time for caching unknown result', 60*15),
                'cacheNegative': ('maximum time for caching negative result', 60*15),
 #               'redefineDefaultValue': (None, 'abc'),
                }
@@ -184,7 +185,10 @@ class Base(object):
         if not self.paramsHelp.has_key(key):
             logging.getLogger().error("trying to set undefined parameter %s" % key)
             return
-        self.paramsValue[key] = value
+        if value == None and self.paramsValue.has_key(key):
+            del(self.paramsValue[key])
+        else:
+            self.paramsValue[key] = value
 
 
     def getParam(self, key, default = None):
@@ -210,7 +214,7 @@ class Base(object):
         method was used."""
         if pos >= 0 and len(args) > pos:
             return args[pos]
-        if Key != None:
+        if key != None:
             return keywords.get(key, default)
         return default
 
@@ -224,8 +228,9 @@ class Base(object):
         For good hash better algorithm should be used, e.g. Item 7 in
         Joshua Bloch's Effective Java Programming Language Guide"""
 
-        keys = sorted(keywords.keys())
-        keywordsTuple = tuple([ "=".join([x, keywords[x]]) for x in keys ])
+        keys = keywords.keys()
+        keys.sort()
+        keywordsTuple = tuple([ "=".join([x, str(keywords[x])]) for x in keys ])
         return hash("\n".join(args + keywordsTuple))
 
 

@@ -21,7 +21,7 @@ class List(Base):
     black/white listing any of parameter comming with ppolicy requests.
 
     Module arguments (see output of getParams method):
-    paramName, paramFunction, tableName, tableColumn
+    param, table, column
 
     Check arguments:
         data ... all input data in dict
@@ -33,42 +33,41 @@ class List(Base):
 
     Examples:
         # module for checking if sender is in database table list
-        define('list1', 'List', paramName="sender")
+        define('list1', 'List', param="sender")
         # check if sender domain is in database table list1
-        define('list1', 'List', paramName="sender", paramFunction=mailToDomain, tableName="list1")
+        define('list1', 'List', param="sender", table="list1")
     """
 
-    PARAMS = { 'paramName': ('name of parameter to search in database', None),
-               'paramFunction': ('use this function to preproces parameter (e.g strip username from sender address)', None),
-               'tableName': ('name of database table where to search parameter', 'list'),
-               'tableColumn': ('name of database column', 'name'),
+    PARAMS = { 'param': ('name of parameter to search in database', None),
+               'table': ('name of database table where to search parameter', None),
+               'column': ('name of database column', None),
                }
                
 
     def getId(self):
-        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('tableName'), self.getParam('paramName'))
+        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('param'))
 
 
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        paramName = self.getParam('paramName')
-        return hash("=".join([ paramName, data.get(paramName) ]))
+        param = self.getParam('param')
+        return hash("=".join([ param, data.get(param) ]))
 
 
     def start(self):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
-        for attr in [ 'paramName', 'tableName', 'tableColumn' ]:
+        for attr in [ 'param', 'table', 'column' ]:
             if self.getParam(attr) == None:
-                raise ParamError("%s has to be specified for this module" % attr)
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
-        tableName = self.getParam('tableName')
-        tableColumn = self.getParam('tableColumn')
+        table = self.getParam('table')
+        column = self.getParam('column')
 
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (tableName, tableColumn, tableColumn)
+        sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
         cursor.close()
@@ -76,34 +75,23 @@ class List(Base):
 
     def check(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        paramName = self.getParam('paramName')
-        paramFunction = self.getParam('paramFunction', None)
-
-        if paramFunction == None: dtaArr = [ data.get(paramName) ]
-        else: dtaArr = paramFunction(data.get(paramName))
-
-        if dtaArr in [ None, [], [ None ] ]:
-            expl = "%s: no test data for %s" % (self.getId(), paramName)
-            logging.getLogger().warn(expl)
-            return 0, expl
-
-        tableName = self.getParam('tableName')
-        tableColumn = self.getParam('tableColumn')
+        param = self.getParam('param')
+        table = self.getParam('table')
+        column = self.getParam('column')
+        paramValue = data.get(param, '')
 
         found = False
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
 
-            for dta in dtaArr:
-                sql = "SELECT COUNT(`%s`) FROM `%s` WHERE `%s` = '%s'" % (tableColumn, tableName, tableColumn, dta)
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
-                row = cursor.fetchone()
-                if row[0] > 0:
-                    found = True
-                    break
-
+            sql = "SELECT COUNT(*) FROM `%s` WHERE `%s` = '%s'" % (table, column, paramValue)
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            if row[0] > 0:
+                found = True
+            cursor.close()
         except Exception, e:
             cursor.close()
             expl = "%s: database error" % self.getId()

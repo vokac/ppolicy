@@ -39,6 +39,7 @@ class DumpDataFile(Base):
 
     PARAMS = { 'fileName': ('file where to dump data from requests', None),
                'cachePositive': (None, 0),
+               'cacheUnknown': (None, 0),
                'cacheNegative': (None, 0),
                }
 

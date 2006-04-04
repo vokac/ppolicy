@@ -12,6 +12,7 @@
 import logging
 import socket
 from Base import Base, ParamError
+from ListDyn import ListDyn
 from tools import dnscache, smtplib
 
 
@@ -39,9 +40,11 @@ class Verification(Base):
         data ... all input data in dict
 
     Check returns:
+        2 .... verification was successfull (hit pernament cache)
         1 .... verification was successfull
         0 .... undefined (e.g. DNS error, SMTP error, ...)
         -1 ... verification failed
+        -2 ... verification failed (hit pernament cache)
 
     Examples:
         # sender domain verification
@@ -50,10 +53,10 @@ class Verification(Base):
         define('verification', 'Verification', param="recipient", vtype="user")
     """
 
-    PARAMS = { 'param': ('string key for data item that should be verified', None),
+    PARAMS = { 'param': ('string key for data item that should be verified (sender/recipient)', None),
                'timeout': ('set SMTP connection timeout', 20),
                'vtype': ('domain or user verification', 'domain'),
-               'tableName': ('database table with persistent cache', 'verification'),
+               'table': ('database table with persistent cache', 'verification'),
                'dbExpirePositive': ('positive result expiration time in db', 60*60*24*21),
                'dbExpireNegative': ('negative result expiration time in db', 60*60*3),
                }
@@ -63,20 +66,22 @@ class Verification(Base):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
-        param = self.getParam('param')
-        if param == None:
-            raise ParamError('param has to be specified for this module')
+        for attr in [ 'param', 'timeout', 'vtype', 'table', 'dbExpirePositive', 'dbExpireNegative' ]:
+            if self.getParam(attr) == None:
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
-        tableName = self.getParam('tableName')
-        if tableName == None:
-            raise ParamError('tableName has to be specified for this module')
+        table = self.getParam('table')
+        vtype = self.getParam('vtype')
+        dbExpirePositive = self.getParam('dbExpirePositive')
+        dbExpireNegative = self.getParam('dbExpireNegative')
 
-        conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`name` VARCHAR(255) NOT NULL, `code` SMALLINT NOT NULL)" % tableName
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        cursor.close()
+        if vtype not in [ 'domain', 'user' ]:
+            raise ParamError("vtype can be only domain or user")
+
+        self.cachePositive = ListDyn("%s_%s_persistent_cache_positive" % (vtype, self.getName()), self.factory, table=table, criteria=["param"], value=True, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
+        self.cachePositive.start()
+        self.cacheNegative = ListDyn("%s_%s_persistent_cache_negative" % (vtype, self.getName()), self.factory, table=table, criteria=["param"], value=True, softExpire=dbExpireNegative*3/4, hardExpire=dbExpireNegative)
+        self.cacheNegative.start()
 
 
     def hashArg(self, *args, **keywords):
@@ -90,7 +95,6 @@ class Verification(Base):
         param = self.getParam('param')
         paramValue = data.get(param, '')
         vtype = self.getParam('vtype')
-        tableName = self.getParam('tableName')
 
         # RFC 2821, section 4.1.1.2
         # empty MAIL FROM: reverse address may be null
@@ -105,11 +109,8 @@ class Verification(Base):
                 return 1, "%s accept all mail to postmaster" % self.getId()
 
         # create email address to check
-        if param in [ 'sender', 'recipient' ]:
-            try:
-                user, domain = paramValue.split("@")
-            except ValueError:
-                pass
+        if paramValue.find("@") != -1:
+            user, domain = paramValue.split("@", 2)
         else:
             user = 'postmaster'
             domain = paramValue
@@ -120,22 +121,13 @@ class Verification(Base):
             logging.getLogger().warn(expl)
             return -1, expl
 
-        code = None
-        try:
-            conn = self.factory.getDbConnection()
-            cursor = conn.cursor()
-            if vtype == 'domain':
-                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) = LOWER('%s')" % (tableName, domain)
-            else:
-                sql = "SELECT `code` FROM `%s` WHERE LOWER(`name`) = LOWER('%s@%s')" % (tableName, user, domain)
-            logging.getLogger().debug("SQL: %s" % sql)
-            cursor.execute(sql)
-            row = cursor.fetchone()
-            if row != None: code = row[0]
-        except Exception, e:
-            logging.getLogger().warn("database error: %s" % e)
-        if code != None:
-            return code, "%s result from persistent cache" % self.getId()
+        # look in pernament result cache
+        cacheCode, cacheVal = self.cachePositive.check({ 'param': paramValue }, operation="check")
+        if cacheCode > 0:
+            return 2, cacheVal
+        cacheCode, cacheVal = self.cachePositive.check({ 'param': paramValue }, operation="check")
+        if cacheCode > 0:
+            return -2, cacheVal
 
         # list of mailservers
         mailhosts = dnscache.getDomainMailhosts(domain)
@@ -156,17 +148,11 @@ class Verification(Base):
         if code == None:
             return 0, "%s didn't get any result" % self.getId()
 
-        try:
-            conn = self.factory.getDbConnection()
-            cursor = conn.cursor()
-            if vtype == 'domain':
-                sql = "INSERT INTO `%s` (`name`, `code`) VALUES ('%s', %i)" % (tableName, domain, code)
-            else:
-                sql = "INSERT INTO `%s` (`name`, `code`) VALUES ('%s@%s', %i)" % (tableName, user, domain, code)
-            logging.getLogger().debug("SQL: %s" % sql)
-            cursor.execute(sql)
-        except Exception, e:
-            logging.getLogger().warn("database error")
+        # add new informations to pernament cache
+        if code > 0:
+            self.cachePositive.check({ 'param': paramValue, 'value': codeEx }, operation="add")
+        if code < 0:
+            self.cacheNegative.check({ 'param': paramValue, 'value': codeEx }, operation="add")
 
         return code, codeEx
 

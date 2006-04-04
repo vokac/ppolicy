@@ -24,7 +24,7 @@ class Trap(Base):
     the trap, all mail from that client will be temporarly blocked.
 
     Module arguments (see output of getParams method):
-    traps, tableName, tableCols, expire, limit
+    traps, treshold, expire, limit
 
     Check arguments:
         data ... all input data in dict
@@ -44,6 +44,7 @@ class Trap(Base):
                'treshold': ('how many traps has to be touched before blacklisting (negative value mean fraction 1/x)', -2),
                'expire': ('expiration time for client that send trapped email', 60*60),
                'cachePositive': (None, 0),
+               'cacheUnknown': (None, 0),
                'cacheNegative': (None, 0),
                }
 

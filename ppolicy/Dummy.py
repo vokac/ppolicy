@@ -40,6 +40,7 @@ class Dummy(Base):
     PARAMS = { 'test1': ('test parameter 1', None),
                'test2': ('test parameter 2', 'abc'),
                'cachePositive': (None, 0), # define new default value
+               'cacheUnknown': (None, 0), # define new default value
                'cacheNegative': (None, 0), # define new default value
                }
 

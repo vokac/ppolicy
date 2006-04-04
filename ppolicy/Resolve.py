@@ -21,7 +21,7 @@ class Resolve(Base):
     """Try to resolve ip->name, name->ip, ip->name->ip, name->ip->name.
 
     Module arguments (see output of getParams method):
-    param, paramFunction, type
+    param, type
 
     Check arguments:
         data ... all input data in dict
@@ -33,7 +33,7 @@ class Resolve(Base):
 
     Examples:
         # check if sender domain exist
-        define('resolve1', 'Resolve', param="sender", paramFunction="mailToDomain", type="name->ip")
+        define('resolve1', 'Resolve', param="sender", type="name->ip")
         # check if remote mailserver has reverse records in DNS
         define('resolve2', 'Resolve', param="client_address", type="ip->name")
         # check if remote mailserver has reverse records in DNS
@@ -42,7 +42,6 @@ class Resolve(Base):
     """
 
     PARAMS = { 'param': ('which request parameter should be used', None),
-               'paramFunction': ('change parameter value with this function', None),
                'type': ('ip->name, name->ip, ip->name->ip, name->ip->name', None),
                }
 
@@ -50,7 +49,7 @@ class Resolve(Base):
     def start(self):
         for attr in [ 'param', 'type' ]:
             if self.getParam(attr) == None:
-                raise ParamError("%s has to be specified for this module" % attr)
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
 
     def hashArg(self, *args, **keywords):
@@ -62,20 +61,19 @@ class Resolve(Base):
     def check(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
-        paramFunction = self.getParam('paramFunction')
         resolveType = self.getParam('type')
 
-        if paramFunction == None:
-            dtaArr = [ data.get(param) ]
-        else:
-            dtaArr = paramFunction(data.get(param))
+        if type(paramValue) == tuple:
+            paramValue = list(tuple)
+        if type(paramValue) != list:
+            paramValue = [ paramValue ]
 
-        if dtaArr in [ None, [], [ None ] ]:
+        if paramValue in [ None, [], [ None ] ]:
             expl = "%s: no test data for %s" % (self.getId(), param)
             logging.getLogger().warn(expl)
             return 0, expl
 
-        for dta in dtaArr:
+        for dta in paramValue:
             if not self.__testResolve(dta, resolveType.lower()):
                 return -1, "%s can't resolve %s or DNS misconfiguration" % (self.getId(), dta)
 
