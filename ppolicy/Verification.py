@@ -223,17 +223,26 @@ class Verification(Base):
                 if code >= 400:
                     conn.quit()
                     conn.close()
-                    return Verification.CHECK_FAILED, "%s verification HELO failed: %s" % (param, retmsg)
+                    if code >= 500:
+                        return Verification.CHECK_FAILED, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
+                    else:
+                        return Verification.CHECK_UNKNOWN, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
                 code, retmsg = conn.mail("postmaster@%s" % self.factory.getConfig('domain'))
                 if code >= 400:
                     conn.quit()
                     conn.close()
-                    return Verification.CHECK_FAILED, "%s verification MAIL failed: %s" % (param, retmsg)
+                    if code >= 500:
+                        return Verification.CHECK_FAILED, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
+                    else:
+                        return Verification.CHECK_UNKNOWN, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
                 code, retmsg = conn.rcpt("%s@%s" % (user, domain))
                 if code >= 400:
                     conn.quit()
                     conn.close()
-                    return Verification.CHECK_FAILED, "%s verification RCPT failed: %s" % (param, retmsg)
+                    if code >= 500:
+                        return Verification.CHECK_FAILED, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
+                    else:
+                        return Verification.CHECK_UNKNOWN, "%s verification HELO failed with code %s: %s" % (param, code, retmsg)
                 code, retmsg = conn.rset()
                 conn.quit()
             conn.close()
@@ -241,10 +250,10 @@ class Verification(Base):
         except smtplib.SMTPException, err:
             msg = "SMTP communication with %s (%s) failed: %s" % (mailhost, domain, err)
             logging.getLogger().warn("%s: %s" (self.getId(), msg))
-            return Verification.UNKNOWN_FAILED, "address verification failed: %s" % msg
+            return Verification.CHECK_UNKNOWN, "address verification failed: %s" % msg
         except socket.error, err:
             msg = "socket communication with %s (%s) failed: %s" % (mailhost, domain, err)
             logging.getLogger().warn("%s: %s" % (self.getId(), msg))
-            return Verification.UNKNOWN_FAILED, "address verification failed: %s" % msg
+            return Verification.CHECK_UNKNOWN, "address verification failed: %s" % msg
 
         return Verification.CHECK_FAILED, "address verirication failed."
