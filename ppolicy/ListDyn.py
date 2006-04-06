@@ -204,13 +204,13 @@ class ListDyn(Base):
                 dictVal = [ '' ]
             if len(valX) == 0:
                 for val in dictVal:
-                    if colEsc: val = "'%s'" % val.replace("'", "\'")
+                    if colEsc: val = "'%s'" % val.replace("'", "\\'")
                     valX.append([(dictName, colName, val)])
             else:
                 valXnew = []
                 for pX in valX:
                     for val in dictVal:
-                        if colEsc: val = "'%s'" % val.replace("'", "\'")
+                        if colEsc: val = "'%s'" % val.replace("'", "\\'")
                         valXnew.append(pX + [(dictName, colName, val)])
                 valX = valXnew
 
@@ -219,7 +219,7 @@ class ListDyn(Base):
             for dictName in valueCols:
                 colName, colType, colEsc = self.__mapping(dictName)
                 dictVal = value.get(dictName, '')
-                if colEsc: dictVal = "'%s'" % dictVal.replace("'", "\'")
+                if colEsc: dictVal = "'%s'" % dictVal.replace("'", "\\'")
                 colNVadd[colName] = dictVal
         if softExpire != 0:
             colName, colType, colEsc = self.__mapping('soft_expire')

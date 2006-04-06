@@ -161,7 +161,7 @@ class Verification(Base):
                     return Verification.CHECK_SUCCESS_CACHE, cacheEx
                 elif cacheRes < 0:
                     return Verification.CHECK_FAILED_CACHE, cacheEx
-            return Verification.CHECK_UNKNOWN, "%s DNS failure: %s" % (self.getId(), e)
+            return Verification.CHECK_FAILED, "%s DNS failure: %s" % (self.getId(), e)
             
         if len(mailhosts) == 0:
             code = Verification.CHECK_FAILED
@@ -178,12 +178,16 @@ class Verification(Base):
             return code, codeEx
             
 
+        maxMXToTry = 3
         for mailhost in mailhosts:
             # FIXME: how many MX try? timeout?
             logging.getLogger().debug("trying to check %s for %s@%s" % (mailhost, user, domain))
             code, codeEx = self.checkMailhost(mailhost, domain, user)
             logging.getLogger().debug("checking returned: %s (%s)" % (code, codeEx))
-            if code != None and code > 0:
+            if code != None and code != Verification.CHECK_UNKNOWN:
+                break
+            maxMXToTry -= 1
+            if maxMXToTry <= 0:
                 break
 
         if code == None or code == Verification.CHECK_UNKNOWN:
@@ -237,10 +241,10 @@ class Verification(Base):
         except smtplib.SMTPException, err:
             msg = "SMTP communication with %s (%s) failed: %s" % (mailhost, domain, err)
             logging.getLogger().warn("%s: %s" (self.getId(), msg))
-            return Verification.CHECK_FAILED, "address verification failed: %s" % msg
+            return Verification.UNKNOWN_FAILED, "address verification failed: %s" % msg
         except socket.error, err:
             msg = "socket communication with %s (%s) failed: %s" % (mailhost, domain, err)
             logging.getLogger().warn("%s: %s" % (self.getId(), msg))
-            return Verification.CHECK_FAILED, "address verification failed: %s" % msg
+            return Verification.UNKNOWN_FAILED, "address verification failed: %s" % msg
 
         return Verification.CHECK_FAILED, "address verirication failed."

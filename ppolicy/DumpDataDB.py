@@ -84,7 +84,7 @@ class DumpDataDB(Base):
                 cursor.execute(sql)
 
                 for k,v in data.items():
-                    sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES (%i, '%s', '%s')" % (table, newId, k, str(v).replace("'", "\'"))
+                    sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES (%i, '%s', '%s')" % (table, newId, k, str(v).replace("'", "\\'"))
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
 

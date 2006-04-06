@@ -127,7 +127,7 @@ class Greylist(Base):
             cursor = conn.cursor()
             table = self.getParam('table')
 
-            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, sender.replace("'", "\'"), recipient.replace("'", "\'"), greysubj.replace("'", "\'"))
+            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             greylistDelay = self.getParam('delay')
@@ -147,7 +147,7 @@ class Greylist(Base):
                     retInfo = 'greylisting in progress, mail will be accepted in %ss' % greylistDelay
                 try:
                     # this is not critical so do it in separate try section
-                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\'"), recipient.replace("'", "\'"), greysubj.replace("'", "\'"))
+                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
                 except Exception, e:
@@ -156,7 +156,7 @@ class Greylist(Base):
                 # insert new
                 retCode = -1
                 retInfo = 'greylist in progress: %ss' % greylistDelay
-                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\'"), recipient.replace("'", "\'"), greysubj.replace("'", "\'"), greylistDelay, greylistExpire)
+                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
 
