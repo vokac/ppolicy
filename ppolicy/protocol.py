@@ -117,16 +117,17 @@ class PPolicyServerFactory:
 
 
     def __cacheGet(self, key):
+        retVal = None, None
         self.cacheLock.acquire()
         #logging.getLogger().debug("__cacheGet for %s" % key)
         try:
             if self.cacheExpire.has_key(key) and self.cacheExpire[key] < time.time():
-                return self.cacheValue[key]
+                retVal = self.cacheValue[key]
         except Exception, e:
             self.cacheLock.release()
             raise e
         self.cacheLock.release()
-        return None, None
+        return retVal
 
 
     def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):

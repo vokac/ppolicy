@@ -10,7 +10,8 @@
 # $Id$
 #
 import logging
-from Base import Base
+from Base import Base, ParamError
+from tools import dnsbl
 
 
 __version__ = "$Revision$"
@@ -18,13 +19,16 @@ __version__ = "$Revision$"
 
 class Dnsbl(Base):
     """Check if client address is listed in specified DNS blacklist.
-    !!! This module is not yet finished !!!
+    see tools/dnsbl.txt for list of valid blacklist names - original
+    file can be downloaded from http://moensted.dk/spam/drbsites.txt
+    You can also run `python tools/dnsbl.py --list` to see formated
+    output of configured balacklists.
 
     Module arguments (see output of getParams method):
-    name
+    dnsbl
 
     Check arguments:
-        None
+        data ... all input data in dict
 
     Check returns:
         1 .... listed in dnsbl
@@ -33,24 +37,37 @@ class Dnsbl(Base):
 
     Examples:
         # check if sender mailserver is in ORDB blacklist
-        define('dnsbl1', 'Dnsbl', name="ORDB")
+        define('dnsbl1', 'Dnsbl', dnsbl="ORDB")
     """
 
-    PARAMS = { 'name': ('name of DNS blacklist defined in this module', None),
+    PARAMS = { 'dnsbl': ('name of DNS blacklist defined in this module', None),
                }
 
 
+    def start(self):
+        for attr in [ 'dnsbl' ]:
+            if self.getParam(attr) == None:
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
+
+        dnsblName = self.getParam('dnsbl')
+        if not dnsbl.has_config(dnsblName):
+            raise ParamError("there is not %s dnsbl list in config file" % dnsblName)
+
+
     def hashArg(self, *args, **keywords):
-        client_address = args[0]
-        return hash("client_address=%s" % client_address)
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
+        return hash(data.get('client_address'))
 
 
     def check(self, *args, **keywords):
-        client_address = args[0]
+        data = self.dataArg(0, 'data', {}, *args, **keywords)
+        client_address = data.get('client_address')
+        dnsblName = self.getParam('dnsbl')
 
-#        if dnsbl.check(client_address, self.dns, self.type, self.retval):
-#            return 1, "%s blacklisted in %s" % (client_address, self.dns)
-#        else:
-#            return -1, "%s is not in %s blacklist" % (client_address, self.dns)
-
-        return 0, 'not implemented'
+        res = dnsbl.check(dnsblName, client_address)
+        if res == None:
+            return 0, "error checking %s in %s" % (client_address, dnsblName)
+        if res:
+            return 1, "%s blacklisted in %s" % (client_address, dnsblName)
+        else:
+            return -1, "%s is not in %s blacklist" % (client_address, dnsblName)

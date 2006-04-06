@@ -100,6 +100,10 @@ class Base(object):
 
     __implements__ = (IPPolicyCheck, )
 
+    CHECK_SUCCESS=1
+    CHECK_UNKNOWN=0
+    CHECK_FAILED=-1
+
     PARAMS = { 'factory': ('reference to factory instance', None),
                'cachePositive': ('maximum time for caching positive result', 60*15),
                'cacheUnknown': ('maximum time for caching unknown result', 60*15),

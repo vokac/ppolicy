@@ -15,7 +15,7 @@ doclines = __doc__.split("\n")
 
 setup(
     name            = "ppolicy",
-    version         = '2.1.0',
+    version         = '2.2.0',
     author          = "Petr Vokac",
     author_email    = "vokac@kmlinux.fjfi.cvut.cz",
     url             = "http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy",

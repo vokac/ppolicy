@@ -1,0 +1,526 @@
+Module Dnsbl
+------------
+
+Check if client address is listed in specified DNS blacklist.
+see tools/dnsbl.txt for list of valid blacklist names - original
+file can be downloaded from http://moensted.dk/spam/drbsites.txt
+You can also run `python tools/dnsbl.py --list` to see formated
+output of configured balacklists.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    dnsbl (None)
+        name of DNS blacklist defined in this module
+    cachePositive (900)
+        maximum time for caching positive result
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... listed in dnsbl
+    0 .... unknown error (e.g. DNS problems)
+    -1 ... not listed
+
+Examples:
+    # check if sender mailserver is in ORDB blacklist
+    define('dnsbl1', 'Dnsbl', dnsbl="ORDB")
+
+
+
+
+Module DOS
+----------
+
+Limit number of incomming mail that has same parameters. You
+can e.g. limit number of messages that can be accepted by one
+recipient from one sender in defined period of time. It will
+divide time interval into several parts and agregate information
+about number of incomming mails. Be carefull setting this module,
+because badly choosed parameters can exhause a lot of memory.
+
+Parameters:
+    cacheNegative (0)
+        maximum time for caching negative result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    limitGran (10)
+        data collection granularity
+    limitTime (3600)
+        time period for limitCount messages
+    factory (None)
+        reference to factory instance
+    params (None)
+        parameters that will be used to test equality
+    cachePositive (0)
+        maximum time for caching positive result
+    limitCount (1000)
+        number of messages accepted during limitTime period
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... frequency reached defined limit
+    0 .... unrelated error (e.g. database problem)
+    -1 ... frequency is acceptable
+
+Examples:
+    # limit number of mail from one sender to 1000/hod
+    define('dos1', 'DOS', params="sender")
+    # limit number of mail from one sender
+    # and one mailserver to 100 in 10 minutes
+    define('dos2', 'DOS', params=["sender","client_address"], limitCount=100, limitTime=10)
+
+
+
+
+Module Dummy
+------------
+
+Dummy module skeleton for creating new modules
+
+Parameters:
+    test1 (None)
+        test parameter 1
+    cacheNegative (0)
+        maximum time for caching negative result
+    test2 (abc)
+        test parameter 2
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    cachePositive (0)
+        maximum time for caching positive result
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... ok 
+    0 .... undefined (default for this module)
+    -1 ... failed
+
+Examples:
+    # make instance of dummy module
+    define('dummy1', 'Dummy')
+    # make instance of dummy module with parameters
+    define('dummy1', 'Dummy', test1=1, test2="def")
+
+
+
+
+Module DumpDataDB
+-----------------
+
+Dump data from incomming request into the database. These informations
+can be used to improve debugging of other modules or to gather
+statistical data for further analysis. This module should be safe to
+use in sense its check method doesn't raise any exception.
+
+Parameters:
+    table (dump)
+        database where to dump data from requests
+    cacheNegative (0)
+        maximum time for caching negative result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    cachePositive (0)
+        maximum time for caching positive result
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    this module always return 0 (undefined result)
+
+Examples:
+    # definition for module for saving request info in default
+    # database table 'dump'
+    define('dumpdb1', 'DumpDataDB')
+    # module that save info in custom defined table
+    define('dumpdb2', 'DumpDataDB', table="my_dump")
+
+
+
+
+Module DumpDataFile
+-------------------
+
+Dump data from incomming request into the file. These informations
+can be used to improve debugging of other modules or to gather
+statistical data for further analysis. This module should be safe to
+use in sense its check method doesn't raise any exception.
+
+Parameters:
+    cacheNegative (0)
+        maximum time for caching negative result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    cachePositive (0)
+        maximum time for caching positive result
+    fileName (None)
+        file where to dump data from requests
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    this module always return 0 (undefined result)
+
+Examples:
+    # definition for module for saving request info in file
+    define('dumpfile1', 'DumpDataFile', fileName="/var/spool/ppolicy/dump.dat")
+
+
+
+
+Module Greylist
+---------------
+
+Greylist implementation. Mail thats triplet (from,to,client)
+was not seen before should be rejected with code 450 (temporary
+failed). It relay on fact that spammer software will not try to
+send mail once again and correctly configured mailservers must
+try it one again (see RFC 2821).
+
+Be carefull because some poorly configured mailserver did not
+retry to send mail again and some mailing list has unique sender
+name for each mail and this module delay delivery and increase
+load of remote server.
+
+Parameters:
+    cacheNegative (0)
+        maximum time for caching negative result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    delay (600)
+        how long to delay mail we see its triplet first time
+    expiration (2678400)
+        expiration of triplets in database
+    cachePositive (0)
+        maximum time for caching positive result
+    table (greylist)
+        greylist database table
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... was seen before
+    0 .... some error occured (database, dns, ...)
+    -1 ... Graylist in progress
+
+Examples:
+    # greylisting module with default parameters
+    define('greylist1', 'Greylist')
+    # greylisting module with own database table "grey", delay set
+    # to 1 minute and expiration time of triplets to 1 year
+    define('greylist2', 'Greylist', table="grey", delay=60, expiration=86400*365)
+
+
+
+
+Module List
+-----------
+
+Check if parameter is in specified database. Can be used for
+black/white listing any of parameter comming with ppolicy requests.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    column (None)
+        name of database column
+    factory (None)
+        reference to factory instance
+    param (None)
+        name of parameter to search in database
+    cachePositive (900)
+        maximum time for caching positive result
+    table (None)
+        name of database table where to search parameter
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... parameter was found in db
+    0 .... failed to check (request doesn't include required param, database error, ...)
+    -1 ... parameter was not found in db
+
+Examples:
+    # module for checking if sender is in database table list
+    define('list1', 'List', param="sender")
+    # check if sender domain is in database table list1
+    define('list1', 'List', param="sender", table="list1")
+
+
+
+
+Module ListDyn
+--------------
+
+This module provide general access (add/remove/check) to the
+persistent data store in database. You can use this module for
+black/white lists, persistent data cache for result from other
+modules, ...
+
+One of the most important parameter is "mapping". It is used to
+map request parameters database columns. Its syntax is
+[ 'dictName': ('columnName', 'columnType', escape), ...], where
+dictName is attribude name comming in check method in data
+dictionary, columnName is database column name, column type is
+database column type in SQL syntax and escape is boolean value
+that identifies text columns that's text should be escaped. If
+don't define mapping for concrete column, than default is used
+'dictName': ('dictName', 'VARCHAR(255)', True)
+
+Second very important parametr is "operation". With this parameter
+you specify what this module should do by default with passed request.
+Also result returned from check method depends on this operation.
+add ...... add new data to database
+remove ... remove all matching data from database
+check .... check if database include data from request
+
+You can also set soft and hard expiration time for the
+records. For example you can specify, that after 1 hour it will
+return SOFT_NEGATIVE constant and after 2 hours
+HARD_NEGATIVE. This can be usefull when you use this module as
+persistent cache for some other module and you are not sure that
+the its results are always reachable (e.g. when it uses DNS and it
+is temporarly unreachable).
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    hardExpire (None)
+        expiration time for the record (0 == never)
+    softExpire (None)
+        information that record will be soon expired (0 == never))
+    mapping ({})
+        mapping between params and database columns
+    value (None)
+        names of value columns (None mean no related data)
+    factory (None)
+        reference to factory instance
+    cachePositive (900)
+        maximum time for caching positive result
+    criteria (None)
+        names of input data keys used to identify data row(s)
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    operation (check)
+        list operation (add/remove/check)
+    table (list)
+        name of database table where to search parameter
+
+Check arguments:
+    data ... all input data in dict
+    operation ... add/remove/check operation that overide the default
+
+Check returns:
+    add, remove
+        1 .... operation was successfull
+        0 .... error (database error, ...)
+    check
+        2 .... parameters are in list, but soft expired
+        1 .... parameters are in list
+        0 .... failed to check (database error, ...)
+        -1 ... parameters are not in list
+
+Examples:
+    # module for checking if sender is in database table list1
+    define('list1', 'ListDyn', table='list1', mapping={ "sender": "mail", })
+    # module for checking/getting if sender row values in database table list2
+    define('list2', 'ListDyn', table='list2', mapping={ "sender": ("mail", "VARCHAR(50)", True), }, value=["data1"])
+    # module with soft/hard expiration and 'add' as default operation
+    define('list3', 'ListDyn', table='list3', operation='add', softExpire=60*10, hardExpire=60*30)
+
+
+
+
+Module Resolve
+--------------
+
+Try to resolve ip->name, name->ip, ip->name->ip, name->ip->name.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    param (None)
+        which request parameter should be used
+    cachePositive (900)
+        maximum time for caching positive result
+    type (None)
+        ip->name, name->ip, ip->name->ip, name->ip->name
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... all tranlation were successfull and equal
+    0 .... problem resolving ip or name (DNS error)
+    -1 ... translation failed
+
+Examples:
+    # check if sender domain exist
+    define('resolve1', 'Resolve', param="sender", type="name->ip")
+    # check if remote mailserver has reverse records in DNS
+    define('resolve2', 'Resolve', param="client_address", type="ip->name")
+    # check if remote mailserver has reverse records in DNS
+    # and translating back returns set of IP that contains original IP
+    define('resolve3', 'Resolve', param="client_address", type="ip->name->ip")
+
+
+
+
+Module SPF
+----------
+
+This module use sender address and client IP to check SPF
+records in DNS if they are exist.
+
+More informations about SPF can be found at following address
+http://www.openspf.org
+http://en.wikipedia.org/wiki/Sender_Policy_Framework
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    cachePositive (900)
+        maximum time for caching positive result
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... SPF passed
+    0 .... undefined SPF records or exception when checking SPF
+    -1 ... SPF failed
+
+Examples:
+    # define module for checking SPF
+    define('spf1', 'SPF')
+
+
+
+
+Module Trap
+-----------
+
+Trap module catches mail probing random recipient addresses. If in
+defined time fall more than defined amount of mail from one client to
+the trap, all mail from that client will be temporarly blocked.
+
+Parameters:
+    cacheNegative (0)
+        maximum time for caching negative result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    traps (None)
+        comma separated list of trap email addresses
+    factory (None)
+        reference to factory instance
+    expire (3600)
+        expiration time for client that send trapped email
+    cachePositive (0)
+        maximum time for caching positive result
+    treshold (-2)
+        how many traps has to be touched before blacklisting (negative value mean fraction 1/x)
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... request from client that send many mail touched our mail traps
+    0 .... some problem
+    -1 ... client is not touched mail traps
+
+Examples:
+    # define trap to block client_address for one hour if we receive
+    # one mail with recipient spamtrap1 or spamtrap2
+    define('trap1', 'Trap', traps="spamtrap1@domain.com,spamtrap2@domain.com")
+
+
+
+
+Module Verification
+-------------------
+
+Module for mx, connection, domain and user verification. It
+check domain existence and then it try to establish SMTP
+connection with mailhost for the domain (MX, A or AAAA DNS records
+- see RFC2821, chapter 5).
+
+You can check if sender/recipient or whatever reasonable has
+correct DNS records as mailhost and try to connect to this server.
+
+Second option si to check if sender/recipient is accepted by
+remote mailserver. Be carefull when turning on verification and
+first read http://www.postfix.org/ADDRESS_VERIFICATION_README.html
+to see limitation and problem that can happen.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    vtype (mx)
+        mx, connection, domain or user verification
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    timeout (20)
+        set SMTP connection timeout
+    dbExpirePositive (1814400)
+        positive result expiration time in db
+    factory (None)
+        reference to factory instance
+    param (None)
+        string key for data item that should be verified (sender/recipient)
+    cachePositive (900)
+        maximum time for caching positive result
+    table (verification)
+        database table with persistent cache
+    dbExpireNegative (10800)
+        negative result expiration time in db
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    2 .... verification was successfull (hit pernament cache)
+    1 .... verification was successfull
+    0 .... undefined (e.g. DNS error, SMTP error, ...)
+    -1 ... verification failed
+    -2 ... verification failed (hit pernament cache)
+
+Examples:
+    # sender domain verification
+    define('verification', 'Verification', param="sender")
+    # recipient user verification
+    define('verification', 'Verification', param="recipient", vtype="user")
+
+
+
+

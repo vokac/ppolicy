@@ -1,10 +1,9 @@
-* error when using *args in check method
-
+TODO list sorted by task importance
+-----------------------------------
+* error when using *args in check method ???
 * log files rotation
 
+* automatic module tests
+* DB synchronization
+
 * config file grammar
-
-* implement tasks
-  - DB synchronization task(?)
-
-* test all modules

@@ -19,41 +19,29 @@ __version__ = "$Revision$"
 
 
 class SPF(Base):
-    """This module use sender address and client IP and check SPF
-    records in DNS if they are exist. It can run in permissive or
-    restrictive mode. Permissive mode is default and recomended for
-    general usage. Restrictive marks too many correct mail and should
-    be used only in special cases when you really know what you are
-    doing...
+    """This module use sender address and client IP to check SPF
+    records in DNS if they are exist.
 
     More informations about SPF can be found at following address
     http://www.openspf.org
     http://en.wikipedia.org/wiki/Sender_Policy_Framework
 
     Module arguments (see output of getParams method):
-    restrictive
 
     Check arguments:
         data ... all input data in dict
 
     Check returns:
         1 .... SPF passed
-        0 .... exception checking SPF (unknown result
+        0 .... undefined SPF records or exception when checking SPF
         -1 ... SPF failed
 
     Examples:
         # define module for checking SPF
         define('spf1', 'SPF')
-        # define module for checking SPF in restrictive mode
-        define('spf1', 'SPF', restrictive=True)
     """
 
-    PARAMS = { 'restrictive': ('very strict SPF checking, be very carefull setting to True', False),
-               }
-
-
-    def getId(self):
-        return "%s[%s(%s)]" % (self.type, self.name, self.getParam('restrictive'))
+    PARAMS = { }
 
 
     def hashArg(self, *args, **keywords):
@@ -82,13 +70,10 @@ class SPF(Base):
                                       (self.getId(), error))
             return 0, 'SPF check error'
 
-        if self.getParam('restrictive'):
-            if result.lower() == 'unknown':
-                return -1, 'SPF Policy violation'
-            else:
-                return 1, mtaexpl
-        else:
-            if result.lower() != 'deny':
-                return 1, 'SPF Policy success'
-            else:
-                return -1, mtaexpl
+
+        if result.lower() == 'deny':
+            return -1, 'SPF Policy violation'
+        if result.lower() == 'pass':
+            return 1, 'SPF Policy success'
+
+        return 0, mtaexpl
