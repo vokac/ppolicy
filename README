@@ -7,13 +7,13 @@ checking capabilities. It uses Postfix access policy delegation
 SMTP request and accept or reject it according provided data. It can
 reduce mailserver load with rejecting incorrect mail during SMTP
 connection. It was made with stress to hight reliability and performance
-by providing multilevel caching of required data and results.
+by providing caching of required data and results.
 
 Because it has modular design it can be easily extended by custom
 modules (only one method has to be implemented and everything else is
 handled automatically). By default it provide modules for SPF
 checking, domain mailhost checking, sender/recipient verification,
-black/white listing, greylisting, spam traps, ...
+black/white listing, greylisting, spam traps, DNS blacklists, ...
 
 You can configure how to use all modules by implementing one simple
 method in config file. It provide to you ability to define check
@@ -33,8 +33,8 @@ python-twisted    >= 1.3           - http://twistedmatrix.com
 * dnspython       >= 1.3.3         - http://www.dnspython.org
 ** pyperl         >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
 
-*  required by some check modules
-** required by modules that directly call perl
+*  required by many check modules (but not by application core)
+** required by modules that directly call perl (none module now)
    you can use local patched copy (works with python 2.4 and perl 5.8.8)
    http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/python-perlmodule-1.0.1-9.src.rpm
 
@@ -50,7 +50,7 @@ download there prebuild RPM package or sources in SRPM and tgz format.
 
 1.3.1 Install from RPM
 
-rpm -Uvh ppolicy-1.x.x.noarch.rpm
+rpm -Uvh ppolicy-2.x.x.noarch.rpm
 
 1.3.2 Install from sources
 
@@ -123,26 +123,35 @@ mysql --hostname=localhost --user=root --password=secret < ppolicy.sql
 3.1 Existing modules
 
 * Dnsbl
+* DnsblDynamic
+* DnsblScore
 * DOS
 * Dummy
 * DumpDataDB
 * DumpDataFile
 * Greylist
 * List
+* ListDyn
 * Resolve
 * SPF
 * Trap
 * Verification
 
-Detailed descriptions of all modules are in file MODULES. There are
-also information about all parameters and basic examples how to use it.
+Detailed descriptions of all modules can be found in file named MODULES.
+There are also information about all parameters and basic examples
+how to use the module in config file.
 
 
 3.2. Writing new modules
 
 Before you start to write custom modules look at IPPolicyServerCheck,
 Base and mainly Dummy module. There are plenty of comments that can be
-useful to know.
+useful to know. The heart of eache module is check() method that is
+called when you use module in config file. Next important is hashArg()
+which influence data caching (it is key for result cache dictionary),
+start() that is called before first usage of check() method. Last methot
+that can be implemented is stop() and it is called e.g. when application
+terminating.
 
 
 

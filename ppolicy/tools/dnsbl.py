@@ -46,8 +46,8 @@ class dnsbl:
             xxx = line[line.find("'")+1:line.rfind("'")]
             while len(xxx.split(";")) < 13:
                 xxx += ";"
-            rblcode, rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, type, rbldns = xxx.split(";")
-            self.config[rblcode] = ( rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, type, rbldns )
+            rblcode, rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns = xxx.split(";")
+            self.config[rblcode] = ( rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns )
         configFile.close()
 
         self.resolver = dnscache.getResolver(3.0, 1.0)
@@ -66,7 +66,7 @@ class dnsbl:
             logging.getLogger().warn("there is not %s dnsbl list in config file" % name)
             return False
 
-        rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, type, rbldns = self.config[name]
+        rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns = self.config[name]
 
         ipr = ip.split(".")
         ipr.reverse()
@@ -107,10 +107,10 @@ def has_config(name):
     return getInstance().has_config(name)
 
 
-def list():
+def listDnsbl():
     config = getInstance().get_config()
     for name, value in config.items():
-        rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, type, rbldns = value
+        rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns = value
         print "%s (%s)" % (name, longname)
         print "\tDNS: %s" % rbls
         print "\tHome: %s" % rblp
@@ -121,13 +121,13 @@ def list():
         print "\tInfo: %s" % rblabout
         print "\tcheck: %s" % check
         print "\ttxt: %s" % txt
-        print "\ttype: %s" % type
+        print "\trbltype: %s" % rbltype
         print "\trbldns: %s" % rbldns
         print
 
 
 def check(name, ip, ipList = []):
-    return getInstance().check(name, ip)
+    return getInstance().check(name, ip, ipList)
 
 
 
@@ -137,9 +137,8 @@ if __name__ == "__main__":
     logging.getLogger().addHandler(streamHandler)
     logging.getLogger().setLevel(logging.DEBUG)
 
-    import sys
-    if sys.argv[1] == "--list":
-        list()
+    if len(sys.argv) > 1 and sys.argv[1] == "--list":
+        listDnsbl()
         sys.exit()
 
     for name, ip in [ ('ORDB', '147.32.8.5'), ('SBL', '147.32.8.5'),

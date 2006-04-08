@@ -40,11 +40,17 @@ class Verification(Base):
         data ... all input data in dict
 
     Check returns:
-        2 .... verification was successfull (hit pernament cache)
-        1 .... verification was successfull
-        0 .... undefined (e.g. DNS error, SMTP error, ...)
-        -1 ... verification failed
-        -2 ... verification failed (hit pernament cache)
+        5 (15) .... user verification was successfull (hit pernament cache)
+        4 (14) .... domain verification was successfull (hit pernament cache)
+        3 (13) .... connection verification was successfull (hit pernament cache)
+        2 (12) .... mx verification was successfull (hit pernament cache)
+        1 (11) .... check succeeded according RFC (sender, recipient)
+        0 ......... undefined (e.g. DNS error, SMTP error, ...)
+        -1 (-11) .. check failed, mail format invalid
+        -2 (-12) .. mx verification failed (hit pernament cache)
+        -3 (-13) .. connection verification failed (hit pernament cache)
+        -4 (-14) .. domain verification failed (hit pernament cache)
+        -5 (-15) .. user verification failed (hit pernament cache)
 
     Examples:
         # sender domain verification
@@ -53,9 +59,15 @@ class Verification(Base):
         define('verification', 'Verification', param="recipient", vtype="user")
     """
 
-    CHECK_SUCCESS_RFC=1
-    CHECK_SUCCESS_CACHE=2
-    CHECK_FAILED_CACHE=-2
+    CHECK_PERNAMENT_CACHE=10
+    CHECK_RESULT_RFC=1
+    CHECK_RESULT_DNS=1
+    CHECK_RESULT_FORMAT=1
+    CHECK_RESULT_SMTP=1
+    CHECK_RESULT_MX=2
+    CHECK_RESULT_CONN=3
+    CHECK_RESULT_DOMAIN=4
+    CHECK_RESULT_USER=5
 
     PARAMS = { 'param': ('string key for data item that should be verified (sender/recipient)', None),
                'timeout': ('set SMTP connection timeout', 20),
@@ -125,20 +137,20 @@ class Verification(Base):
         # RFC 2821, section 4.1.1.2
         # empty MAIL FROM: reverse address may be null
         if param == 'sender' and paramValue == '':
-            return Verification.CHECK_SUCCESS_RFC, "%s accept empty From address" % self.getId()
+            return Verification.CHECK_RESULT_RFC, "%s accept empty From address" % self.getId()
 
         # RFC 2821, section 4.1.1.3
         # see RCTP TO: grammar
         if param == 'recipient':
             reclc = paramValue.lower()
             if reclc == 'postmaster' or reclc[:11] == 'postmaster@':
-                return Verification.CHECK_SUCCESS_RFC, "%s accept all mail to postmaster" % self.getId()
+                return Verification.CHECK_RESULT_RFC, "%s accept all mail to postmaster" % self.getId()
 
         user, domain = self.__getUserDomain(paramValue)
         if domain == None:
             expl = "%s: address for %s in unknown format: %s" % (self.getId(), param, paramValue)
             logging.getLogger().warn(expl)
-            return Verification.CHECK_FAILED, expl
+            return -Verification.CHECK_RESULT_FORMAT, expl
         if vtype != 'user':
             paramValue = domain
 
@@ -146,38 +158,41 @@ class Verification(Base):
         cacheCode, cacheVal = self.cacheDB.check({ 'param': paramValue }, operation="check")
         if cacheCode > 0:
             cacheCode, cacheRes, cacheEx = cacheVal[0]
+            if cacheRes > 0:
+                cacheRes = Verification.CHECK_PERNAMENT_CACHE + cacheRes
+            elif cacheRes < 0:
+                cacheRes = -Verification.CHECK_PERNAMENT_CACHE + cacheRes
             if cacheCode != ListDyn.CHECK_SOFT_EXPIRED:
-                if cacheRes > 0:
-                    return Verification.CHECK_SUCCESS_CACHE, cacheEx
-                elif cacheRes < 0:
-                    return Verification.CHECK_FAILED_CACHE, cacheEx
+                return cacheRes, cacheEx
 
         # list of mailservers
         try:
             mailhosts = dnscache.getDomainMailhosts(domain, local=False)
         except Exception, e:
             if cacheCode > 0:
-                if cacheRes > 0:
-                    return Verification.CHECK_SUCCESS_CACHE, cacheEx
-                elif cacheRes < 0:
-                    return Verification.CHECK_FAILED_CACHE, cacheEx
-            return Verification.CHECK_FAILED, "%s DNS failure: %s" % (self.getId(), e)
+                return cacheRes, cacheEx
+            return -Verification.CHECK_RESULT_DNS, "%s DNS failure: %s" % (self.getId(), e)
             
         if len(mailhosts) == 0:
-            code = Verification.CHECK_FAILED
+            code = -Verification.CHECK_RESULT_MX
             codeEx = "%s: no mailhost for %s" % (self.getId(), domain)
             logging.getLogger().info(codeEx)
             self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx })
             return code, codeEx
 
         if vtype == 'mx':
-            code = Verification.CHECK_SUCCESS
+            code = Verification.CHECK_RESULT_MX
             codeEx = "%s: mailhost for %s exists" % (self.getId(), domain)
             logging.getLogger().info(codeEx)
             self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx }, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
             return code, codeEx
             
-
+        # if site has only one IP for mailserver, try to connect
+        # two times, because in case the server has hight load
+        # it can refuse new connection - so be aggressive and try
+        # to connect one more time
+        if len(mailhosts) == 1:
+            mailhosts.append(mailhosts[0])
         maxMXToTry = 3
         for mailhost in mailhosts:
             # FIXME: how many MX try? timeout?
@@ -192,11 +207,17 @@ class Verification(Base):
 
         if code == None or code == Verification.CHECK_UNKNOWN:
             if cacheCode > 0:
-                if cacheRes > 0:
-                    return Verification.CHECK_SUCCESS_CACHE, cacheEx
-                elif cacheRes < 0:
-                    return Verification.CHECK_FAILED_CACHE, cacheEx
-            return Verification.CHECK_UNKNOWN, "%s didn't get any result" % self.getId()
+                return cacheRes, cacheEx
+            # don't cache this result - it can signal some network problem
+            # and we don't want to slowdown receiving next mail from such sites
+            code = -Verification.CHECK_RESULT_SMTP
+            if vtype == 'connection':
+                code = -Verification.CHECK_RESULT_CONN
+            elif vtype == 'domain':
+                code = -Verification.CHECK_RESULT_DOMAIN
+            elif vtype == 'user':
+                code = -Verification.CHECK_RESULT_USER
+            return code, "%s didn't get any result" % self.getId()
 
         # add new informations to pernament cache
         if code > 0:
@@ -249,7 +270,7 @@ class Verification(Base):
             return Verification.CHECK_SUCCESS, "address verification success"
         except smtplib.SMTPException, err:
             msg = "SMTP communication with %s (%s) failed: %s" % (mailhost, domain, err)
-            logging.getLogger().warn("%s: %s" (self.getId(), msg))
+            logging.getLogger().warn("%s: %s" % (self.getId(), msg))
             return Verification.CHECK_UNKNOWN, "address verification failed: %s" % msg
         except socket.error, err:
             msg = "socket communication with %s (%s) failed: %s" % (mailhost, domain, err)

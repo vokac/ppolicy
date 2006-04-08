@@ -12,6 +12,7 @@
 import sys, time, string
 import logging
 import threading
+import traceback
 from twisted.internet import protocol, interfaces, task
 from twisted.enterprise import adbapi
 
@@ -112,6 +113,7 @@ class PPolicyServerFactory:
             return code, codeEx
         except Exception, e:
             logging.getLogger().error("failed to call method of \"%s\" module: %s" % (name, e))
+            logging.getLogger().error("%s" % traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
             # raise e
             return 0, "%s failed with exception" % name
 
@@ -235,7 +237,6 @@ class PPolicyServerRequest(protocol.Protocol):
                 # default return action for garbage?
                 self.dataResponse()
         except Exception, err:
-            import traceback
             logging.getLogger().error("uncatched exception: %s" % str(err))
             logging.getLogger().error("%s" % traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
             self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
@@ -273,6 +274,8 @@ class PPolicyServerRequest(protocol.Protocol):
                 #if k == 'instance' and self.cluster == True:
                 #    self.clusterip = self.transport.getPeer().host
                 #    v = '%s_%s' % (self.clusterip, v)
+                if k == 'client_name' and v == 'unknown':
+                    v = ''
                 retData[k] = v
                 logging.getLogger().debug("input: %s=%s" % (k, v))
             except ValueError:

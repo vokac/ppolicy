@@ -1,4 +1,17 @@
-Changes in PPolicy 2.2.0 (Apr 6 2006)
+Changes in PPolicy 2.2.2 (Apr 8 2006)
+-------------------------------------
+- fixed SQL escaping
+- Verification return CHECK_FAILED in case of DNS error
+- added module that return spamassassin blacklist score
+- fixes in dnsbl module
+- DnsblScore module that use spamassassin dnsbl score
+  for client ip and sender domain
+- DnsblDynamic module try to identify clients on dynamic IP range
+- updated documentation
+
+
+Changes in PPolicy 2.2.1 (Apr 6 2006)
+=====================================
 - added testing only mailhost and only tcp connection in Verification module
 - escape strings that are inserted into DB
 - DNS functions throws exception in case of DNS error
@@ -8,7 +21,7 @@ Changes in PPolicy 2.2.0 (Apr 6 2006)
 - Greylist DNS error handling
 
 
-Changes in PPolicy 2.1.0 (Apr 4 2006)
+Changes in PPolicy 2.1.1 (Apr 4 2006)
 =====================================
 - in memory cache for modules result (cachePositive, cacheUnknown, cacheNegative)
 - changed check method parameters (custom parameters can be defined)

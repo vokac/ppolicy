@@ -1,9 +1,15 @@
 TODO list sorted by task importance
 -----------------------------------
+* many of implemented modules doesn't make correct clean with stop()
+  method - so restarting modules could now lead to undefined behavior
+  (some parts of code should be moved from start() to __init__())
 * error when using *args in check method ???
+* caching in memory results from 'add/remove' method od ListDyn
+* package dnsbl config files into RPM
 * log files rotation
 
 * automatic module tests
+* DOS, List, Resolve, Trap are not fully tested
 * DB synchronization
 
 * config file grammar

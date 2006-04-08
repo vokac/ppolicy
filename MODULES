@@ -34,6 +34,90 @@ Examples:
 
 
 
+Module DnsblScore
+-----------------
+
+Check if client address and sender domain is in various DNS
+blacklists and make sum of scores that are defined in spamassassin
+config files. Returned result depends on parameter treshold (this
+module can return -1,0,1 or exact score if treshold is None).
+
+This module use tools.dnsblScore.score to score mail. By default
+it uses all available checks, but you can specify your custom by
+listing their name in dnsbl parameter. You can list all valid
+names by calling `python tools/dnsblScore.py --list`.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    cachePositive (900)
+        maximum time for caching positive result
+    treshold (None)
+        treshold that define whitch score mean this module fail
+    dnsbl (None)
+        list of DNS blacklist to use
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 (positive) .... score > treshold or positive score
+    0 ............... unknown error (e.g. DNS problems)
+    -1 (negative) ... score < treshold or negative score
+
+Examples:
+    # return blacklist score for client address
+    define('dnsbl1', 'DnsblScore')
+    # check if blacklist score for client address exceed defined treshold
+    define('dnsbl1', 'DnsblScore', treshold=5)
+
+
+
+
+Module DnsblDynamic
+-------------------
+
+Check if client address is in dynamic allocated ranges. It use
+corresponding dnsbl and also domain name (e.g. format
+xxx-yyy-zzz.dsl.provider.com).
+
+There will by probably many "correct" mailservers sitting on IP
+address from dynamic alocated space. Use the result as one of the
+decision rule and don't reject mail only relaying on this result.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    check_name (True)
+        check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)
+    factory (None)
+        reference to factory instance
+    cachePositive (900)
+        maximum time for caching positive result
+    dnsbl (['NJABLDYNA', 'KROPKADUL', 'SORBSDUL'])
+        list of DNS blacklists
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... client address seems to be in dynamic ip range
+    0 .... unknown error (e.g. DNS problems)
+    -1 ... client address doesn't seem to be in dynamic ip range
+
+Examples:
+    # check if sender mailserver is in ORDB blacklist
+    define('dnsbl1', 'DnsblDynamic')
+
+
+
+
 Module DOS
 ----------
 
@@ -509,11 +593,17 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
-    2 .... verification was successfull (hit pernament cache)
-    1 .... verification was successfull
-    0 .... undefined (e.g. DNS error, SMTP error, ...)
-    -1 ... verification failed
-    -2 ... verification failed (hit pernament cache)
+    5 (15) .... user verification was successfull (hit pernament cache)
+    4 (14) .... domain verification was successfull (hit pernament cache)
+    3 (13) .... connection verification was successfull (hit pernament cache)
+    2 (12) .... mx verification was successfull (hit pernament cache)
+    1 (11) .... check succeeded according RFC (sender, recipient)
+    0 ......... undefined (e.g. DNS error, SMTP error, ...)
+    -1 (-11) .. check failed, mail format invalid
+    -2 (-12) .. mx verification failed (hit pernament cache)
+    -3 (-13) .. connection verification failed (hit pernament cache)
+    -4 (-14) .. domain verification failed (hit pernament cache)
+    -5 (-15) .. user verification failed (hit pernament cache)
 
 Examples:
     # sender domain verification

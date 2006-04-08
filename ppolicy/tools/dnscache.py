@@ -119,6 +119,34 @@ def __cidr(ip, n):
     return ~(0xFFFFFFFFL >> n) & 0xFFFFFFFFL & struct.unpack("!L", socket.inet_aton(ip))[0]
 
 
+def removeLocal(ips):
+    ipsLocal = []
+    ip10 = __cidr('10.0.0.0', 8)
+    ip127 = __cidr('127.0.0.0', 8)
+    ip172 = __cidr('172.16.0.0', 12)
+    ip192 = __cidr('192.168.0.0', 16)
+    ip1922 = __cidr('192.0.2.0', 24)
+    ip19218 = __cidr('192.18.0.0', 15)
+    ip224 = __cidr('224.0.0.0', 4)
+    for ip in ips:
+        # localhost
+        if ip in [ '255.255.255.255', '127.0.0.1', '0.0.0.0', '::0', '::1' ]: continue
+        if ip.find(':') == -1:
+            # ipv4 private addresses
+            if __cidr(ip, 8) == ip10: continue
+            if __cidr(ip, 8) == ip127: continue
+            if __cidr(ip, 12) == ip172: continue
+            if __cidr(ip, 16) == ip192: continue
+            if __cidr(ip, 24) == ip1922: continue
+            if __cidr(ip, 15) == ip19218: continue
+            if __cidr(ip, 4) == ip224: continue
+        else:
+            # NOTE: ipv6 private addresses
+            pass
+        ipsLocal.append(ip)
+    return ipsLocal
+
+
 def getDomainMailhosts(domain, ipv6=True, local=True):
     """Return IP addresses of mail exchangers for the domain
     sorted by priority."""
@@ -161,23 +189,7 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
 
     # remove invalid IP from the list of mailhost
     if not local:
-        ipsLocal = []
-        ip10 = __cidr('10.0.0.0', 8)
-        ip172 = __cidr('172.16.0.0', 12)
-        ip192 = __cidr('192.168.0.0', 16)
-        for ip in ips:
-            # localhost
-            if ip in [ '127.0.0.1', '0.0.0.0', '::0', '::1' ]: continue
-            if ip.find(':') == -1:
-                # ipv4 private addresses
-                if __cidr(ip, 8) == ip10: continue
-                if __cidr(ip, 12) == ip172: continue
-                if __cidr(ip, 16) == ip192: continue
-            else:
-                # NOTE: ipv6 private addresses
-                pass
-            ipsLocal.append(ip)
-        return ipsLocal
+        return removeLocal(ips)
     return ips
 
 
