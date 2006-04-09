@@ -18,7 +18,8 @@ __version__ = "$Revision$"
 
 
 class Resolve(Base):
-    """Try to resolve ip->name, name->ip, ip->name->ip, name->ip->name.
+    """Try to resolve ip->name, name->ip, ip->name->ip,
+    name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2.
 
     Module arguments (see output of getParams method):
     param, type
@@ -42,7 +43,7 @@ class Resolve(Base):
     """
 
     PARAMS = { 'param': ('which request parameter should be used', None),
-               'type': ('ip->name, name->ip, ip->name->ip, name->ip->name', None),
+               'type': ('ip->name, name->ip, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2', None),
                }
 
 
@@ -50,6 +51,10 @@ class Resolve(Base):
         for attr in [ 'param', 'type' ]:
             if self.getParam(attr) == None:
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
+
+        resolveType = self.getParam('type')
+        if resolveType not in [ 'ip->name', 'name->ip', 'ip->name->ip', 'name->ip->name', 'ip1->name->ip2', 'ip->name->mx', 'name1->ip->name2' ]:
+            raise ParamError("type \"%s\" is not supported" % resolveType)
 
 
     def hashArg(self, *args, **keywords):
@@ -62,6 +67,7 @@ class Resolve(Base):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
         resolveType = self.getParam('type')
+        paramValue = data.get(param, [])
 
         if type(paramValue) == tuple:
             paramValue = list(tuple)
@@ -74,8 +80,12 @@ class Resolve(Base):
             return 0, expl
 
         for dta in paramValue:
-            if not self.__testResolve(dta, resolveType.lower()):
-                return -1, "%s can't resolve %s or DNS misconfiguration" % (self.getId(), dta)
+            try:
+                if not self.__testResolve(dta, resolveType.lower()):
+                    return -1, "%s can't resolve %s or DNS misconfiguration" % (self.getId(), dta)
+            except dnscache.DNSCacheError, e:
+                logging.getLogger().debug("%s can't resolve %s, DNS error: " % e)
+                return -1, "%s can't resolve %s, DNS error" % (self.getId(), dta)
 
         return 1, "%s resolve ok" % self.getId()
 
@@ -83,23 +93,31 @@ class Resolve(Base):
     def __testResolve(self, dta, resType):
         retval = False
         if resType == 'ip->name':
-            if dnscache.getNameForIp(dta) != None:
+            if len(dnscache.getNameForIp(dta)) > 0:
                 retval = True
         elif resType == 'name->ip':
-            if dnscache.getIpForName(dta) != None:
+            if len(dnscache.getIpForName(dta)) > 0:
                 retval = True
-        elif resType == 'ip->name->ip':
+        elif resType == 'ip->name->ip' or resType == 'ip1->name->ip2' or resType == 'ip->name->mx':
             names = dnscache.getNameForIp(dta)
-            if names != None:
+            if len(names) > 0:
                 for name in names:
-                    ips = dnscache.getIpForName(name)
-                    if ips != None and dta in ips:
-                        retval = True
-        elif resType == 'name->ip->name':
+                    if resType == 'ip->name->mx':
+                        ips = dnscache.getDomainMailhosts(name, local=False)
+                        if len(ips) > 0: retval = True
+                    else:
+                        ips = dnscache.getIpForName(name)
+                        if resType == 'ip1->name->ip2':
+                            if len(ips) > 0: retval = True
+                        else:
+                            if dta in ips: retval = True
+        elif resType == 'name->ip->name' or resType == 'name1->ip->name2':
             ips = dnscache.getIpForName(dta)
-            if ips != None:
+            if len(ips) > 0:
                 for ip in ips:
                     names = map(lambda x: x.lower(), dnscache.getNameForIp(ip))
-                    if names != None and dta.lower() in names:
-                        retval = True
+                    if resType == 'name1->ip->name2':
+                        if len(names) > 0: retval = True
+                    else:
+                        if dta.lower() in names: retval = True
         return retval

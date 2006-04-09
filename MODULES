@@ -441,7 +441,8 @@ Examples:
 Module Resolve
 --------------
 
-Try to resolve ip->name, name->ip, ip->name->ip, name->ip->name.
+Try to resolve ip->name, name->ip, ip->name->ip,
+name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2.
 
 Parameters:
     cacheNegative (900)
@@ -455,7 +456,7 @@ Parameters:
     cachePositive (900)
         maximum time for caching positive result
     type (None)
-        ip->name, name->ip, ip->name->ip, name->ip->name
+        ip->name, name->ip, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2
 
 Check arguments:
     data ... all input data in dict

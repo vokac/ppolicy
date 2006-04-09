@@ -187,7 +187,7 @@ class Base(object):
     def setParam(self, key, value):
         """Set module parameter."""
         if not self.paramsHelp.has_key(key):
-            logging.getLogger().error("trying to set undefined parameter %s" % key)
+            logging.getLogger().error("trying to set undefined parameter %s for %s" % (key, self.getId()))
             return
         if value == None and self.paramsValue.has_key(key):
             del(self.paramsValue[key])
@@ -198,7 +198,7 @@ class Base(object):
     def getParam(self, key, default = None):
         """Get module parameter."""
         if not self.paramsValue.has_key(key):
-            logging.getLogger().error("trying to get undefined parameter %s" % key)
+            logging.getLogger().error("trying to get undefined parameter %s for %s" % (key, self.getId()))
         return self.paramsValue.get(key, default)
 
 
@@ -229,13 +229,15 @@ class Base(object):
         using only required fields for hash can improve cache usage
         and performance.
 
+        NOTE:
         For good hash better algorithm should be used, e.g. Item 7 in
         Joshua Bloch's Effective Java Programming Language Guide"""
 
         keys = keywords.keys()
         keys.sort()
         keywordsTuple = tuple([ "=".join([x, str(keywords[x])]) for x in keys ])
-        return hash("\n".join(args + keywordsTuple))
+        argsTuple = tuple([ str(x) for x in args ])
+        return hash(argsTuple) + hash(keywordsTuple)
 
 
     def check(self, *args, **keywords):

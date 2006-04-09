@@ -46,17 +46,15 @@ class SPF(Base):
 
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), [ 'sender', 'client_address', 'client_name' ])))
+        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x, '').lower()), [ 'sender', 'client_address', 'client_name' ])))
 
 
     def check(self, *args, **keywords):
         """ check Request against SPF results in 'deny', 'unknown', 'pass'"""
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        sender = data.get('sender')
+        sender = data.get('sender', '').lower()
         client_address = data.get('client_address')
-        client_name = data.get('client_name')
-        if len(sender) > 0 and sender[0] == '<': sender = sender[1:]
-        if len(sender) > 0 and sender[-1] == '>': sender = sender[:-1]
+        client_name = data.get('client_name', '').lower()
 
         try:
             logging.getLogger().debug("%s: spf.check('%s', '%s', '%s')" %

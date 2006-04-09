@@ -209,6 +209,11 @@ if __name__ == "__main__":
         print ">>> %s" % domain
         print getIpForName(domain)
     print
+    print ">>>>> %s" % getNameForIp.__name__
+    for ip in [ "147.32.8.9", "147.32.9.20" ]:
+        print ">>> %s" % ip
+        print getNameForIp(ip)
+    print
     print ">>>>> %s" % getDomainMailhosts.__name__
     for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
                     "bimbod.fjfi.cvut.cz", "nmsd.fjfi.cvut.cz",

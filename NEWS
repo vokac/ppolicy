@@ -1,5 +1,5 @@
-Changes in PPolicy 2.2.2 (Apr 8 2006)
--------------------------------------
+Changes in PPolicy 2.2.2 (Apr 9 2006)
+=====================================
 - fixed SQL escaping
 - Verification return CHECK_FAILED in case of DNS error
 - added module that return spamassassin blacklist score
@@ -8,6 +8,10 @@ Changes in PPolicy 2.2.2 (Apr 8 2006)
   for client ip and sender domain
 - DnsblDynamic module try to identify clients on dynamic IP range
 - updated documentation
+- catch DNS exception in Resolve module
+- unified lower/upper case of some values (e.g. sender, ...) for cached records
+- fixed exception when using *args in check method (Base.hashArg method)
+- config method examples
 
 
 Changes in PPolicy 2.2.1 (Apr 6 2006)

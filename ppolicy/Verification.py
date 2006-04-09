@@ -79,6 +79,9 @@ class Verification(Base):
 
 
     def __getUserDomain(self, value):
+        if value == None or value == '':
+            return '', ''
+
         vtype = self.getParam('vtype')
 
         # create email address to check
@@ -118,10 +121,13 @@ class Verification(Base):
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
         param = self.getParam('param')
-        paramValue = data.get(param)
+        paramValue = data.get(param, '')
         user, domain = self.__getUserDomain(paramValue)
         if user == None:
-            return hash("%s" % domain)
+            if domain == None:
+                return 0
+            else:
+                return hash("%s" % domain)
         else:
             return hash("%s@%s" % (user, domain))
 

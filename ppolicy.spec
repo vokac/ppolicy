@@ -1,7 +1,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.2.2
-Release: 0
+Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -92,6 +92,36 @@ fi
 
 
 %changelog
+* Sun Apr 9 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.2.2-2
+- fixed SQL escaping
+- Verification return CHECK_FAILED in case of DNS error
+- added module that return spamassassin blacklist score
+- fixes in dnsbl module
+- DnsblScore module that use spamassassin dnsbl score
+  for client ip and sender domain
+- DnsblDynamic module try to identify clients on dynamic IP range
+- updated documentation
+- catch DNS exception in Resolve module
+- unified lower/upper case of some values (e.g. sender, ...) for cached records
+- fixed exception when using *args in check method (Base.hashArg method)
+
+* Thu Apr 4 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.2.1-1
+- added testing only mailhost and only tcp connection in Verification module
+- escape strings that are inserted into DB
+- DNS functions throws exception in case of DNS error
+- added parameter to getDomainMailhost to exclude icorrect (local) addresses
+- implemented Dnsbl to check client_address in selected blacklist
+- SPF result should be now more reasonable (-1 - deny, 0 - unknown, 1 - pass)
+- Greylist DNS error handling
+
+* Tue Apr 4 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.1.1-1
+- in memory cache for modules result (cachePositive, cacheUnknown, cacheNegative)
+- changed check method parameters (custom parameters can be defined)
+- ListDyn updates - changes in constructor parameters
+- Verification use ListDyn for persistent cache
+- names of some parameters was changed (tableName -> table, ...)
+- python 2.3 compatibility fixes
+
 * Tue Mar 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.0.1-1
 - added ListDyn module
 - bugfixes

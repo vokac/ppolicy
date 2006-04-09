@@ -79,14 +79,14 @@ class Greylist(Base):
 
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), [ 'sender', 'recipient', 'client_address' ])))
+        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x, '').lower()), [ 'sender', 'recipient', 'client_address' ])))
 
 
     def check(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        sender = data.get('sender')
-        recipient = data.get('recipient')
-        client_name = data.get('client_name')
+        sender = data.get('sender', '').lower()
+        recipient = data.get('recipient', '').lower()
+        client_name = data.get('client_name', '').lower()
         client_address = data.get('client_address')
 
         # RFC 2821, section 4.1.1.2
@@ -96,8 +96,7 @@ class Greylist(Base):
 
         # RFC 2821, section 4.1.1.3
         # see RCTP TO: grammar
-        reclc = recipient.lower()
-        if reclc == 'postmaster' or reclc[:11] == 'postmaster@':
+        if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
             return 1, "allow mail to postmaster without graylisting"
 
         try:

@@ -52,14 +52,16 @@ class Trap(Base):
     def start(self):
         traps = self.getParam('traps')
         if traps == None:
-            raise ParamError('traps has to be specified for this module')
-        self.traps = traps.lower().split(",")
-        
-        treshold = self.getParam('treshold')
-        if treshold < 0: treshold = -len(self.traps) / treshold
-        if treshold == 0: treshold = 1
-        self.treshold = treshold
+            self.traps = []
+        else:
+            self.traps = traps.lower().split(",")
+            if self.traps == [ '' ]: self.traps = []
 
+        for attr in [ 'treshold', 'expire' ]:
+            if self.getParam(attr) == None:
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
+
+        # NOTE: this dict should be synchronized
         self.trap = {}
 
 
@@ -74,25 +76,31 @@ class Trap(Base):
 
     def check(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
+        traps = self.dataArg(1, 'traps', [], *args, **keywords)
+        if traps == []: traps = self.traps
         expire = self.getParam('expire')
-        sender = data.get('sender')
-        recipient = data.get('recipient')
+        treshold = self.getParam('treshold')
+        if treshold < 0: treshold = -len(traps) / treshold
+        if treshold == 0: treshold = 1
+        sender = data.get('sender', '').lower()
+        recipient = data.get('recipient', '').lower()
         client_address = data.get('client_address')
 
         # RFC 2821, section 4.1.1.2
         # empty MAIL FROM: reverse address may be null
         if sender == '':
             return 0, "%s accept empty From address" % self.getId()
-        if reclc == 'postmaster' or reclc[:11] == 'postmaster@':
+        if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
             return 0, "%s accept mail from postmaster" % self.getId()
         
-        if recipient in self.traps:
+        if recipient in traps:
             # add to trap cache
             newTrap = []
             for expire in self.trap.get(client_address, []):
                 if expire > time.time():
                     newTrap.append(expire)
-            if len(newTrap) > self.treshold:
+
+            if len(newTrap) > treshold:
                 newTrap.pop()
             newTrap.insert(0, time.time() + expire)
             self.trap[client_address] = newTrap
@@ -100,8 +108,7 @@ class Trap(Base):
         else:
             # RFC 2821, section 4.1.1.3
             # see RCTP TO: grammar
-            reclc = recipient.lower()
-            if reclc == 'postmaster' or reclc[:11] == 'postmaster@':
+            if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
                 return 0, "%s always accept postmaster as recipient" % self.getId()
             
             thisTrap = self.trap.get(client_address, [])
@@ -111,9 +118,11 @@ class Trap(Base):
                     if thisTrap[i] < time.time():
                         thisTrap = thisTrap[:i]
                         break
-                self.trap[client_address] = thisTrap
 
-            if len(self.trap[client_address]) > self.treshold:
+            thisTrap.append(time.time())
+            self.trap[client_address] = thisTrap
+
+            if len(thisTrap) > treshold:
                 return 1, "%s blacklisted your client address" % self.getId()
 
             return -1, "%s did not blacklisted your client address" % self.getId()

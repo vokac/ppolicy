@@ -76,27 +76,38 @@ class DOS(Base):
     def hashArg(self, *args, **keywords):
         data = self.dataArg(0, 'data', {}, *args, **keywords)
         params = self.getParam('params')
-        keys = data.keys()
-        keys.sort()
-        return hash("\n".join([ "=".join([x, data[x]]) for x in keys if x in params ]))
+        return hash("\n".join([ "=".join([x, data.get(x, '')]) for x in params ]))
 
 
     def check(self, *args, **keywords):
         # normalize data and get all possible keys
         data = self.dataArg(0, 'data', {}, *args, **keywords)
-        param = self.getParam('param')
-        paramValue = data.get(param)
+        params = self.getParam('params')
 
-        if type(paramValue) == tuple:
-            paramValue = list(tuple)
-        if type(paramValue) != list:
-            paramValue = [ paramValue ]
-        if paramValue == []:
-            paramValue = [ '' ]
+        # create all parameter combinations (cartesian product)
+        valX = []
+        for param in params:
+            paramVal = data.get(param, '')
+            if type(paramVal) == tuple:
+                paramVal = list(tuple)
+            if type(paramVal) != list:
+                paramVal = [ paramVal ]
+            if paramVal == []:
+                paramVal = [ '' ]
+            if len(valX) == 0:
+                for val in paramVal:
+                    valX.append([(param, val)])
+            else:
+                valXnew = []
+                for pX in valX:
+                    for val in paramVal:
+                        valXnew.append(pX + [(param, val)])
+                valX = valXnew
 
         # test frequency for all keys
         hasDosKey = False
-        for key in paramValue:
+        for paramsVal in valX:
+            key = hash("\n".join([ "%s=%s" % (x,y) for x,y in paramsVal ]))
             dos = self.__checkDos(key)
             if not hasDosKey and dos:
                 hasDosKey = True
@@ -112,7 +123,7 @@ class DOS(Base):
         limitCount = int(self.getParam('limitCount'))
         limitTime = int(self.getParam('limitTime'))
         limitGran = int(self.getParam('limitGran'))
-        limitInt = limitTime / limitGran
+        limitInt = int(limitTime / limitGran)
 
         data, nextUpdate = self.cache.get(key, (None, None))
         if data != None:

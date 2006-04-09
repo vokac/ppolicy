@@ -108,17 +108,21 @@ class PPolicyServerFactory:
             if code == None:
                 #logging.getLogger().debug("running %s.check(%s, %s)" % (name, args, keywords))
                 code, codeEx = obj.check(*args, **keywords)
+                logging.getLogger().info("%s result: %s (%s)" % (name, code, codeEx))
                 self.__cacheSet(name+hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
-            logging.getLogger().debug("%s result: %s (%s)" % (name, code, codeEx))
+            else:
+                logging.getLogger().info("%s result (hit cache): %s (%s)" % (name, code, codeEx))
             return code, codeEx
         except Exception, e:
             logging.getLogger().error("failed to call method of \"%s\" module: %s" % (name, e))
-            logging.getLogger().error("%s" % traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
+            exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
+            logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
             # raise e
             return 0, "%s failed with exception" % name
 
 
     def __cacheGet(self, key):
+        if key == 0: return None, None
         retVal = None, None
         self.cacheLock.acquire()
         #logging.getLogger().debug("__cacheGet for %s" % key)
@@ -133,11 +137,13 @@ class PPolicyServerFactory:
 
 
     def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+        if key == 0: return
         self.cacheLock.acquire()
         #logging.getLogger().debug("__cacheSet for %s (%s, %s)" % (key, code, codeEx))
         try:
             # full cache 3/4 cleanup?
             if len(self.cacheExpire) > 1000:
+                logging.getLogger().debug("memory cache cleanup")
                 exp = self.cacheExpire.values()
                 exp.sort()
                 expTr = exp[3*len(exp)/4]
@@ -238,7 +244,8 @@ class PPolicyServerRequest(protocol.Protocol):
                 self.dataResponse()
         except Exception, err:
             logging.getLogger().error("uncatched exception: %s" % str(err))
-            logging.getLogger().error("%s" % traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback))
+            exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
+            logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
             self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
 
 
@@ -267,7 +274,7 @@ class PPolicyServerRequest(protocol.Protocol):
                     logging.getLogger().error("policy protocol error: request wasn't specified before empty line")
                     return None
             try:
-                k, v = line.split('=')
+                k, v = line.split('=', 2)
                 if k == 'sender' or k == 'recipient':
                     if len(v) != 0 and v[0] == '<': v = v[1:]
                     if len(v) != 0 and v[-1] == '<': v = v[:-1]
@@ -290,7 +297,7 @@ class PPolicyServerRequest(protocol.Protocol):
 
 if __name__ == "__main__":
     print "Module tests:"
-    import sys, time, socket
+    import socket
     import twisted.python.log
     twisted.python.log.startLogging(sys.stdout)
 
