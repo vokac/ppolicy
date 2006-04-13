@@ -8,9 +8,8 @@ TODO list sorted by task importance
 * package dnsbl config files into RPM
 * remove log files after rotation - impossible with twisted log module
 
-* DOS - create cartesian product of required parameters
 * automatic module tests
-* DOS, List, Resolve, Trap are not fully tested
+* DOS, Trap are not fully tested
 * DB synchronization
 
 * config file grammar

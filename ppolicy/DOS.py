@@ -25,6 +25,9 @@ class DOS(Base):
     about number of incomming mails. Be carefull setting this module,
     because badly choosed parameters can exhause a lot of memory.
 
+    Some mail should not be blocked (e.g. to postmaster@your.domain.com,
+    from <>, ...) and your configuration should take care of it.
+
     Module arguments (see output of getParams method):
     params, limitCount, limitTime, limitGran
 
@@ -132,7 +135,6 @@ class DOS(Base):
                 if sh > len(data):
                     data = [ 0 ]
                 else:
-                    print sh
                     for i in range(0, sh):
                         data.insert(0, 0)
                         if len(data) > limitGran:

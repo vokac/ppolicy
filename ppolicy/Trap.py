@@ -48,6 +48,7 @@ class Trap(Base):
                'cacheNegative': (None, 0),
                }
 
+    CHECK_RESULT_TRAP = -2
 
     def start(self):
         traps = self.getParam('traps')
@@ -104,7 +105,7 @@ class Trap(Base):
                 newTrap.pop()
             newTrap.insert(0, time.time() + expire)
             self.trap[client_address] = newTrap
-            return 0, "%s: do nothing with trapped message" % self.getId()
+            return Trap.CHECK_RESULT_TRAP, "%s: do nothing with trapped message" % self.getId()
         else:
             # RFC 2821, section 4.1.1.3
             # see RCTP TO: grammar

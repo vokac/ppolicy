@@ -80,13 +80,13 @@ class Verification(Base):
 
     def __getUserDomain(self, value):
         if value == None or value == '':
-            return '', ''
+            return None, None
 
         vtype = self.getParam('vtype')
 
         # create email address to check
         if value.find("@") != -1:
-            user, domain = value.split("@", 2)
+            user, domain = value.split("@", 1)
         else:
             user = 'postmaster'
             domain = value

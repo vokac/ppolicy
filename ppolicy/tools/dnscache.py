@@ -121,25 +121,33 @@ def __cidr(ip, n):
 
 def removeLocal(ips):
     ipsLocal = []
+    ip0 = __cidr('0.0.0.0', 8)
     ip10 = __cidr('10.0.0.0', 8)
     ip127 = __cidr('127.0.0.0', 8)
+    ip169 = __cidr('169.254.0.0', 16)
     ip172 = __cidr('172.16.0.0', 12)
     ip192 = __cidr('192.168.0.0', 16)
     ip1922 = __cidr('192.0.2.0', 24)
     ip19218 = __cidr('192.18.0.0', 15)
     ip224 = __cidr('224.0.0.0', 4)
+    ip240 = __cidr('240.0.0.0', 5)
+    ip248 = __cidr('248.0.0.0', 5)
     for ip in ips:
         # localhost
         if ip in [ '255.255.255.255', '127.0.0.1', '0.0.0.0', '::0', '::1' ]: continue
         if ip.find(':') == -1:
             # ipv4 private addresses
+            if __cidr(ip, 8) == ip0: continue
             if __cidr(ip, 8) == ip10: continue
             if __cidr(ip, 8) == ip127: continue
+            if __cidr(ip, 16) == ip169: continue
             if __cidr(ip, 12) == ip172: continue
             if __cidr(ip, 16) == ip192: continue
             if __cidr(ip, 24) == ip1922: continue
             if __cidr(ip, 15) == ip19218: continue
             if __cidr(ip, 4) == ip224: continue
+            if __cidr(ip, 5) == ip240: continue
+            if __cidr(ip, 5) == ip248: continue
         else:
             # NOTE: ipv6 private addresses
             pass

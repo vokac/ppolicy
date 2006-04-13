@@ -61,16 +61,28 @@ start() {
 stop() {
     # Stop daemon
     echo -n "Stopping $prog (twistd):"
-    [ -f ${pidfile} ] && kill `cat "${pidfile}"`
-    retval=$?
-    if [ "$retval" -eq 0 ]; then
-        retval=1
-    else
-        retval=0
+    if [ ! -f ${pidfile} ]; then
+        failure $"$base shutdown"
+        return 1
     fi
+    pid=`cat "${pidfile}"`
+    if checkpid $pid 2>&1; then
+        # TERM first, then KILL if not dead
+        kill -TERM $pid >/dev/null 2>&1
+        usleep 100000
+        if checkpid $pid && sleep 1 &&
+           checkpid $pid && sleep 3 &&
+           checkpid $pid ; then
+            kill -KILL $pid >/dev/null 2>&1
+            usleep 100000
+        fi
+    fi
+    checkpid $pid
+    retval=$?
     [ "$retval" -eq 0 ] && failure $"$base shutdown" || success $"$base shutdown"
-    echo $retval
+    echo
     # [ $retval -eq 0 ] && rm -f $lockfile
+    retval=$((! $retval))
     return $retval
 }
 

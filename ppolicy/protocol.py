@@ -274,7 +274,7 @@ class PPolicyServerRequest(protocol.Protocol):
                     logging.getLogger().error("policy protocol error: request wasn't specified before empty line")
                     return None
             try:
-                k, v = line.split('=', 2)
+                k, v = line.split('=', 1)
                 if k == 'sender' or k == 'recipient':
                     if len(v) != 0 and v[0] == '<': v = v[1:]
                     if len(v) != 0 and v[-1] == '<': v = v[:-1]

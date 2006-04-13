@@ -11,7 +11,10 @@ Changes in PPolicy 2.2.2 (Apr 9 2006)
 - catch DNS exception in Resolve module
 - unified lower/upper case of some values (e.g. sender, ...) for cached records
 - fixed exception when using *args in check method (Base.hashArg method)
-- config method examples
+- config file check method examples
+- updated init script for better handling daemon shutdown
+- fixed bug in mail address parsing
+- updated list of private/reserved networks in dnscache module
 
 
 Changes in PPolicy 2.2.1 (Apr 6 2006)

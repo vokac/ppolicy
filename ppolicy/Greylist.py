@@ -91,8 +91,8 @@ class Greylist(Base):
 
         # RFC 2821, section 4.1.1.2
         # empty MAIL FROM: reverse address may be null
-        if sender == '':
-            return 1, "can't check empty from address"
+        #if sender == '':
+        #    return 1, "can't check empty from address"
 
         # RFC 2821, section 4.1.1.3
         # see RCTP TO: grammar

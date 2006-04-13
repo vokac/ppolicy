@@ -128,6 +128,9 @@ divide time interval into several parts and agregate information
 about number of incomming mails. Be carefull setting this module,
 because badly choosed parameters can exhause a lot of memory.
 
+Some mail should not be blocked (e.g. to postmaster@your.domain.com,
+from <>, ...) and your configuration should take care of it.
+
 Parameters:
     cacheNegative (0)
         maximum time for caching negative result

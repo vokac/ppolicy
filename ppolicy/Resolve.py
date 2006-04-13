@@ -84,7 +84,7 @@ class Resolve(Base):
                 if not self.__testResolve(dta, resolveType.lower()):
                     return -1, "%s can't resolve %s or DNS misconfiguration" % (self.getId(), dta)
             except dnscache.DNSCacheError, e:
-                logging.getLogger().debug("%s can't resolve %s, DNS error: " % e)
+                logging.getLogger().debug("%s can't resolve %s, DNS error: %s" % (self.getId(), dta, e))
                 return -1, "%s can't resolve %s, DNS error" % (self.getId(), dta)
 
         return 1, "%s resolve ok" % self.getId()

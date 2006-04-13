@@ -72,7 +72,7 @@ class DnsblScore(Base):
         treshold = self.getParam('treshold')
 
         if sender.find("@") != -1:
-            user, domain = sender.split("@", 2)
+            user, domain = sender.split("@", 1)
         else:
             domain = None
 
