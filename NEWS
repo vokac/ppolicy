@@ -1,3 +1,19 @@
+Changes in PPolicy 2.3.0 (May 28 2006)
+======================================
+- changed method for searching MAX(`id`) in `dump` table for DumpDataDB
+  (MAX is performance problem, use separate table with sequence)
+  caution - new method is not thread safe, but it is only used to store
+  data for further analysis - so I don't care...
+- using modules stop() method should be safe
+- changed check method (added required "data" argument)
+- result are now by default appended to data hash (you can disable it
+  using Base class parameter saveResults)
+- disabled in memory chaching for ListDyn
+  (needs carefull code inspection before enabling)
+- create indexes on "value" columns for ListDyn table
+- updated examples
+
+
 Changes in PPolicy 2.2.2 (Apr 9 2006)
 =====================================
 - fixed SQL escaping

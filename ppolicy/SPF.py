@@ -38,20 +38,18 @@ class SPF(Base):
 
     Examples:
         # define module for checking SPF
-        define('spf1', 'SPF')
+        modules['spf1'] = ( 'SPF', {} )
     """
 
     PARAMS = { }
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x, '').lower()), [ 'sender', 'client_address', 'client_name' ])))
 
 
-    def check(self, *args, **keywords):
+    def check(self, data, *args, **keywords):
         """ check Request against SPF results in 'deny', 'unknown', 'pass'"""
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
         sender = data.get('sender', '').lower()
         client_address = data.get('client_address')
         client_name = data.get('client_name', '').lower()

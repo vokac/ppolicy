@@ -66,11 +66,15 @@ class ListDyn(Base):
 
     Examples:
         # module for checking if sender is in database table list1
-        define('list1', 'ListDyn', table='list1', mapping={ "sender": "mail", })
+        modules['list1'] = ( 'ListDyn', { table='list1',
+                                          mapping={ "sender": "mail", } } )
         # module for checking/getting if sender row values in database table list2
-        define('list2', 'ListDyn', table='list2', mapping={ "sender": ("mail", "VARCHAR(50)", True), }, value=["data1"])
+        modules['list2'] = ( 'ListDyn', { table='list2',
+                                          mapping={ "sender": ("mail", "VARCHAR(50)", True), },
+                                          value=["data1"] } )
         # module with soft/hard expiration and 'add' as default operation
-        define('list3', 'ListDyn', table='list3', operation='add', softExpire=60*10, hardExpire=60*30)
+        modules['list3'] = ( 'ListDyn', { table='list3', operation='add',
+                                          softExpire=60*10, hardExpire=60*30 } )
     """
 
     CHECK_SOFT_EXPIRED=2
@@ -82,6 +86,9 @@ class ListDyn(Base):
                'hardExpire': ('expiration time for the record (0 == never)', None),
                'mapping': ('mapping between params and database columns', {}),
                'operation': ('list operation (add/remove/check)', 'check'),
+               'cachePositive': (None, 0), # don't cache results in memory
+               'cacheUnknown': (None, 0),  # it is possible to use this cache, but it
+               'cacheNegative': (None, 0), # needs some changes in current code
                }
 
     def __mapping(self, dictName, defType = 'VARCHAR(255)', defEsc = True):
@@ -116,8 +123,7 @@ class ListDyn(Base):
         return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('operation'))
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         criteria = self.getParam('criteria')
         return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x)), criteria)))
 
@@ -145,12 +151,14 @@ class ListDyn(Base):
 
         # hash to table columns mapping
         cols = []
+        idx = []
         for dictName in criteria:
             colName, colType, colEsc = self.__mapping(dictName)
             cols.append("`%s` %s" % (colName, colType))
         for dictName in value:
             colName, colType, colEsc = self.__mapping(dictName)
             cols.append("`%s` %s" % (colName, colType))
+            idx.append("INDEX `autoindex_%s` (`%s`)" % (colName, colName))
         if softExpire > 0:
             dictName = 'soft_expire'
             colName, colType, colEsc = self.__mapping(dictName, 'DATETIME NOT NULL', False)
@@ -164,7 +172,7 @@ class ListDyn(Base):
         # create database table if not exist
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols))
+        sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols+idx))
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
         if hardExpire > 0:
@@ -175,12 +183,11 @@ class ListDyn(Base):
         cursor.close()
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
-        operation = self.dataArg(1, 'operation', None, *args, **keywords)
-        value = self.dataArg(2, 'value', None, *args, **keywords)
-        softExpire = self.dataArg(3, 'softExpire', None, *args, **keywords)
-        hardExpire = self.dataArg(4, 'hardExpire', None, *args, **keywords)
+    def check(self, data, *args, **keywords):
+        operation = self.dataArg(0, 'operation', None, *args, **keywords)
+        value = self.dataArg(1, 'value', None, *args, **keywords)
+        softExpire = self.dataArg(2, 'softExpire', None, *args, **keywords)
+        hardExpire = self.dataArg(3, 'hardExpire', None, *args, **keywords)
 
         table = self.getParam('table')
         criteria = self.getParam('criteria')

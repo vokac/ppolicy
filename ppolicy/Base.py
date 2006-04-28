@@ -67,13 +67,15 @@ class IPPolicyCheck(components.Interface):
     def hashArg(self, *args, **keywords):
         """Hash for data relevant for this module."""
 
-    def check(self, *args, **keywords):
+    def check(self, data, *args, **keywords):
         """check request stored data againts policy and returns tuple
         of check status code and optional info. The meaning of status
         codes is folloving:
             < 0 check failed
             = 0 check uknown (e.g. required resource not available)
             > 0 check succeded
+        arguments:
+            data -- input data
         example: 
             1, None
             0, 'database connection failed'
@@ -89,7 +91,8 @@ class Base(object):
     and "hashArg"
 
     Module arguments (see output of getParams method):
-    factory, cachePositive, cacheUnknown, cacheNegative
+    factory, cachePositive, cacheUnknown, cacheNegative, saveResult,
+    saveResultPrefix
 
     Check arguments:
         None
@@ -108,6 +111,8 @@ class Base(object):
                'cachePositive': ('maximum time for caching positive result', 60*15),
                'cacheUnknown': ('maximum time for caching unknown result', 60*15),
                'cacheNegative': ('maximum time for caching negative result', 60*15),
+               'saveResult': ('save returned value in data hash for further modules', True),
+               'saveResultPrefix': ('prefix for saved data', 'result_'),
 #               'redefineDefaultValue': (None, 'abc'),
                }
 
@@ -240,12 +245,14 @@ class Base(object):
         return hash(argsTuple) + hash(keywordsTuple)
 
 
-    def check(self, *args, **keywords):
+    def check(self, data, *args, **keywords):
         """check request data againts policy and returns tuple of status
         code and optional info. The meaning of status codes is folloving:
             < 0 check failed
             = 0 check uknown (e.g. required resource not available)
             > 0 check succeded
+        arguments:
+            data -- input data
         example: 
             1, None
             0, 'database connection failed'

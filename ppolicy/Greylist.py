@@ -42,10 +42,11 @@ class Greylist(Base):
 
     Examples:
         # greylisting module with default parameters
-        define('greylist1', 'Greylist')
+        modules['greylist1'] = ( 'Greylist', {} )
         # greylisting module with own database table "grey", delay set
         # to 1 minute and expiration time of triplets to 1 year
-        define('greylist2', 'Greylist', table="grey", delay=60, expiration=86400*365)
+        modules['greylist2'] = ( 'Greylist', { table="grey", delay=60,
+                                               expiration=86400*365 } )
     """
 
     PARAMS = { 'table': ('greylist database table', 'greylist'),
@@ -77,13 +78,11 @@ class Greylist(Base):
         cursor.close()
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x, '').lower()), [ 'sender', 'recipient', 'client_address' ])))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         sender = data.get('sender', '').lower()
         recipient = data.get('recipient', '').lower()
         client_name = data.get('client_name', '').lower()
@@ -99,20 +98,24 @@ class Greylist(Base):
         if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
             return 1, "allow mail to postmaster without graylisting"
 
-        try:
-            user, domain = sender.split("@")
-        except ValueError:
-            logging.getLogger().warn("%s: sender address in unknown format: %s" %
-                                     (self.getId(), sender))
-            return -1, "sender address format icorrect %s" % sender
+        if sender != '':
+            try:
+                user, domain = sender.split("@")
+            except ValueError:
+                logging.getLogger().warn("%s: sender address in unknown format: %s" %
+                                         (self.getId(), sender))
+                return -1, "sender address format icorrect %s" % sender
 
-        # list of mailservers
-        try:
-            mailhosts = dnscache.getDomainMailhosts(domain)
-            spfres, spfstat, spfexpl = spf.check(i=client_address,
-                                                 s=sender, h=client_name)
-        except Exception, e:
-            return 0, "%s DNS failure: %s" % (self.getId(), e)
+            # list of mailservers
+            try:
+                mailhosts = dnscache.getDomainMailhosts(domain)
+                spfres, spfstat, spfexpl = spf.check(i=client_address,
+                                                     s=sender, h=client_name)
+            except Exception, e:
+                return 0, "%s DNS failure: %s" % (self.getId(), e)
+        else:
+            mailhosts = []
+            spfres = ''
 
         if client_address in mailhosts or spfres == 'pass':
             greysubj = domain

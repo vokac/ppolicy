@@ -77,7 +77,11 @@ def doc(name, **keywords):
             paramsPrinted = True
             skipLines = True
             print "Parameters:"
-            for k,v in obj.getParams().items():
+            itms = obj.getParams()
+            keys = itms.keys()
+            keys.sort()
+            for k in keys:
+                v = itms[k]
                 print "    %s (%s)\n        %s" % (k, v[1], v[0])
             print
         else:

@@ -40,7 +40,7 @@ class DnsblDynamic(Base):
 
     Examples:
         # check if sender mailserver is in ORDB blacklist
-        define('dnsbl1', 'DnsblDynamic')
+        modules['dnsbl1'] = ( 'DnsblDynamic', {} )
     """
 
     PARAMS = { 'dnsbl': ('list of DNS blacklists', [ 'NJABLDYNA', 'KROPKADUL', 'SORBSDUL' ]),
@@ -59,13 +59,11 @@ class DnsblDynamic(Base):
             self.patterns.append(re.compile('[.-](dhcp|a?dsl)(|-[^.]+)\.[^.]+\.[^.]'))
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         return hash(data.get('client_address'))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
         client_name = data.get('client_name')
         dnsblNames = self.getParam('dnsbl', [])

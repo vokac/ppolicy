@@ -37,7 +37,7 @@ class Dnsbl(Base):
 
     Examples:
         # check if sender mailserver is in ORDB blacklist
-        define('dnsbl1', 'Dnsbl', dnsbl="ORDB")
+        modules['dnsbl1'] = ( 'Dnsbl', { dnsbl="ORDB" } )
     """
 
     PARAMS = { 'dnsbl': ('name of DNS blacklist defined in this module', None),
@@ -54,13 +54,11 @@ class Dnsbl(Base):
             raise ParamError("there is not %s dnsbl list in config file" % dnsblName)
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         return hash(data.get('client_address'))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
         dnsblName = self.getParam('dnsbl')
 

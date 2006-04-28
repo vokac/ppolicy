@@ -1,10 +1,11 @@
 TODO list sorted by task importance
 -----------------------------------
-* many of implemented modules doesn't make correct clean with stop()
-  method - so restarting modules could now lead to undefined behavior
-  (some parts of code should be moved from start() to __init__())
+* some code from start() should be moved to __init__()
+* create INDEXes when in case new database table is created
+* IPv6 was not tested - don't use with mailserver that listen on IPv6
+  (or don't use modules that work with client_address)
 * database synchronization task (greylist)
-* caching in memory results from 'add/remove' method od ListDyn
+* caching in memory results of ListDyn
 * package dnsbl config files into RPM
 * remove log files after rotation - impossible with twisted log module
 

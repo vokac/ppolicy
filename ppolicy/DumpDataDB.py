@@ -35,9 +35,9 @@ class DumpDataDB(Base):
     Examples:
         # definition for module for saving request info in default
         # database table 'dump'
-        define('dumpdb1', 'DumpDataDB')
+        modules['dumpdb1'] = ( 'DumpDataDB', {} )
         # module that save info in custom defined table
-        define('dumpdb2', 'DumpDataDB', table="my_dump")
+        modules['dumpdb2'] = ( 'DumpDataDB', { table="my_dump" } )
     """
 
     PARAMS = { 'table': ('database where to dump data from requests', 'dump'),
@@ -60,11 +60,17 @@ class DumpDataDB(Base):
         sql = "CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `key` VARCHAR(50) NOT NULL, `value` VARCHAR(1000), PRIMARY KEY (`id`, `key`))" % table
         logging.getLogger().debug("SQL: %s" % sql)
         cursor.execute(sql)
+
+        sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % table
+        logging.getLogger().debug("SQL: %s" % sql)
+        cursor.execute(sql)
+        row = cursor.fetchone()
+        self.newId = row[0]
+
         cursor.close()
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         try:
             conn = self.factory.getDbConnection()
             # conn.autocommit(False) # begin() # this is not well supported in old MySQLdb
@@ -73,11 +79,10 @@ class DumpDataDB(Base):
                 cursor = conn.cursor()
                 cursor.execute("START TRANSACTION")
 
-                sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % table
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
-                row = cursor.fetchone()
-                newId = row[0]
+                # XXX: object.lock.acquire()
+                newId = self.newId
+                self.newId += 1
+                # XXX: object.lock.release()
 
                 sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES (%i, 'date', NOW())" % (table, newId)
                 logging.getLogger().debug("SQL: %s" % sql)

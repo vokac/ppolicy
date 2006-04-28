@@ -32,9 +32,9 @@ class Dummy(Base):
 
     Examples:
         # make instance of dummy module
-        define('dummy1', 'Dummy')
+        modules['dummy1'] = ( 'Dummy', {} )
         # make instance of dummy module with parameters
-        define('dummy1', 'Dummy', test1=1, test2="def")
+        modules['dummy2'] = ( 'Dummy', { test1=1, test2="def" } )
     """
 
     PARAMS = { 'test1': ('test parameter 1', None),
@@ -55,21 +55,24 @@ class Dummy(Base):
         pass
 
 
-    def hashArg(self, *args, **keywords):
+    def hashArg(self, data, *args, **keywords):
         """Compute hash from data which is then used as index
         to the result cache. Changing this function in subclasses
         and using only required fields for hash can improve cache
-        usage and performance."""
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+        usage and performance.
+        arguments:
+            data -- input data
+        """
         return 0
 
 
-    def check(self, *args, **keywords):
+    def check(self, data, *args, **keywords):
         """check request data againts policy and returns tuple of status
         code and optional info. The meaning of status codes is folloving:
             < 0 check failed
             = 0 check uknown (e.g. required resource not available)
             > 0 check succeded
+        parameters:
+            data -- input data
         """
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
         return 0, 'dummy'

@@ -37,7 +37,7 @@ class Trap(Base):
     Examples:
         # define trap to block client_address for one hour if we receive
         # one mail with recipient spamtrap1 or spamtrap2
-        define('trap1', 'Trap', traps="spamtrap1@domain.com,spamtrap2@domain.com")
+        modules['trap1'] = ( 'Trap', { traps="spamtrap1@domain.com,spamtrap2@domain.com" } )
     """
 
     PARAMS = { 'traps': ('comma separated list of trap email addresses', None),
@@ -70,14 +70,13 @@ class Trap(Base):
         del(self.trap)
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
-        return hash("client_address=%s" % data.get('client_address'))
+    def hashArg(self, data, *args, **keywords):
+        traps = self.dataArg(0, 'traps', [], *args, **keywords)
+        return hash("client_address=%s\ntraps=%s" % (data.get('client_address'), str(traps)))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
-        traps = self.dataArg(1, 'traps', [], *args, **keywords)
+    def check(self, data, *args, **keywords):
+        traps = self.dataArg(0, 'traps', [], *args, **keywords)
         if traps == []: traps = self.traps
         expire = self.getParam('expire')
         treshold = self.getParam('treshold')

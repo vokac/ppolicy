@@ -42,9 +42,9 @@ class DnsblScore(Base):
 
     Examples:
         # return blacklist score for client address
-        define('dnsbl1', 'DnsblScore')
+        modules['dnsbl1'] = ( 'DnsblScore', {} )
         # check if blacklist score for client address exceed defined treshold
-        define('dnsbl1', 'DnsblScore', treshold=5)
+        modules['dnsbl1'] = ( 'DnsblScore', { treshold=5 } )
     """
 
     PARAMS = { 'dnsbl': ('list of DNS blacklist to use', None),
@@ -57,15 +57,13 @@ class DnsblScore(Base):
         dnsblScore.getInstance()
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         client_address = data.get('client_address')
         sender = data.get('sender', '')
         return hash("client_address=%s\nsender=%s" % (client_address, sender))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
         sender = data.get('sender', '')
         dnsblName = self.getParam('dnsbl')

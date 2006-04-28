@@ -95,30 +95,50 @@ class PPolicyServerFactory:
                 logging.getLogger().error("Stop module %s failed: %s" % (modVal[0].getId(), e))
 
 
-    def check(self, name, *args, **keywords):
+    def check(self, name, data, *args, **keywords):
         """Called from config file. We should cache results here."""
+        startTime = time.time()
         if not self.modules.has_key(name):
             raise Exception("Module named \"%s\" was not defined" % name)
         try:
             obj, running = self.modules.get(name)
             if not running:
                 obj.start()
-            hashArg = str(obj.hashArg(*args, **keywords))
+            hashArg = str(obj.hashArg(data, *args, **keywords))
             code, codeEx = self.__cacheGet(name+hashArg)
             if code == None:
-                #logging.getLogger().debug("running %s.check(%s, %s)" % (name, args, keywords))
-                code, codeEx = obj.check(*args, **keywords)
-                logging.getLogger().info("%s result: %s (%s)" % (name, code, codeEx))
+                hitCache = False
+                #logging.getLogger().debug("running %s.check(%s, %s, %s)" % (name, data, args, keywords))
+                logging.getLogger().info("%s running" % name)
+                code, codeEx = obj.check(data, *args, **keywords)
                 self.__cacheSet(name+hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
             else:
-                logging.getLogger().info("%s result (hit cache): %s (%s)" % (name, code, codeEx))
+                hitCache = True
+            runTime = int((time.time() - startTime) * 1000)
+            if obj.getParam('saveResult', False):
+                prefix = obj.getParam('saveResultPrefix', '')
+                data["%s%s_code" % (prefix, name)] = code
+                data["%s%s_info" % (prefix, name)] = codeEx
+                data["%s%s_time" % (prefix, name)] = runTime
+            logging.getLogger().info("%s result[%s,%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
             return code, codeEx
         except Exception, e:
-            logging.getLogger().error("failed to call method of \"%s\" module: %s" % (name, e))
+            code = 0
+            codeEx = "%s failed with exception" % name
+            runTime = int((startTime - time.time()) * 1000)
+            try:
+                if obj.getParam('saveResult', False):
+                    prefix = obj.getParam('saveResultPrefix', '')
+                    data["%s%s_code" % (prefix, name)] = code
+                    data["%s%s_info" % (prefix, name)] = codeEx
+                    data["%s%s_time" % (prefix, name)] = runTime
+            except:
+                pass
+            logging.getLogger().error("%s failed: %s" % (name, e))
             exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
             logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
             # raise e
-            return 0, "%s failed with exception" % name
+            return code, codeEx
 
 
     def __cacheGet(self, key):
@@ -237,7 +257,12 @@ class PPolicyServerRequest(protocol.Protocol):
         try:
             parsedData = self.__parseData(data)
             if parsedData != None:
+                startTime = time.time()
+                reqid = parsedData.get('instance', "unknown%i" % startTime)
+                logging.getLogger().info("%s start" % reqid)
                 action, actionEx = self.check(self.factory, parsedData)
+                runTime = int((time.time() - startTime) * 1000)
+                logging.getLogger().info("%s finish: %i" % (reqid, runTime))
                 self.dataResponse(action, actionEx)
             else:
                 # default return action for garbage?

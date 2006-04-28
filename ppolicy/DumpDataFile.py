@@ -34,7 +34,7 @@ class DumpDataFile(Base):
 
     Examples:
         # definition for module for saving request info in file
-        define('dumpfile1', 'DumpDataFile', fileName="/var/spool/ppolicy/dump.dat")
+        modules['dumpfile1'] = ( 'DumpDataFile', { fileName="/var/spool/ppolicy/dump.dat" } )
     """
 
     PARAMS = { 'fileName': ('file where to dump data from requests', None),
@@ -55,8 +55,7 @@ class DumpDataFile(Base):
         self.file.close()
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         try:
             self.file.write("date=%s\n" % time.time())
             for k,v in data.items():

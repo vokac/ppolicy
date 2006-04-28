@@ -10,14 +10,18 @@ output of configured balacklists.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
-    cacheUnknown (900)
-        maximum time for caching unknown result
-    factory (None)
-        reference to factory instance
-    dnsbl (None)
-        name of DNS blacklist defined in this module
     cachePositive (900)
         maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    dnsbl (None)
+        name of DNS blacklist defined in this module
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
 
 Check arguments:
     data ... all input data in dict
@@ -29,7 +33,7 @@ Check returns:
 
 Examples:
     # check if sender mailserver is in ORDB blacklist
-    define('dnsbl1', 'Dnsbl', dnsbl="ORDB")
+    modules['dnsbl1'] = ( 'Dnsbl', { dnsbl="ORDB" } )
 
 
 
@@ -50,16 +54,20 @@ names by calling `python tools/dnsblScore.py --list`.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
-    cacheUnknown (900)
-        maximum time for caching unknown result
-    factory (None)
-        reference to factory instance
     cachePositive (900)
         maximum time for caching positive result
-    treshold (None)
-        treshold that define whitch score mean this module fail
+    cacheUnknown (900)
+        maximum time for caching unknown result
     dnsbl (None)
         list of DNS blacklist to use
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    treshold (None)
+        treshold that define whitch score mean this module fail
 
 Check arguments:
     data ... all input data in dict
@@ -71,9 +79,9 @@ Check returns:
 
 Examples:
     # return blacklist score for client address
-    define('dnsbl1', 'DnsblScore')
+    modules['dnsbl1'] = ( 'DnsblScore', {} )
     # check if blacklist score for client address exceed defined treshold
-    define('dnsbl1', 'DnsblScore', treshold=5)
+    modules['dnsbl1'] = ( 'DnsblScore', { treshold=5 } )
 
 
 
@@ -92,16 +100,20 @@ decision rule and don't reject mail only relaying on this result.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
     check_name (True)
         check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)
-    factory (None)
-        reference to factory instance
-    cachePositive (900)
-        maximum time for caching positive result
     dnsbl (['NJABLDYNA', 'KROPKADUL', 'SORBSDUL'])
         list of DNS blacklists
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
 
 Check arguments:
     data ... all input data in dict
@@ -113,7 +125,7 @@ Check returns:
 
 Examples:
     # check if sender mailserver is in ORDB blacklist
-    define('dnsbl1', 'DnsblDynamic')
+    modules['dnsbl1'] = ( 'DnsblDynamic', {} )
 
 
 
@@ -134,20 +146,24 @@ from <>, ...) and your configuration should take care of it.
 Parameters:
     cacheNegative (0)
         maximum time for caching negative result
+    cachePositive (0)
+        maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    limitCount (1000)
+        number of messages accepted during limitTime period
     limitGran (10)
         data collection granularity
     limitTime (3600)
         time period for limitCount messages
-    factory (None)
-        reference to factory instance
     params (None)
         parameters that will be used to test equality
-    cachePositive (0)
-        maximum time for caching positive result
-    limitCount (1000)
-        number of messages accepted during limitTime period
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
 
 Check arguments:
     data ... all input data in dict
@@ -159,10 +175,11 @@ Check returns:
 
 Examples:
     # limit number of mail from one sender to 1000/hod
-    define('dos1', 'DOS', params="sender")
+    modules['dos1'] = ( 'DOS', { params="sender" } )
     # limit number of mail from one sender
     # and one mailserver to 100 in 10 minutes
-    define('dos2', 'DOS', params=["sender","client_address"], limitCount=100, limitTime=10)
+    modules['dos2'] = ( 'DOS', { params=["sender","client_address"],
+                        limitCount=100, limitTime=10 } )
 
 
 
@@ -173,18 +190,22 @@ Module Dummy
 Dummy module skeleton for creating new modules
 
 Parameters:
-    test1 (None)
-        test parameter 1
     cacheNegative (0)
         maximum time for caching negative result
-    test2 (abc)
-        test parameter 2
+    cachePositive (0)
+        maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
-    cachePositive (0)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    test1 (None)
+        test parameter 1
+    test2 (abc)
+        test parameter 2
 
 Check arguments:
     data ... all input data in dict
@@ -196,9 +217,9 @@ Check returns:
 
 Examples:
     # make instance of dummy module
-    define('dummy1', 'Dummy')
+    modules['dummy1'] = ( 'Dummy', {} )
     # make instance of dummy module with parameters
-    define('dummy1', 'Dummy', test1=1, test2="def")
+    modules['dummy2'] = ( 'Dummy', { test1=1, test2="def" } )
 
 
 
@@ -212,16 +233,20 @@ statistical data for further analysis. This module should be safe to
 use in sense its check method doesn't raise any exception.
 
 Parameters:
-    table (dump)
-        database where to dump data from requests
     cacheNegative (0)
         maximum time for caching negative result
+    cachePositive (0)
+        maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
-    cachePositive (0)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    table (dump)
+        database where to dump data from requests
 
 Check arguments:
     data ... all input data in dict
@@ -232,9 +257,9 @@ Check returns:
 Examples:
     # definition for module for saving request info in default
     # database table 'dump'
-    define('dumpdb1', 'DumpDataDB')
+    modules['dumpdb1'] = ( 'DumpDataDB', {} )
     # module that save info in custom defined table
-    define('dumpdb2', 'DumpDataDB', table="my_dump")
+    modules['dumpdb2'] = ( 'DumpDataDB', { table="my_dump" } )
 
 
 
@@ -250,14 +275,18 @@ use in sense its check method doesn't raise any exception.
 Parameters:
     cacheNegative (0)
         maximum time for caching negative result
+    cachePositive (0)
+        maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
-    cachePositive (0)
-        maximum time for caching positive result
     fileName (None)
         file where to dump data from requests
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
 
 Check arguments:
     data ... all input data in dict
@@ -267,7 +296,7 @@ Check returns:
 
 Examples:
     # definition for module for saving request info in file
-    define('dumpfile1', 'DumpDataFile', fileName="/var/spool/ppolicy/dump.dat")
+    modules['dumpfile1'] = ( 'DumpDataFile', { fileName="/var/spool/ppolicy/dump.dat" } )
 
 
 
@@ -289,16 +318,20 @@ load of remote server.
 Parameters:
     cacheNegative (0)
         maximum time for caching negative result
+    cachePositive (0)
+        maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
-    factory (None)
-        reference to factory instance
     delay (600)
         how long to delay mail we see its triplet first time
     expiration (2678400)
         expiration of triplets in database
-    cachePositive (0)
-        maximum time for caching positive result
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
     table (greylist)
         greylist database table
 
@@ -312,10 +345,11 @@ Check returns:
 
 Examples:
     # greylisting module with default parameters
-    define('greylist1', 'Greylist')
+    modules['greylist1'] = ( 'Greylist', {} )
     # greylisting module with own database table "grey", delay set
     # to 1 minute and expiration time of triplets to 1 year
-    define('greylist2', 'Greylist', table="grey", delay=60, expiration=86400*365)
+    modules['greylist2'] = ( 'Greylist', { table="grey", delay=60,
+                                           expiration=86400*365 } )
 
 
 
@@ -329,6 +363,8 @@ black/white listing any of parameter comming with ppolicy requests.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
     column (None)
@@ -337,8 +373,10 @@ Parameters:
         reference to factory instance
     param (None)
         name of parameter to search in database
-    cachePositive (900)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
     table (None)
         name of database table where to search parameter
 
@@ -352,9 +390,9 @@ Check returns:
 
 Examples:
     # module for checking if sender is in database table list
-    define('list1', 'List', param="sender")
-    # check if sender domain is in database table list1
-    define('list1', 'List', param="sender", table="list1")
+    modules['list1'] = ( 'List', { param="sender" } )
+    # check if sender domain is in database table my_list
+    modules['list2'] = ( 'List', { param="sender", table="my_list" } )
 
 
 
@@ -393,28 +431,32 @@ the its results are always reachable (e.g. when it uses DNS and it
 is temporarly unreachable).
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (0)
         maximum time for caching negative result
-    hardExpire (None)
-        expiration time for the record (0 == never)
-    softExpire (None)
-        information that record will be soon expired (0 == never))
-    mapping ({})
-        mapping between params and database columns
-    value (None)
-        names of value columns (None mean no related data)
-    factory (None)
-        reference to factory instance
-    cachePositive (900)
+    cachePositive (0)
         maximum time for caching positive result
+    cacheUnknown (0)
+        maximum time for caching unknown result
     criteria (None)
         names of input data keys used to identify data row(s)
-    cacheUnknown (900)
-        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    hardExpire (None)
+        expiration time for the record (0 == never)
+    mapping ({})
+        mapping between params and database columns
     operation (check)
         list operation (add/remove/check)
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    softExpire (None)
+        information that record will be soon expired (0 == never))
     table (list)
         name of database table where to search parameter
+    value (None)
+        names of value columns (None mean no related data)
 
 Check arguments:
     data ... all input data in dict
@@ -432,11 +474,15 @@ Check returns:
 
 Examples:
     # module for checking if sender is in database table list1
-    define('list1', 'ListDyn', table='list1', mapping={ "sender": "mail", })
+    modules['list1'] = ( 'ListDyn', { table='list1',
+                                      mapping={ "sender": "mail", } } )
     # module for checking/getting if sender row values in database table list2
-    define('list2', 'ListDyn', table='list2', mapping={ "sender": ("mail", "VARCHAR(50)", True), }, value=["data1"])
+    modules['list2'] = ( 'ListDyn', { table='list2',
+                                      mapping={ "sender": ("mail", "VARCHAR(50)", True), },
+                                      value=["data1"] } )
     # module with soft/hard expiration and 'add' as default operation
-    define('list3', 'ListDyn', table='list3', operation='add', softExpire=60*10, hardExpire=60*30)
+    modules['list3'] = ( 'ListDyn', { table='list3', operation='add',
+                                      softExpire=60*10, hardExpire=60*30 } )
 
 
 
@@ -450,14 +496,18 @@ name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
     param (None)
         which request parameter should be used
-    cachePositive (900)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
     type (None)
         ip->name, name->ip, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2
 
@@ -471,12 +521,15 @@ Check returns:
 
 Examples:
     # check if sender domain exist
-    define('resolve1', 'Resolve', param="sender", type="name->ip")
+    modules['resolve1'] = ( 'Resolve', { param="sender",
+                                         type="name->ip" } )
     # check if remote mailserver has reverse records in DNS
-    define('resolve2', 'Resolve', param="client_address", type="ip->name")
+    modules['resolve2'] = ( 'Resolve', { param="client_address",
+                                         type="ip->name" } )
     # check if remote mailserver has reverse records in DNS
     # and translating back returns set of IP that contains original IP
-    define('resolve3', 'Resolve', param="client_address", type="ip->name->ip")
+    modules['resolve3'] = ( 'Resolve', { param="client_address",
+                                         type="ip->name->ip" } )
 
 
 
@@ -494,12 +547,16 @@ http://en.wikipedia.org/wiki/Sender_Policy_Framework
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
-    cachePositive (900)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
 
 Check arguments:
     data ... all input data in dict
@@ -511,7 +568,7 @@ Check returns:
 
 Examples:
     # define module for checking SPF
-    define('spf1', 'SPF')
+    modules['spf1'] = ( 'SPF', {} )
 
 
 
@@ -526,16 +583,20 @@ the trap, all mail from that client will be temporarly blocked.
 Parameters:
     cacheNegative (0)
         maximum time for caching negative result
-    cacheUnknown (0)
-        maximum time for caching unknown result
-    traps (None)
-        comma separated list of trap email addresses
-    factory (None)
-        reference to factory instance
-    expire (3600)
-        expiration time for client that send trapped email
     cachePositive (0)
         maximum time for caching positive result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    expire (3600)
+        expiration time for client that send trapped email
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    traps (None)
+        comma separated list of trap email addresses
     treshold (-2)
         how many traps has to be touched before blacklisting (negative value mean fraction 1/x)
 
@@ -550,7 +611,7 @@ Check returns:
 Examples:
     # define trap to block client_address for one hour if we receive
     # one mail with recipient spamtrap1 or spamtrap2
-    define('trap1', 'Trap', traps="spamtrap1@domain.com,spamtrap2@domain.com")
+    modules['trap1'] = ( 'Trap', { traps="spamtrap1@domain.com,spamtrap2@domain.com" } )
 
 
 
@@ -574,24 +635,28 @@ to see limitation and problem that can happen.
 Parameters:
     cacheNegative (900)
         maximum time for caching negative result
-    vtype (mx)
-        mx, connection, domain or user verification
+    cachePositive (900)
+        maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
-    timeout (20)
-        set SMTP connection timeout
+    dbExpireNegative (10800)
+        negative result expiration time in db
     dbExpirePositive (1814400)
         positive result expiration time in db
     factory (None)
         reference to factory instance
     param (None)
         string key for data item that should be verified (sender/recipient)
-    cachePositive (900)
-        maximum time for caching positive result
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
     table (verification)
         database table with persistent cache
-    dbExpireNegative (10800)
-        negative result expiration time in db
+    timeout (20)
+        set SMTP connection timeout
+    vtype (mx)
+        mx, connection, domain or user verification
 
 Check arguments:
     data ... all input data in dict
@@ -611,9 +676,10 @@ Check returns:
 
 Examples:
     # sender domain verification
-    define('verification', 'Verification', param="sender")
+    modules['verification'] = ( 'Verification', { param="sender" } )
     # recipient user verification
-    define('verification', 'Verification', param="recipient", vtype="user")
+    modules['verification'] = ( 'Verification', { param="recipient",
+                                                  vtype="user" } )
 
 
 

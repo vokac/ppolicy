@@ -33,9 +33,9 @@ class List(Base):
 
     Examples:
         # module for checking if sender is in database table list
-        define('list1', 'List', param="sender")
-        # check if sender domain is in database table list1
-        define('list1', 'List', param="sender", table="list1")
+        modules['list1'] = ( 'List', { param="sender" } )
+        # check if sender domain is in database table my_list
+        modules['list2'] = ( 'List', { param="sender", table="my_list" } )
     """
 
     PARAMS = { 'param': ('name of parameter to search in database', None),
@@ -48,8 +48,7 @@ class List(Base):
         return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('param'))
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
         return hash("=".join([ param, data.get(param) ]))
 
@@ -73,8 +72,7 @@ class List(Base):
         cursor.close()
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         param = self.getParam('param')
         table = self.getParam('table')
         column = self.getParam('column')

@@ -34,12 +34,15 @@ class Resolve(Base):
 
     Examples:
         # check if sender domain exist
-        define('resolve1', 'Resolve', param="sender", type="name->ip")
+        modules['resolve1'] = ( 'Resolve', { param="sender",
+                                             type="name->ip" } )
         # check if remote mailserver has reverse records in DNS
-        define('resolve2', 'Resolve', param="client_address", type="ip->name")
+        modules['resolve2'] = ( 'Resolve', { param="client_address",
+                                             type="ip->name" } )
         # check if remote mailserver has reverse records in DNS
         # and translating back returns set of IP that contains original IP
-        define('resolve3', 'Resolve', param="client_address", type="ip->name->ip")
+        modules['resolve3'] = ( 'Resolve', { param="client_address",
+                                             type="ip->name->ip" } )
     """
 
     PARAMS = { 'param': ('which request parameter should be used', None),
@@ -57,14 +60,12 @@ class Resolve(Base):
             raise ParamError("type \"%s\" is not supported" % resolveType)
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
         return hash("%s=%s" % (param, data.get(param)))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         param = self.getParam('param')
         resolveType = self.getParam('type')
         paramValue = data.get(param, [])

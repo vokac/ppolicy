@@ -54,9 +54,10 @@ class Verification(Base):
 
     Examples:
         # sender domain verification
-        define('verification', 'Verification', param="sender")
+        modules['verification'] = ( 'Verification', { param="sender" } )
         # recipient user verification
-        define('verification', 'Verification', param="recipient", vtype="user")
+        modules['verification'] = ( 'Verification', { param="recipient",
+                                                      vtype="user" } )
     """
 
     CHECK_PERNAMENT_CACHE=10
@@ -118,8 +119,7 @@ class Verification(Base):
         self.cacheDB.start()
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
         paramValue = data.get(param, '')
         user, domain = self.__getUserDomain(paramValue)
@@ -132,8 +132,7 @@ class Verification(Base):
             return hash("%s@%s" % (user, domain))
 
 
-    def check(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def check(self, data, *args, **keywords):
         param = self.getParam('param')
         paramValue = data.get(param, '')
         vtype = self.getParam('vtype')

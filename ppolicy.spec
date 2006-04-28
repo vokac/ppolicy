@@ -1,7 +1,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.2.2
-Release: 3
+Version: 2.3.0
+Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -92,6 +92,20 @@ fi
 
 
 %changelog
+* Fri Apr 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.3.0-0
+- changed method for searching MAX(`id`) in `dump` table for DumpDataDB
+  (MAX is performance problem, use separate table with sequence)
+  caution - new method is not thread safe, but it is only used to store
+  data for further analysis - so I don't care...
+- using modules stop() method should be safe
+- changed check method (added required "data" argument)
+- result are now by default appended to data hash (you can disable it
+  using Base class parameter saveResults)
+- disabled in memory chaching for ListDyn
+  (needs carefull code inspection before enabling)
+- create indexes on "value" columns for ListDyn table
+- updated examples
+
 * Sun Apr 9 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.2.2-2
 - fixed SQL escaping
 - Verification return CHECK_FAILED in case of DNS error

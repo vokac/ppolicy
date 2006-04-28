@@ -41,10 +41,11 @@ class DOS(Base):
 
     Examples:
         # limit number of mail from one sender to 1000/hod
-        define('dos1', 'DOS', params="sender")
+        modules['dos1'] = ( 'DOS', { params="sender" } )
         # limit number of mail from one sender
         # and one mailserver to 100 in 10 minutes
-        define('dos2', 'DOS', params=["sender","client_address"], limitCount=100, limitTime=10)
+        modules['dos2'] = ( 'DOS', { params=["sender","client_address"],
+                            limitCount=100, limitTime=10 } )
     """
 
     PARAMS = { 'params': ('parameters that will be used to test equality', None),
@@ -76,15 +77,13 @@ class DOS(Base):
         del(self.cache)
 
 
-    def hashArg(self, *args, **keywords):
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
+    def hashArg(self, data, *args, **keywords):
         params = self.getParam('params')
         return hash("\n".join([ "=".join([x, data.get(x, '')]) for x in params ]))
 
 
-    def check(self, *args, **keywords):
+    def check(self, data, *args, **keywords):
         # normalize data and get all possible keys
-        data = self.dataArg(0, 'data', {}, *args, **keywords)
         params = self.getParam('params')
 
         # create all parameter combinations (cartesian product)
