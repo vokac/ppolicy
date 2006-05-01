@@ -99,9 +99,13 @@ class PPolicyServerFactory:
         startTime = time.time()
         if not self.modules.has_key(name):
             raise Exception("Module named \"%s\" was not defined" % name)
-        prefix = ''
+        prefix = "result_%s" % name
+        saveResult = False
         try:
-            if obj.getParam('saveResult', False):
+            obj, running = self.modules.get(name)
+
+            saveResult = obj.getParam('saveResult', False)
+            if saveResult:
                 prefix = "%s%s" % (obj.getParam('saveResultPrefix', ''), name)
                 if data.has_key("%s_code" % prefix):
                     reqnum = 1
@@ -109,10 +113,9 @@ class PPolicyServerFactory:
                         reqnum += 1
                     prefix = "%s#%i" % (prefix, reqnum)
 
-            obj, running = self.modules.get(name)
             if not running:
                 obj.start()
-
+            
             hashArg = obj.hashArg(data, *args, **keywords)
             if hashArg != 0:
                 hashArg = "%s%s" % (name, hashArg)
@@ -142,10 +145,10 @@ class PPolicyServerFactory:
             codeEx = "%s failed with exception" % name
             runTime = int((startTime - time.time()) * 1000)
             try:
-                if obj.getParam('saveResult', False):
-                    data["%s%s_code" % (prefix, name)] = code
-                    data["%s%s_info" % (prefix, name)] = codeEx
-                    data["%s%s_time" % (prefix, name)] = runTime
+                if saveResult:
+                    data["%s_code" % prefix] = code
+                    data["%s_info" % prefix] = codeEx
+                    data["%s_time" % prefix] = runTime
             except:
                 pass
 
@@ -273,14 +276,33 @@ class PPolicyServerRequest(protocol.Protocol):
 
     def dataReceived(self, data):
         """Receive data and process them in new thread"""
-        # FIXME: callInThread doesn't release resources?!
+        # XXXXX: callInThread doesn't release resources?!
         #        or it is resouce leak when creating/releasing connection?
-        reactor.callInThread(self.dataProcess, data)
+        #reactor.callInThread(self.dataProcess, data)
+        # replaced with following Thread class - it is not so effective,
+        # because it doesn't use thread pool, but it doesn't leak resources
+        PPolicyServerRequestThread(self.factory, data, self.transport).start()
 
-    def dataProcess(self, data):
+
+
+class PPolicyServerRequestThread(threading.Thread):
+
+    def __init__ (self, factory, data, transport):
+        threading.Thread.__init__(self)
+        self.factory = factory
+        self.check = factory.getConfig('check')
+        self.returnOnFatalError = factory.getConfig('returnOnFatalError', ('dunno', None))
+        self.returnOnConnLimit = factory.getConfig('returnOnConnLimit', ('dunno', None))
+        self.data = data
+        self.transport = transport
+
+
+    #def dataProcess(self, data): # XXXXX: old usage in PPolicyServerRequest
+    def run(self):
         """Parse data, call check method from config file and return results."""
         try:
-            parsedData = self.__parseData(data)
+            #parsedData = self.__parseData(data) # XXXXX: old usage in PPolicyServerRequest
+            parsedData = self.__parseData(self.data)
             if parsedData != None:
                 startTime = time.time()
                 reqid = parsedData.get('instance', "unknown%i" % startTime)

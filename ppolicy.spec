@@ -4,7 +4,7 @@
 
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.4.1
+Version: 2.4.2
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
