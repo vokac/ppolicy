@@ -406,14 +406,15 @@ black/white lists, persistent data cache for result from other
 modules, ...
 
 One of the most important parameter is "mapping". It is used to
-map request parameters database columns. Its syntax is
-[ 'dictName': ('columnName', 'columnType', escape), ...], where
-dictName is attribude name comming in check method in data
+map request parameters database columns. Its syntax is [
+'dictName': ('columnName', 'columnType', escape, lower), ...],
+where dictName is attribude name comming in check method in data
 dictionary, columnName is database column name, column type is
-database column type in SQL syntax and escape is boolean value
-that identifies text columns that's text should be escaped. If
-don't define mapping for concrete column, than default is used
-'dictName': ('dictName', 'VARCHAR(255)', True)
+database column type in SQL syntax, escape is boolean value that
+identifies text columns that's text should be escaped and lower
+sais that data will be comparet case-insensitive. If don't define
+mapping for concrete column, than default is used 'dictName':
+('dictName', 'VARCHAR(255)', True, False)
 
 Second very important parametr is "operation". With this parameter
 you specify what this module should do by default with passed request.
@@ -478,7 +479,7 @@ Examples:
                                       mapping={ "sender": "mail", } } )
     # module for checking/getting if sender row values in database table list2
     modules['list2'] = ( 'ListDyn', { table='list2',
-                                      mapping={ "sender": ("mail", "VARCHAR(50)", True), },
+                                      mapping={ "sender": ("mail", "VARCHAR(50)", True, True), },
                                       value=["data1"] } )
     # module with soft/hard expiration and 'add' as default operation
     modules['list3'] = ( 'ListDyn', { table='list3', operation='add',

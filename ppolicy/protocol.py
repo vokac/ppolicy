@@ -9,13 +9,12 @@
 #
 # $Id$
 #
-import sys, time, string
+import sys, time, string, gc, resource
 import logging
 import threading
 import traceback
-from twisted.internet import protocol, interfaces, task
+from twisted.internet import reactor, protocol, interfaces, task
 from twisted.enterprise import adbapi
-
 
 
 class PPolicyServerFactory:
@@ -25,8 +24,8 @@ class PPolicyServerFactory:
     __implements__ = (interfaces.IProtocolFactory,)
 
 
-    def __init__(self, protocol = None, config = {}):
-        self.protocol = protocol
+    def __init__(self, config = {}):
+        self.protocol = PPolicyServerRequest
         self.numPorts = 0
         self.numProtocols = 0
         self.dbConnPool = None
@@ -107,20 +106,27 @@ class PPolicyServerFactory:
             hashArg = str(obj.hashArg(data, *args, **keywords))
             code, codeEx = self.__cacheGet(name+hashArg)
             if code == None:
-                hitCache = False
+                hitCache = ''
                 #logging.getLogger().debug("running %s.check(%s, %s, %s)" % (name, data, args, keywords))
                 logging.getLogger().info("%s running" % name)
                 code, codeEx = obj.check(data, *args, **keywords)
                 self.__cacheSet(name+hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
             else:
-                hitCache = True
+                hitCache = ' cached'
             runTime = int((time.time() - startTime) * 1000)
             if obj.getParam('saveResult', False):
-                prefix = obj.getParam('saveResultPrefix', '')
-                data["%s%s_code" % (prefix, name)] = code
-                data["%s%s_info" % (prefix, name)] = codeEx
-                data["%s%s_time" % (prefix, name)] = runTime
-            logging.getLogger().info("%s result[%s,%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
+                prefix = "%s%s" % (obj.getParam('saveResultPrefix', ''), name)
+                if data.has_key("%s_code" % prefix):
+                    reqnum = 1
+                    while data.has_key("%s#%i_code" % (prefix, reqnum)):
+                        reqnum += 1
+                    prefix = "%s#%i" % (prefix, reqnum)
+                data["%s_code" % prefix] = code
+                data["%s_info" % prefix] = codeEx
+                data["%s_time" % prefix] = runTime
+            logging.getLogger().info("%s%s result[%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
+            logging.getLogger().debug("resource: %s" % str(resource.getrusage(resource.RUSAGE_SELF)))
+            logging.getLogger().debug("gc: %s, %s" % (len(gc.get_objects()), len(gc.garbage)))
             return code, codeEx
         except Exception, e:
             code = 0
@@ -201,10 +207,15 @@ class PPolicyServerFactory:
         """Make sure stopFactory is called."""
 	assert self.numPorts > 0
 	self.numPorts = self.numPorts - 1
+        self.__stopChecks()
 	if not self.numPorts:
             logging.getLogger().info("Stopping factory %s" % self)
 	    self.stopFactory()
-        self.__stopChecks()
+        if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+            logging.getLogger().debug("gc: %s" % len(gc.get_objects()))
+            gc.collect()
+            logging.getLogger().debug("gc: %s" % len(gc.get_objects()))
+            logging.getLogger().debug("gc: %s" % gc.get_objects())
 
 
     def startFactory(self):
@@ -229,7 +240,6 @@ class PPolicyServerRequest(protocol.Protocol):
 
 
     def __init__(self, factory):
-        self.data = {}
         self.factory = factory
         self.check = factory.getConfig('check')
         self.returnOnFatalError = factory.getConfig('returnOnFatalError', ('dunno', None))
@@ -253,16 +263,26 @@ class PPolicyServerRequest(protocol.Protocol):
 
 
     def dataReceived(self, data):
-        """Receive Data, Parse it, go through the checks"""
+        """Receive data and process them in new thread"""
+        # FIXME: callInThread doesn't release resources?!
+        #        or it is resouce leak when creating/releasing connection?
+        reactor.callInThread(self.dataProcess, data)
+
+    def dataProcess(self, data):
+        """Parse data, call check method from config file and return results."""
         try:
             parsedData = self.__parseData(data)
             if parsedData != None:
                 startTime = time.time()
                 reqid = parsedData.get('instance', "unknown%i" % startTime)
                 logging.getLogger().info("%s start" % reqid)
+                logging.getLogger().debug("%s resource: %s" % (reqid, str(resource.getrusage(resource.RUSAGE_SELF))))
+                logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
                 action, actionEx = self.check(self.factory, parsedData)
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish: %i" % (reqid, runTime))
+                logging.getLogger().debug("%s resource: %s" % (reqid, str(resource.getrusage(resource.RUSAGE_SELF))))
+                logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
                 self.dataResponse(action, actionEx)
             else:
                 # default return action for garbage?
@@ -347,7 +367,7 @@ if __name__ == "__main__":
         }
 
     print ">>> Create Factory"
-    factory	= PPolicyServerFactory(PPolicyServerRequest, config)
+    factory = PPolicyServerFactory(config)
 
     print ">>> Test Db Connection"
     factory.getDbConnection().cursor().execute("SHOW DATABASES")

@@ -11,6 +11,7 @@
 #
 import sys, os, re
 import logging
+import threading
 import dnscache
 import dns.exception
 
@@ -193,7 +194,15 @@ class dnsblScore:
                 if check_name != None:
                     try:
                         logging.getLogger().debug("resolve: %s" % check_name)
-                        answer = dnscache.getResolver(3.0, 1.0).query(check_name, 'A')
+                        answer = []
+                        resolver, resolverLock = dnscache.getResolver(3.0, 1.0)
+                        resolverLock.acquire()
+                        try:
+                            answer = resolver.query(check_name, 'A')
+                        except Exception, e:
+                            resolverLock.release()
+                            raise e
+                        resolverLock.release()
                         logging.getLogger().debug("result: %s" % [ x for x in answer ])
                         for rdata in answer:
                             ips.append(rdata.address)

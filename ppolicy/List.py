@@ -50,7 +50,7 @@ class List(Base):
 
     def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
-        return hash("=".join([ param, data.get(param) ]))
+        return hash("=".join([ param, data.get(param, '') ]))
 
 
     def start(self):

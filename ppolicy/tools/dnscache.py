@@ -12,6 +12,7 @@
 import logging
 import struct
 import socket
+import threading
 import dns.resolver
 import dns.exception
 
@@ -31,14 +32,15 @@ class DNSCacheError(dns.exception.DNSException):
 
 
 def getResolver(lifetime, timeout):
-    resolver = _dnsResolvers.get((lifetime, timeout))
+    resolver, resolverLock = _dnsResolvers.get((lifetime, timeout), (None, None))
     if resolver == None:
         resolver = dns.resolver.Resolver()
         resolver.lifetime = lifetime
         resolver.timeout = timeout
         resolver.cache = _dnsCache
-        _dnsResolvers[(lifetime, timeout)] = resolver
-    return resolver
+        resolverLock = threading.Lock()
+        _dnsResolvers[(lifetime, timeout)] = resolver, resolverLock
+    return resolver, resolverLock
 
 
 def getIpForName(domain, ipv6 = True):
@@ -59,7 +61,15 @@ def getIpForName(domain, ipv6 = True):
         dnsretry = _dnsMaxRetry
         while dnsretry > 0:
             try:
-                answer = getResolver(lifetime, timeout).query(domain, qtype)
+                answer = []
+                resolver, resolverLock = getResolver(lifetime, timeout)
+                resolverLock.acquire()
+                try:
+                    answer = resolver.query(domain, qtype)
+                except Exception, e:
+                    resolverLock.release()
+                    raise e
+                resolverLock.release()
                 for rdata in answer:
                     ips.append(rdata.address)
                 break
@@ -96,7 +106,15 @@ def getNameForIp(ip):
     while dnsretry > 0:
         dnsretry -= 1
         try:
-            answer = getResolver(lifetime, timeout).query(ipaddr, 'PTR')
+            answer = []
+            resolver, resolverLock = getResolver(lifetime, timeout)
+            resolverLock.acquire()
+            try:
+                answer = resolver.query(ipaddr, 'PTR')
+            except Exception, e:
+                resolverLock.release()
+                raise e
+            resolverLock.release()
             for rdata in answer:
                 ips.append(rdata.target.to_text(True))
             break
@@ -168,7 +186,15 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
         dnsretry -= 1
         try:
             # try to find MX records
-            answer = getResolver(lifetime, timeout).query(domain, 'MX')
+            answer = []
+            resolver, resolverLock = getResolver(lifetime, timeout)
+            resolverLock.acquire()
+            try:
+                answer = resolver.query(domain, 'MX')
+            except Exception, e:
+                resolverLock.release()
+                raise e
+            resolverLock.release()
             fqdnPref = {}
             for rdata in answer:
                 fqdnPref[rdata.preference] = rdata.exchange.to_text(True)

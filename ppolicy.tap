@@ -13,7 +13,7 @@ import os, sys, imp
 import socket
 import logging
 from ppolicy.log import TwistedHandler
-from ppolicy.protocol import PPolicyServerRequest, PPolicyServerFactory
+from ppolicy.protocol import PPolicyServerFactory
 from twisted.application import internet, service
 from twisted.internet import reactor, protocol
 
@@ -76,6 +76,11 @@ logging.getLogger().setLevel(config['logLevel'])
 
 # start twisted application
 reactor.suggestThreadPoolSize(40)
+
+# this is the core part of any tac file, the creation of the
+# root-level application object
 application = service.Application("PPolicyServer")
-factory	= PPolicyServerFactory(PPolicyServerRequest, config)
-internet.TCPServer(config['listenPort'], factory).setServiceParent(application)
+factory	= PPolicyServerFactory(config)
+ppolicyService = internet.TCPServer(config['listenPort'], factory)
+# attach the service to its parent application
+ppolicyService.setServiceParent(application)

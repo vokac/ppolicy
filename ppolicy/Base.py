@@ -64,7 +64,7 @@ class IPPolicyCheck(components.Interface):
     def stop(self):
         """Called when changing state to 'stopped'."""
 
-    def hashArg(self, *args, **keywords):
+    def hashArg(self, data, *args, **keywords):
         """Hash for data relevant for this module."""
 
     def check(self, data, *args, **keywords):
@@ -228,7 +228,7 @@ class Base(object):
         return default
 
 
-    def hashArg(self, *args, **keywords):
+    def hashArg(self, data, *args, **keywords):
         """Compute hash from parameters which is then used as index to
         the result cache. Changing this function in subclasses and
         using only required fields for hash can improve cache usage
@@ -238,11 +238,15 @@ class Base(object):
         For good hash better algorithm should be used, e.g. Item 7 in
         Joshua Bloch's Effective Java Programming Language Guide"""
 
+        if type(data) == type({}):
+            dataStr = "\n".join([ "%s=%s" % (k,v) for k,v in data.items() ])
+        else:
+            dataStr = str(data)
         keys = keywords.keys()
         keys.sort()
         keywordsTuple = tuple([ "=".join([x, str(keywords[x])]) for x in keys ])
         argsTuple = tuple([ str(x) for x in args ])
-        return hash(argsTuple) + hash(keywordsTuple)
+        return hash(dataStr) + hash(argsTuple) + hash(keywordsTuple)
 
 
     def check(self, data, *args, **keywords):

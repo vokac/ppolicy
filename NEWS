@@ -1,4 +1,15 @@
-Changes in PPolicy 2.3.0 (May 28 2006)
+Changes in PPolicy 2.4.0 (May 1 2006)
+=====================================
+- fixed bug: data was not handled in separate thread in previous version
+  (poor performance in case of many simultaneous connections)
+- case-insensitive search for Greylist, create db index
+- case-insensitive search for ListDyn
+- stress test on 100k mails passed wihout any warning or error
+- added more debugging to trace performance bottleneck
+- thread-safe calling dns.resolver.query (because of internal hash cache)
+
+
+Changes in PPolicy 2.3.1 (Apr 28 2006)
 ======================================
 - changed method for searching MAX(`id`) in `dump` table for DumpDataDB
   (MAX is performance problem, use separate table with sequence)
@@ -8,8 +19,8 @@ Changes in PPolicy 2.3.0 (May 28 2006)
 - changed check method (added required "data" argument)
 - result are now by default appended to data hash (you can disable it
   using Base class parameter saveResults)
-- disabled in memory chaching for ListDyn
-  (needs carefull code inspection before enabling)
+- disabled in memory caching for ListDyn
+  (needs careful code inspection before enabling)
 - create indexes on "value" columns for ListDyn table
 - updated examples
 

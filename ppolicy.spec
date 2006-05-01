@@ -1,6 +1,10 @@
+%{!?pyver: %define pyver %(%{__python} -c 'import sys;print(sys.version[0:3])')}
+%{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%{!?pydir: %define pydir %(%{__python} -c "from distutils.sysconfig import get_config_vars; print get_config_vars()['LIBDEST']")}
+
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.3.0
+Version: 2.4.1
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -31,6 +35,9 @@ python setup.py build
 [ ! -z "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != '/' ] && rm -rf "$RPM_BUILD_ROOT"
 
 python setup.py install --optimize=2 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+for file in ppolicy/tools/*.dat ppolicy/tools/*.cf; do
+  install -m 0644 $file $RPM_BUILD_ROOT%{python_sitelib}/ppolicy/tools
+done
 
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
@@ -88,11 +95,22 @@ fi
 %config(noreplace) %{_sysconfdir}/postfix/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
+%{python_sitelib}/ppolicy/tools/*.cf
+%{python_sitelib}/ppolicy/tools/*.dat
 %attr(-,nobody,mail) %{_var}/spool/ppolicy
 
 
 %changelog
-* Fri Apr 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.3.0-0
+* Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.1-1
+- fixed bug: data was not handled in separate thread in previous version
+  (poor performance in case of many simultaneous connections)
+- case-insensitive search for Greylist, create db index
+- case-insensitive search for ListDyn
+- stress test on 100k mails passed wihout any warning or error
+- added more debugging to trace performance bottleneck
+- thread-safe calling dns.resolver.query (because of internal hash cache)
+
+* Fri Apr 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.3.1-1
 - changed method for searching MAX(`id`) in `dump` table for DumpDataDB
   (MAX is performance problem, use separate table with sequence)
   caution - new method is not thread safe, but it is only used to store
