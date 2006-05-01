@@ -99,21 +99,8 @@ class PPolicyServerFactory:
         startTime = time.time()
         if not self.modules.has_key(name):
             raise Exception("Module named \"%s\" was not defined" % name)
+        prefix = ''
         try:
-            obj, running = self.modules.get(name)
-            if not running:
-                obj.start()
-            hashArg = str(obj.hashArg(data, *args, **keywords))
-            code, codeEx = self.__cacheGet(name+hashArg)
-            if code == None:
-                hitCache = ''
-                #logging.getLogger().debug("running %s.check(%s, %s, %s)" % (name, data, args, keywords))
-                logging.getLogger().info("%s running" % name)
-                code, codeEx = obj.check(data, *args, **keywords)
-                self.__cacheSet(name+hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
-            else:
-                hitCache = ' cached'
-            runTime = int((time.time() - startTime) * 1000)
             if obj.getParam('saveResult', False):
                 prefix = "%s%s" % (obj.getParam('saveResultPrefix', ''), name)
                 if data.has_key("%s_code" % prefix):
@@ -121,12 +108,34 @@ class PPolicyServerFactory:
                     while data.has_key("%s#%i_code" % (prefix, reqnum)):
                         reqnum += 1
                     prefix = "%s#%i" % (prefix, reqnum)
+
+            obj, running = self.modules.get(name)
+            if not running:
+                obj.start()
+
+            hashArg = obj.hashArg(data, *args, **keywords)
+            if hashArg != 0:
+                hashArg = "%s%s" % (name, hashArg)
+
+            code, codeEx = self.__cacheGet(hashArg)
+            if code == None:
+                hitCache = ''
+                #logging.getLogger().debug("running %s.check(%s, %s, %s)" % (name, data, args, keywords))
+                logging.getLogger().info("%s running" % name)
+                code, codeEx = obj.check(data, *args, **keywords)
+                self.__cacheSet(hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
+            else:
+                hitCache = ' cached'
+
+            runTime = int((time.time() - startTime) * 1000)
+            if obj.getParam('saveResult', False):
                 data["%s_code" % prefix] = code
                 data["%s_info" % prefix] = codeEx
                 data["%s_time" % prefix] = runTime
             logging.getLogger().info("%s%s result[%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
             logging.getLogger().debug("resource: %s" % str(resource.getrusage(resource.RUSAGE_SELF)))
             logging.getLogger().debug("gc: %s, %s" % (len(gc.get_objects()), len(gc.garbage)))
+
             return code, codeEx
         except Exception, e:
             code = 0
@@ -134,12 +143,12 @@ class PPolicyServerFactory:
             runTime = int((startTime - time.time()) * 1000)
             try:
                 if obj.getParam('saveResult', False):
-                    prefix = obj.getParam('saveResultPrefix', '')
                     data["%s%s_code" % (prefix, name)] = code
                     data["%s%s_info" % (prefix, name)] = codeEx
                     data["%s%s_time" % (prefix, name)] = runTime
             except:
                 pass
+
             logging.getLogger().error("%s failed: %s" % (name, e))
             exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
             logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
@@ -153,7 +162,7 @@ class PPolicyServerFactory:
         self.cacheLock.acquire()
         #logging.getLogger().debug("__cacheGet for %s" % key)
         try:
-            if self.cacheExpire.has_key(key) and self.cacheExpire[key] < time.time():
+            if self.cacheExpire.has_key(key) and self.cacheExpire[key] >= time.time():
                 retVal = self.cacheValue[key]
         except Exception, e:
             self.cacheLock.release()
