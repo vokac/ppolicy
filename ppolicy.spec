@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.4.2
-Release: 1
+Release: 6
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -101,7 +101,7 @@ fi
 
 
 %changelog
-* Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.1-1
+* Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.2-3
 - fixed bug: data was not handled in separate thread in previous version
   (poor performance in case of many simultaneous connections)
 - case-insensitive search for Greylist, create db index
@@ -109,6 +109,10 @@ fi
 - stress test on 100k mails passed wihout any warning or error
 - added more debugging to trace performance bottleneck
 - thread-safe calling dns.resolver.query (because of internal hash cache)
+- fixed bug in result cache expiration
+- changed handling of incomming request to own Thread class
+  (because of resource leaking reactor.callInThread)
+- added ListMailDomain module
 
 * Fri Apr 28 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.3.1-1
 - changed method for searching MAX(`id`) in `dump` table for DumpDataDB

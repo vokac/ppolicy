@@ -311,7 +311,7 @@ class PPolicyServerRequestThread(threading.Thread):
                 logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
                 action, actionEx = self.check(self.factory, parsedData)
                 runTime = int((time.time() - startTime) * 1000)
-                logging.getLogger().info("%s finish: %i" % (reqid, runTime))
+                logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))
                 logging.getLogger().debug("%s resource: %s" % (reqid, str(resource.getrusage(resource.RUSAGE_SELF))))
                 logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
                 self.dataResponse(action, actionEx)

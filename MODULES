@@ -488,6 +488,49 @@ Examples:
 
 
 
+Module ListMailDomain
+---------------------
+
+Check mail address or its part is in database. Can be used for
+black/white listing sender or recipient mail addresses.
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    column (mail)
+        name of database column
+    factory (None)
+        reference to factory instance
+    param (None)
+        name of parameter to search in database
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    table (list_mail_domain)
+        name of database table where to search parameter
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... parameter was found in db
+    0 .... failed to check (request doesn't include required param, database error, ...)
+    -1 ... parameter was not found in db
+
+Examples:
+    # module for checking if sender is in database table list
+    modules['list1'] = ( 'ListMailDomain', { param="sender" } )
+    # check if sender domain is in database table my_list
+    modules['list2'] = ( 'ListMailDomain', { param="sender", table="my_list" } )
+
+
+
+
 Module Resolve
 --------------
 

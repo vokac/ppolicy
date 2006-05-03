@@ -168,7 +168,7 @@ class dnsblScore:
         ipr.reverse()
         ipr = '.'.join(ipr)
         for check in checkList:
-            logging.getLogger().debug("check: %s" % check)
+            # logging.getLogger().debug("check: %s" % check)
             if not self.config.has_key(check):
                 logging.getLogger().warn("check %s is not defined" % check)
                 continue
