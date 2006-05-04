@@ -17,3 +17,5 @@ TODO list sorted by task importance
 * automatic module tests
 * DOS, Trap are not fully tested
 * DB synchronization
+* blacklist client/sender according spamassassin hits ratio good/bad
+* whitelist foreign sender when local user reply to its mail

@@ -168,7 +168,6 @@ class dnsblScore:
         ipr.reverse()
         ipr = '.'.join(ipr)
         for check in checkList:
-            # logging.getLogger().debug("check: %s" % check)
             if not self.config.has_key(check):
                 logging.getLogger().warn("check %s is not defined" % check)
                 continue
@@ -193,7 +192,6 @@ class dnsblScore:
                 ips = []
                 if check_name != None:
                     try:
-                        logging.getLogger().debug("resolve: %s" % check_name)
                         answer = []
                         resolver, resolverLock = dnscache.getResolver(3.0, 1.0)
                         resolverLock.acquire()
@@ -203,7 +201,7 @@ class dnsblScore:
                             resolverLock.release()
                             raise e
                         resolverLock.release()
-                        logging.getLogger().debug("result: %s" % [ x for x in answer ])
+                        logging.getLogger().debug("%s - result for %s: %s" % (check, check_name, [ x for x in answer ]))
                         for rdata in answer:
                             ips.append(rdata.address)
                     except dns.exception.Timeout:
