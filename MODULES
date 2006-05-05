@@ -316,9 +316,9 @@ name for each mail and this module delay delivery and increase
 load of remote server.
 
 Parameters:
-    cacheNegative (0)
+    cacheNegative (15)
         maximum time for caching negative result
-    cachePositive (0)
+    cachePositive (15)
         maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result

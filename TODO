@@ -1,11 +1,9 @@
 TODO list sorted by task importance
 -----------------------------------
 * some code from start() should be moved to __init__()
-* check resource leak(?) with new connection or dataProcess
 * check escaping of incomming parameters in DB query
 * split DnsblScore checking for client_address and sender
   for better cache usage
-* resEx returned from check method can be complex structure
 * IPv6 was not tested - don't use with mailserver that listen on IPv6
   (or don't use modules that work with client_address)
 * database synchronization task (greylist)

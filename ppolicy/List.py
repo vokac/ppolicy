@@ -21,26 +21,34 @@ class List(Base):
     black/white listing any of parameter comming with ppolicy requests.
 
     Module arguments (see output of getParams method):
-    param, table, column
+    param, table, column, lower, retcol
 
     Check arguments:
         data ... all input data in dict
 
     Check returns:
-        1 .... parameter was found in db
-        0 .... failed to check (request doesn't include required param, database error, ...)
+        1 .... parameter was found in db, second parameter include selected row
+        0 .... failed to check (request doesn't include required param,
+               database error, ...)
         -1 ... parameter was not found in db
 
     Examples:
         # module for checking if sender is in database table list
         modules['list1'] = ( 'List', { param="sender" } )
         # check if sender domain is in database table my_list
-        modules['list2'] = ( 'List', { param="sender", table="my_list" } )
+        # compare case-insensitive and return whole selected row
+        modules['list2'] = ( 'List', { param="sender",
+                                       table="my_list",
+                                       column="my_column",
+                                       lower=True,
+                                       retcol="*" } )
     """
 
     PARAMS = { 'param': ('name of parameter to search in database', None),
                'table': ('name of database table where to search parameter', None),
                'column': ('name of database column', None),
+               'lower': ('case-insensitive search', False),
+               'retcol': ('name of column returned by check method', None),
                }
                
 
@@ -50,7 +58,10 @@ class List(Base):
 
     def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
-        return hash("=".join([ param, data.get(param, '') ]))
+        paramValue = data.get(param, '')
+        if self.getParam('lower', False):
+            paramValue = paramValue.lower()
+        return hash("%s=%s" % (param, paramValue))
 
 
     def start(self):
@@ -76,25 +87,42 @@ class List(Base):
         param = self.getParam('param')
         table = self.getParam('table')
         column = self.getParam('column')
+        lower = self.getParam('lower', False)
+        retcol = self.getParam('retcol')
         paramValue = data.get(param, '')
 
-        found = False
+        ret = -1
+        retEx = None
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
 
-            sql = "SELECT COUNT(*) FROM `%s` WHERE `%s` = '%s'" % (table, column, paramValue)
+            if retcol == None:
+                retcol = 'COUNT(*)'
+            elif type(retcol) == type([]):
+                retcol = "`%s`" % "`,`".join(retcol)
+            elif retcol.find(',') != -1:
+                retcol = "`%s`" % "`,`".join(retcol.split(','))
+            elif retcol != '*':
+                retcol = "`%s`" % retcol
+
+            if lower:
+                sql = "SELECT %s FROM `%s` WHERE LOWER(`%s`) = LOWER('%s')" % (retcol, table, column, paramValue)
+            else:
+                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcol, table, column, paramValue)
+
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
-            row = cursor.fetchone()
-            if row[0] > 0:
-                found = True
+
+            if int(cursor.rowcount) > 0:
+                retEx = cursor.fetchone()
+                if retcol != None or (retcol == None and retEx[0] > 0):
+                    ret = 1
+
             cursor.close()
         except Exception, e:
             cursor.close()
-            expl = "%s: database error" % self.getId()
-            logging.getLogger().error("%s: %s" % (expl, e))
-            return 0, expl
+            logging.getLogger().error("%s: database error %s" % (self.getId(), e))
+            return 0, None
 
-        if found: return 1, '%s: request parameter is in list' % self.getId()
-        else: return -1, '%s: request parameter is not in list' % self.getId()
+        return ret, retEx

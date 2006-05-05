@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.4.2
-Release: 6
+Release: 7
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -101,7 +101,13 @@ fi
 
 
 %changelog
-* Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.2-3
+* Fri May 5 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.0-1
+- resEx returned from check method can be complex structure
+  (used by List*, Greylist, SPF, ...)
+- format resouce usage string, add to data hash (can be stored in db)
+- case-insensitive search in List, hashArg updates
+
+* Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.2-7
 - fixed bug: data was not handled in separate thread in previous version
   (poor performance in case of many simultaneous connections)
 - case-insensitive search for Greylist, create db index

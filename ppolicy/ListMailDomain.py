@@ -28,7 +28,8 @@ class ListMailDomain(Base):
         data ... all input data in dict
 
     Check returns:
-        1 .... parameter was found in db
+        1 .... parameter was found in db, second parameter contain
+               database row that was selected
         0 .... failed to check (request doesn't include required param, database error, ...)
         -1 ... parameter was not found in db
 
@@ -36,12 +37,16 @@ class ListMailDomain(Base):
         # module for checking if sender is in database table list
         modules['list1'] = ( 'ListMailDomain', { param="sender" } )
         # check if sender domain is in database table my_list
-        modules['list2'] = ( 'ListMailDomain', { param="sender", table="my_list" } )
+        modules['list2'] = ( 'ListMailDomain', { param="sender",
+                                                 table="my_list",
+                                                 column="my_column",
+                                                 retcol="*" } )
     """
 
     PARAMS = { 'param': ('name of parameter to search in database', None),
                'table': ('name of database table where to search parameter', 'list_mail_domain'),
                'column': ('name of database column', 'mail'),
+               'retcol': ('name of column returned by check method', None),
                }
 
     MAX_CACHE_SIZE = 1000
@@ -52,7 +57,8 @@ class ListMailDomain(Base):
 
     def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
-        return hash("=".join([ param, data.get(param, '') ]))
+        paramValue = data.get(param, '').lower()
+        return hash("%s=%s" % (param, paramValue))
 
 
     def start(self):
@@ -81,6 +87,7 @@ class ListMailDomain(Base):
         param = self.getParam('param')
         table = self.getParam('table')
         column = self.getParam('column')
+        retcol = self.getParam('retcol')
         paramValue = data.get(param, '').lower()
 
         retEx = None
@@ -109,13 +116,26 @@ class ListMailDomain(Base):
                     continue
                 if retEx != None:
                     break
-                sql = "SELECT * FROM `%s` WHERE `%s` = '%s'" % (table, column, key)
+
+                if retcol == None:
+                    retcol = 'COUNT(*)'
+                elif type(retcol) == type([]):
+                    retcol = "`%s`" % "`,`".join(retcol)
+                elif retcol.find(',') != -1:
+                    retcol = "`%s`" % "`,`".join(retcol.split(','))
+                elif retcol != '*':
+                    retcol = "`%s`" % retcol
+
+                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcol, table, column, key)
+
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
+
                 if int(cursor.rowcount) > 0:
                     retEx = cursor.fetchone()
-                    self.__setCache(key, retEx)
-                    break
+                    if retcol != None or (retcol == None and retEx[0] > 0):
+                        self.__setCache(key, retEx)
+                        break
                 else:
                     self.__setCache(key, ())
 
@@ -123,10 +143,12 @@ class ListMailDomain(Base):
         except Exception, e:
             cursor.close()
             logging.getLogger().error("%s database error: %s" % (self.getId(), e))
-            return 0, retEx
+            return 0, None
 
-        if retEx != None: return 1, retEx
-        else: return -1, retEx
+        if retEx != None:
+            return 1, retEx
+        else:
+            return -1, None
 
 
     def __getCache(self, key):

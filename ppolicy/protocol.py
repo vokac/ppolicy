@@ -134,10 +134,14 @@ class PPolicyServerFactory:
             if obj.getParam('saveResult', False):
                 data["%s_code" % prefix] = code
                 data["%s_info" % prefix] = codeEx
+                data["%s_cache" % prefix] = not (hitCache == '')
                 data["%s_time" % prefix] = runTime
+                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                    rusage = list(resource.getrusage(resource.RUSAGE_SELF))
+                    rusage[0] = "%.3f" % rusage[0]
+                    rusage[1] = "%.3f" % rusage[1]
+                    data["%s_resource" % prefix] = "gc(%s, %s), rs%s" % (len(gc.get_objects()), len(gc.garbage), str(rusage))
             logging.getLogger().info("%s%s result[%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
-            logging.getLogger().debug("resource: %s" % str(resource.getrusage(resource.RUSAGE_SELF)))
-            logging.getLogger().debug("gc: %s, %s" % (len(gc.get_objects()), len(gc.garbage)))
 
             return code, codeEx
         except Exception, e:
@@ -264,7 +268,7 @@ class PPolicyServerRequest(protocol.Protocol):
         logging.getLogger().debug("connection #%s made" % self.factory.numProtocols)
         if self.factory.numProtocols > self.CONN_LIMIT:
             logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
-            self.dataResponse(self.returnOnConnLimit[0], self.returnOnConnLimit[1])
+            dataResponse(self.transport, self.returnOnConnLimit[0], self.returnOnConnLimit[1])
             #self.transport.write("Too many connections, try later") 
             self.transport.loseConnection()
 
@@ -307,35 +311,31 @@ class PPolicyServerRequestThread(threading.Thread):
                 startTime = time.time()
                 reqid = parsedData.get('instance', "unknown%i" % startTime)
                 logging.getLogger().info("%s start" % reqid)
-                logging.getLogger().debug("%s resource: %s" % (reqid, str(resource.getrusage(resource.RUSAGE_SELF))))
-                logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
+                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                    rusage = list(resource.getrusage(resource.RUSAGE_SELF))
+                    rusage[0] = "%.3f" % rusage[0]
+                    rusage[1] = "%.3f" % rusage[1]
+                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), str(rusage)))
+
                 action, actionEx = self.check(self.factory, parsedData)
+
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))
-                logging.getLogger().debug("%s resource: %s" % (reqid, str(resource.getrusage(resource.RUSAGE_SELF))))
-                logging.getLogger().debug("%s gc: %s, %s" % (reqid, len(gc.get_objects()), len(gc.garbage)))
-                self.dataResponse(action, actionEx)
+                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                    rusage = list(resource.getrusage(resource.RUSAGE_SELF))
+                    rusage[0] = "%.3f" % rusage[0]
+                    rusage[1] = "%.3f" % rusage[1]
+                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), str(rusage)))
+
+                dataResponse(self.transport, action, actionEx)
             else:
                 # default return action for garbage?
-                self.dataResponse()
+                dataResponse(self.transport)
         except Exception, err:
-            logging.getLogger().error("uncatched exception: %s" % str(err))
+            logging.getLogger().error("%s uncatched exception: %s" % (reqid, str(err)))
             exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
             logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
-            self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
-
-
-    def dataResponse(self, action=None, actionEx=None):
-        """Check response"""
-        if action == None:
-            logging.getLogger().debug("output: action=dunno")
-	    self.transport.write("action=dunno\n\n")
-        elif actionEx == None:
-            logging.getLogger().debug("output: action=%s" % action)
-	    self.transport.write("action=%s\n\n" % action)
-	else:
-            logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
-	    self.transport.write("action=%s %s\n\n" % (action, actionEx))
+            dataResponse(self.transport, self.returnOnFatalError[0], self.returnOnFatalError[1])
 
 
     def __parseData(self, data):
@@ -368,6 +368,19 @@ class PPolicyServerRequestThread(threading.Thread):
             return retData
         else:
             return None
+
+
+def dataResponse(transport, action=None, actionEx=None):
+    """Check response"""
+    if action == None:
+        logging.getLogger().debug("output: action=dunno")
+        transport.write("action=dunno\n\n")
+    elif actionEx == None:
+        logging.getLogger().debug("output: action=%s" % action)
+        transport.write("action=%s\n\n" % action)
+    else:
+        logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
+        transport.write("action=%s %s\n\n" % (action, actionEx))
 
 
 

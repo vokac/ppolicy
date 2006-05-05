@@ -132,6 +132,7 @@ mysql --hostname=localhost --user=root --password=secret < ppolicy.sql
 * Greylist
 * List
 * ListDyn
+* ListMailDomain
 * Resolve
 * SPF
 * Trap

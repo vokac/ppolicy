@@ -32,9 +32,11 @@ class SPF(Base):
         data ... all input data in dict
 
     Check returns:
-        1 .... SPF passed
+        1 .... SPF passed, second parameter contain values returned
+               by tools.spf function (result, status, explanation)
         0 .... undefined SPF records or exception when checking SPF
         -1 ... SPF failed
+        
 
     Examples:
         # define module for checking SPF
@@ -64,12 +66,12 @@ class SPF(Base):
         except Exception, error:
             logging.getLogger().error("%s: checking SPF failed: %s" %
                                       (self.getId(), error))
-            return 0, 'SPF check error'
+            return 0, None
 
 
         if result.lower() == 'deny':
-            return -1, 'SPF Policy violation'
+            return -1, (result, mtastatus, mtaexpl)
         if result.lower() == 'pass':
-            return 1, 'SPF Policy success'
+            return 1, (result, mtastatus, mtaexpl)
 
-        return 0, mtaexpl
+        return 0, (result, mtastatus, mtaexpl)

@@ -1,3 +1,11 @@
+Changes in PPolicy 2.5.0 (May 4 2006)
+=====================================
+- resEx returned from check method can be complex structure
+  (used by List*, Greylist, SPF, ...)
+- format resouce usage string, add to data hash (can be stored in db)
+- case-insensitive search in List, hashArg updates
+
+
 Changes in PPolicy 2.4.2 (May 1 2006)
 =====================================
 - fixed bug: data was not handled in separate thread in previous version
