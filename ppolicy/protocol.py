@@ -137,10 +137,9 @@ class PPolicyServerFactory:
                 data["%s_cache" % prefix] = not (hitCache == '')
                 data["%s_time" % prefix] = runTime
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-                    rusage = list(resource.getrusage(resource.RUSAGE_SELF))
-                    rusage[0] = "%.3f" % rusage[0]
-                    rusage[1] = "%.3f" % rusage[1]
-                    data["%s_resource" % prefix] = "gc(%s, %s), rs%s" % (len(gc.get_objects()), len(gc.garbage), str(rusage))
+                    rusage = resource.getrusage(resource.RUSAGE_SELF)
+                    rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
+                    data["%s_resource" % prefix] = "cache(%i), gc(%s, %s), rs%s" % (len(self.cacheValue), len(gc.get_objects()), len(gc.garbage), rusageStr)
             logging.getLogger().info("%s%s result[%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
 
             return code, codeEx
@@ -313,9 +312,8 @@ class PPolicyServerRequestThread(threading.Thread):
                 logging.getLogger().info("%s start" % reqid)
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                     rusage = list(resource.getrusage(resource.RUSAGE_SELF))
-                    rusage[0] = "%.3f" % rusage[0]
-                    rusage[1] = "%.3f" % rusage[1]
-                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), str(rusage)))
+                    rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
+                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
                 action, actionEx = self.check(self.factory, parsedData)
 
@@ -323,9 +321,8 @@ class PPolicyServerRequestThread(threading.Thread):
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                     rusage = list(resource.getrusage(resource.RUSAGE_SELF))
-                    rusage[0] = "%.3f" % rusage[0]
-                    rusage[1] = "%.3f" % rusage[1]
-                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), str(rusage)))
+                    rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
+                    logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
                 dataResponse(self.transport, action, actionEx)
             else:

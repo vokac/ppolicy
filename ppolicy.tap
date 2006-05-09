@@ -45,6 +45,12 @@ twistedHandler.setFormatter(logging.Formatter("[%(levelname)s](%(module)s:%(line
 logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
+# Import Psyco if available
+try:
+    import psyco
+    psyco.full()
+except ImportError:
+    pass
 
 # import configuration file
 if not os.path.isfile(config['configFile']):

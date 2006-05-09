@@ -153,20 +153,23 @@ class dnsblScore:
         return self.config
 
 
-    def score(self, ip, sender_domain = None, checkList = []):
+    def score(self, ip = None, domain = None, checkList = []):
         """Return score for defined client ip address and sender domain
         according spamassassin rules.
 
         Parameters:
         ip -- client ip address
-        sender_domain -- sender domain from mail envelope
+        domain -- sender domain from mail envelope
         checkList -- list of rules that should be used
         """
         score = 0
         result = {}
-        ipr = ip.split('.')
-        ipr.reverse()
-        ipr = '.'.join(ipr)
+        if ip != None:
+            ipr = ip.split('.')
+            ipr.reverse()
+            ipr = '.'.join(ipr)
+        else:
+            ipr = None
         for check in checkList:
             if not self.config.has_key(check):
                 logging.getLogger().warn("check %s is not defined" % check)
@@ -186,9 +189,11 @@ class dnsblScore:
                 # test DNS
                 check_name = None
                 if not envfrom:
-                    check_name = "%s.%s" % (ipr, dnsbl)
-                elif sender_domain != None:
-                    check_name = "%s.%s" % (sender_domain, dnsbl)
+                    if ipr != None:
+                        check_name = "%s.%s" % (ipr, dnsbl)
+                else:
+                    if domain != None:
+                        check_name = "%s.%s" % (domain, dnsbl)
                 ips = []
                 if check_name != None:
                     try:
@@ -239,9 +244,9 @@ def getInstance(x = dnsblScore):
         #print type(e) == __main__.dnsbl
 
 
-def score(ip, sender_domain = None, checkList = [ 'RCVD_IN_XBL', 'RCVD_IN_NJABL_DUL', 'RCVD_IN_BL_SPAMCOP_NET', 'DNS_FROM_RFC_WHOIS', 'DNS_FROM_AHBL_RHSBL', 'RCVD_IN_WHOIS_HIJACKED', 'RCVD_IN_SORBS_WEB', 'DNS_FROM_RFC_POST', 'RCVD_IN_NJABL_SPAM', 'RCVD_IN_DSBL', 'DNS_FROM_RFC_DSN', 'RCVD_IN_SORBS_SOCKS', 'RCVD_IN_SBL', 'RCVD_IN_WHOIS_BOGONS', 'DNS_FROM_RFC_BOGUSMX', 'RCVD_IN_WHOIS_INVALID', 'DNS_FROM_RFC_ABUSE', 'RCVD_IN_SORBS_SMTP', 'RCVD_IN_SORBS_DUL', 'RCVD_IN_NJABL_PROXY', 'RCVD_IN_SORBS_ZOMBIE', 'DNS_FROM_SECURITYSAGE' ]):
+def score(ip = None, domain = None, checkList = [ 'RCVD_IN_XBL', 'RCVD_IN_NJABL_DUL', 'RCVD_IN_BL_SPAMCOP_NET', 'DNS_FROM_RFC_WHOIS', 'DNS_FROM_AHBL_RHSBL', 'RCVD_IN_WHOIS_HIJACKED', 'RCVD_IN_SORBS_WEB', 'DNS_FROM_RFC_POST', 'RCVD_IN_NJABL_SPAM', 'RCVD_IN_DSBL', 'DNS_FROM_RFC_DSN', 'RCVD_IN_SORBS_SOCKS', 'RCVD_IN_SBL', 'RCVD_IN_WHOIS_BOGONS', 'DNS_FROM_RFC_BOGUSMX', 'RCVD_IN_WHOIS_INVALID', 'DNS_FROM_RFC_ABUSE', 'RCVD_IN_SORBS_SMTP', 'RCVD_IN_SORBS_DUL', 'RCVD_IN_NJABL_PROXY', 'RCVD_IN_SORBS_ZOMBIE', 'DNS_FROM_SECURITYSAGE' ]):
     """See documentation for dnsblScore.score method."""
-    return getInstance().score(ip, sender_domain, checkList)
+    return getInstance().score(ip, domain, checkList)
 
 
 

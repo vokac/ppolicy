@@ -1,9 +1,11 @@
-Changes in PPolicy 2.5.0 (May 4 2006)
+Changes in PPolicy 2.5.0 (May 9 2006)
 =====================================
 - resEx returned from check method can be complex structure
   (used by List*, Greylist, SPF, ...)
 - format resouce usage string, add to data hash (can be stored in db)
 - case-insensitive search in List, hashArg updates
+- use psyco if available to improve performance
+- DnsblScore caching improved
 
 
 Changes in PPolicy 2.4.2 (May 1 2006)

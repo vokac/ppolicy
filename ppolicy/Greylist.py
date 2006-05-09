@@ -52,9 +52,9 @@ class Greylist(Base):
     PARAMS = { 'table': ('greylist database table', 'greylist'),
                'delay': ('how long to delay mail we see its triplet first time', 10*60),
                'expiration': ('expiration of triplets in database', 60*60*24*31),
-               'cachePositive': (None, 15),# use only very short time, because
-               'cacheUnknown': (None, 0),  # of changing greylist time
-               'cacheNegative': (None, 15),# (don't cache results in case of error)
+               'cachePositive': (None, 15*60),# positive could be cached
+               'cacheUnknown': (None, 0),  # use only very short time, because
+               'cacheNegative': (None, 15),# of changing greylist time
                }
 
 

@@ -55,8 +55,10 @@ class DnsblDynamic(Base):
         if check_name:
             # match domain name looking like something.xxx-yyy-zzz.provider.com
             self.patterns.append(re.compile('(\d{1,3}[.x-]){3}'))
+            # match domain name looking like ip-123-123.provider.com
+            self.patterns.append(re.compile('ip-(\d{1,2}-){2}'))
             # match domain name looking like something.dhcp.level1.level2
-            self.patterns.append(re.compile('[.-](ppp|dhcp|a?dsl)(|-[^.]+)\.[^.]+\.[^.]'))
+            self.patterns.append(re.compile('[.-](dial|ppp|dhcp|a?dsl)(|-[^.]+)\.[^.]+\.[^.]'))
 
 
     def hashArg(self, data, *args, **keywords):

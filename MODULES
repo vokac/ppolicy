@@ -52,22 +52,24 @@ listing their name in dnsbl parameter. You can list all valid
 names by calling `python tools/dnsblScore.py --list`.
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (3600)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (3600)
         maximum time for caching positive result
-    cacheUnknown (900)
+    cacheUnknown (600)
         maximum time for caching unknown result
     dnsbl (None)
         list of DNS blacklist to use
     factory (None)
         reference to factory instance
+    params (['client_address', 'sender'])
+        which params we should check
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
         prefix for saved data
     treshold (None)
-        treshold that define whitch score mean this module fail
+        treshold that define which score mean this module fail
 
 Check arguments:
     data ... all input data in dict
@@ -318,7 +320,7 @@ load of remote server.
 Parameters:
     cacheNegative (15)
         maximum time for caching negative result
-    cachePositive (15)
+    cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
@@ -371,8 +373,12 @@ Parameters:
         name of database column
     factory (None)
         reference to factory instance
+    lower (False)
+        case-insensitive search
     param (None)
         name of parameter to search in database
+    retcol (None)
+        name of column returned by check method
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
@@ -384,15 +390,21 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
-    1 .... parameter was found in db
-    0 .... failed to check (request doesn't include required param, database error, ...)
+    1 .... parameter was found in db, second parameter include selected row
+    0 .... failed to check (request doesn't include required param,
+           database error, ...)
     -1 ... parameter was not found in db
 
 Examples:
     # module for checking if sender is in database table list
     modules['list1'] = ( 'List', { param="sender" } )
     # check if sender domain is in database table my_list
-    modules['list2'] = ( 'List', { param="sender", table="my_list" } )
+    # compare case-insensitive and return whole selected row
+    modules['list2'] = ( 'List', { param="sender",
+                                   table="my_list",
+                                   column="my_column",
+                                   lower=True,
+                                   retcol="*" } )
 
 
 
@@ -507,6 +519,8 @@ Parameters:
         reference to factory instance
     param (None)
         name of parameter to search in database
+    retcol (None)
+        name of column returned by check method
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
@@ -518,7 +532,8 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
-    1 .... parameter was found in db
+    1 .... parameter was found in db, second parameter contain
+           database row that was selected
     0 .... failed to check (request doesn't include required param, database error, ...)
     -1 ... parameter was not found in db
 
@@ -526,7 +541,10 @@ Examples:
     # module for checking if sender is in database table list
     modules['list1'] = ( 'ListMailDomain', { param="sender" } )
     # check if sender domain is in database table my_list
-    modules['list2'] = ( 'ListMailDomain', { param="sender", table="my_list" } )
+    modules['list2'] = ( 'ListMailDomain', { param="sender",
+                                             table="my_list",
+                                             column="my_column",
+                                             retcol="*" } )
 
 
 
@@ -606,9 +624,11 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
-    1 .... SPF passed
+    1 .... SPF passed, second parameter contain values returned
+           by tools.spf function (result, status, explanation)
     0 .... undefined SPF records or exception when checking SPF
     -1 ... SPF failed
+    
 
 Examples:
     # define module for checking SPF
