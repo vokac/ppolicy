@@ -56,18 +56,22 @@ class DumpDataDB(Base):
             raise ParamError('table has to be specified for this module')
 
         conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `key` VARCHAR(50) NOT NULL, `value` VARCHAR(1000), PRIMARY KEY (`id`, `key`))" % table
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
+        try:
+            cursor = conn.cursor()
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `key` VARCHAR(50) NOT NULL, `value` VARCHAR(1000), PRIMARY KEY (`id`, `key`))" % table
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
 
-        sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % table
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        row = cursor.fetchone()
-        self.newId = row[0]
+            sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % table
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            self.newId = row[0]
 
-        cursor.close()
+            cursor.close()
+        except Exception, e:
+            cursor.close()
+            raise e
 
 
     def check(self, data, *args, **keywords):

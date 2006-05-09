@@ -20,7 +20,7 @@ from twisted.internet import reactor, protocol
 # default config
 config = {
     'configFile'   : '/etc/postfix/ppolicy.conf',
-    'logLevel'     : logging.ERROR,
+    'logLevel'     : logging.WARN,
     'admin'        : 'postmaster',
     'domain'       : socket.gethostname(),
     'databaseAPI'  : 'MySQLdb',
@@ -49,13 +49,15 @@ logging.getLogger().setLevel(config['logLevel'])
 try:
     import psyco
     psyco.full()
+    logging.getLogger().warn("Using Psyco to optimize python code")
 except ImportError:
+    logging.getLogger().warn("Psyco is not available")
     pass
 
 # import configuration file
 if not os.path.isfile(config['configFile']):
     msg = "Configuration file %s doesn't exist" % config['configFile']
-    logging.log(logging.ERROR, msg)
+    logging.getLogger().error(msg)
     sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
@@ -63,12 +65,12 @@ try:
     ppolicy_config = imp.load_source("ppolicy_config", config['configFile'])
 except ImportError, err:
     msg = "Error importing config file %s: %s" % (config['configFile'], err)
-    logging.log(logging.ERROR, msg)
+    logging.getLogger().error(msg)
     sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 except Exception, err:
     msg = "Error loading config: %s" % err
-    logging.log(logging.ERROR, msg)
+    logging.getLogger().error(msg)
     sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 

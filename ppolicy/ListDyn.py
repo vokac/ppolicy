@@ -175,16 +175,20 @@ class ListDyn(Base):
 
         # create database table if not exist
         conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols+idx))
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        if hardExpire > 0:
-            colName, colType, colEsc, colLower = self.__mapping(dictName)
-            sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`%s`) < UNIX_TIMESTAMP()" % (table, colName)
+        try:
+            cursor = conn.cursor()
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols+idx))
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
-        cursor.close()
+            if hardExpire > 0:
+                colName, colType, colEsc, colLower = self.__mapping(dictName)
+                sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`%s`) < UNIX_TIMESTAMP()" % (table, colName)
+                logging.getLogger().debug("SQL: %s" % sql)
+                cursor.execute(sql)
+            cursor.close()
+        except Exception, e:
+            cursor.close()
+            raise e
 
 
     def check(self, data, *args, **keywords):
@@ -329,7 +333,10 @@ class ListDyn(Base):
 
             cursor.close()
         except Exception, e:
-            cursor.close()
+            try:
+                cursor.close()
+            except:
+                pass
             expl = "%s: database error" % self.getId()
             logging.getLogger().error("%s: %s" % (expl, e))
             return 0, expl

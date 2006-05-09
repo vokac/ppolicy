@@ -67,15 +67,19 @@ class Greylist(Base):
             raise ParamError('table has to be specified for this module')
 
         conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`))" % table
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
+        try:
+            cursor = conn.cursor()
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`))" % table
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
 
-        sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`expire`) < UNIX_TIMESTAMP()" % table
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        cursor.close()
+            sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`expire`) < UNIX_TIMESTAMP()" % table
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            cursor.close()
+        except Exception, e:
+            cursor.close()
+            raise e
 
 
     def hashArg(self, data, *args, **keywords):
@@ -162,8 +166,12 @@ class Greylist(Base):
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
 
-        except Exception, e:
             cursor.close()
+        except Exception, e:
+            try:
+                cursor.close()
+            except:
+                pass
             expl = "%s: database error" % self.getId()
             logging.getLogger().error("%s: %s" % (expl, e))
             return 0, expl

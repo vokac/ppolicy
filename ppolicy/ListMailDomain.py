@@ -73,11 +73,15 @@ class ListMailDomain(Base):
         column = self.getParam('column')
 
         conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(255) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        cursor.close()
+        try:
+            cursor = conn.cursor()
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(255) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            cursor.close()
+        except Exception, e:
+            cursor.close()
+            raise e
 
         self.lock = threading.Lock()
         self.cache = {}
@@ -118,15 +122,17 @@ class ListMailDomain(Base):
                     break
 
                 if retcol == None:
-                    retcol = 'COUNT(*)'
+                    retcolSQL = 'COUNT(*)'
                 elif type(retcol) == type([]):
-                    retcol = "`%s`" % "`,`".join(retcol)
+                    retcolSQL = "`%s`" % "`,`".join(retcol)
                 elif retcol.find(',') != -1:
-                    retcol = "`%s`" % "`,`".join(retcol.split(','))
+                    retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
                 elif retcol != '*':
-                    retcol = "`%s`" % retcol
+                    retcolSQL = "`%s`" % retcol
+                else:
+                    retcolSQL = retcol
 
-                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcol, table, column, key)
+                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcolSQL, table, column, key)
 
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
@@ -136,12 +142,18 @@ class ListMailDomain(Base):
                     if retcol != None or (retcol == None and retEx[0] > 0):
                         self.__setCache(key, retEx)
                         break
+                    else:
+                        retEx = None
+                        self.__setCache(key, ())
                 else:
                     self.__setCache(key, ())
 
             cursor.close()
         except Exception, e:
-            cursor.close()
+            try:
+                cursor.close()
+            except:
+                pass
             logging.getLogger().error("%s database error: %s" % (self.getId(), e))
             return 0, None
 

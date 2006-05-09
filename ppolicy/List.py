@@ -76,11 +76,15 @@ class List(Base):
         column = self.getParam('column')
 
         conn = self.factory.getDbConnection()
-        cursor = conn.cursor()
-        sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
-        logging.getLogger().debug("SQL: %s" % sql)
-        cursor.execute(sql)
-        cursor.close()
+        try:
+            cursor = conn.cursor()
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            cursor.close()
+        except Exception, e:
+            cursor.close()
+            raise e
 
 
     def check(self, data, *args, **keywords):
@@ -98,18 +102,20 @@ class List(Base):
             cursor = conn.cursor()
 
             if retcol == None:
-                retcol = 'COUNT(*)'
+                retcolSQL = 'COUNT(*)'
             elif type(retcol) == type([]):
-                retcol = "`%s`" % "`,`".join(retcol)
+                retcolSQL = "`%s`" % "`,`".join(retcol)
             elif retcol.find(',') != -1:
-                retcol = "`%s`" % "`,`".join(retcol.split(','))
+                retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
             elif retcol != '*':
-                retcol = "`%s`" % retcol
+                retcolSQL = "`%s`" % retcol
+            else:
+                retcolSQL = retcol
 
             if lower:
-                sql = "SELECT %s FROM `%s` WHERE LOWER(`%s`) = LOWER('%s')" % (retcol, table, column, paramValue)
+                sql = "SELECT %s FROM `%s` WHERE LOWER(`%s`) = LOWER('%s')" % (retcolSQL, table, column, paramValue)
             else:
-                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcol, table, column, paramValue)
+                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcolSQL, table, column, paramValue)
 
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
@@ -121,7 +127,10 @@ class List(Base):
 
             cursor.close()
         except Exception, e:
-            cursor.close()
+            try:
+                cursor.close()
+            except:
+                pass
             logging.getLogger().error("%s: database error %s" % (self.getId(), e))
             return 0, None
 

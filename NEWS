@@ -6,6 +6,8 @@ Changes in PPolicy 2.5.0 (May 9 2006)
 - case-insensitive search in List, hashArg updates
 - use psyco if available to improve performance
 - DnsblScore caching improved
+- all db connection are now in try/except block to release connections
+- fixed bug in ListMailDomain
 
 
 Changes in PPolicy 2.4.2 (May 1 2006)

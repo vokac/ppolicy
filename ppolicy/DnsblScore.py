@@ -67,7 +67,7 @@ class DnsblScore(Base):
                 paramsNew.append(param)
             else:
                 logging.getLogger().warn("don't know how to score %s" % param)
-        self.setParam('param', paramsNew)
+        self.setParam('params', paramsNew)
 
 
     def hashArg(self, data, *args, **keywords):
