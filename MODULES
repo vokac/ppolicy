@@ -517,6 +517,10 @@ Parameters:
         name of database column
     factory (None)
         reference to factory instance
+    memCacheExpire (900)
+        memory cache expiration
+    memCacheSize (1000)
+        memory cache max size
     param (None)
         name of parameter to search in database
     retcol (None)

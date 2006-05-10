@@ -11,6 +11,7 @@
 #
 import logging
 import threading
+import time
 from Base import Base, ParamError
 
 
@@ -47,9 +48,10 @@ class ListMailDomain(Base):
                'table': ('name of database table where to search parameter', 'list_mail_domain'),
                'column': ('name of database column', 'mail'),
                'retcol': ('name of column returned by check method', None),
+               'memCacheExpire': ('memory cache expiration', 15*60),
+               'memCacheSize': ('memory cache max size', 1000),
                }
 
-    MAX_CACHE_SIZE = 1000
 
     def getId(self):
         return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('param'))
@@ -65,7 +67,7 @@ class ListMailDomain(Base):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
-        for attr in [ 'param', 'table', 'column' ]:
+        for attr in [ 'param', 'table', 'column', 'memCacheExpire', 'memCacheSize' ]:
             if self.getParam(attr) == None:
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
@@ -165,20 +167,26 @@ class ListMailDomain(Base):
 
     def __getCache(self, key):
         retVal = None
+
         self.lock.acquire()
         try:
-            retVal = self.cache.get(key)
+            (retVal, expire) = self.cache.get(key, (None, 0))
+            if time.time() > expire:
+                retVal = None
         finally:
             self.lock.release()
+
         return retVal
 
 
     def __setCache(self, key, value):
+        expire = time.time() + self.getParam('memCacheExpire')
+        memCacheSize = self.getParam('memCacheSize')
+
         self.lock.acquire()
         try:
-            # XXXXX: cache expiration?
-            if len(self.cache) > ListMailDomain.MAX_CACHE_SIZE:
+            if len(self.cache) > memCacheSize:
                 self.cache.clear()
-            self.cache[key] = value
+            self.cache[key] = (value, expire)
         finally:
             self.lock.release()

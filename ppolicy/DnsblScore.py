@@ -50,9 +50,9 @@ class DnsblScore(Base):
     PARAMS = { 'dnsbl': ('list of DNS blacklist to use', None),
                'treshold': ('treshold that define which score mean this module fail', None),
                'params': ('which params we should check', [ 'client_address', 'sender' ]),
-               'cachePositive': (None, 60*60), # cache DNSBL results longer time
-               'cacheUnknown': (None, 10*60),  # because it consume a lot of time
-               'cacheNegative': (None, 60*60), # to make multiple DNS requests
+               'cachePositive': (None, 6*60*60), # cache DNSBL results longer time
+               'cacheUnknown': (None, 30*60),    # because it consume a lot of time
+               'cacheNegative': (None, 6*60*60), # to make multiple DNS requests
                }
 
 

@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.5.1
-Release: 0
+Release: 3
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -101,7 +101,7 @@ fi
 
 
 %changelog
-* Fri May 5 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.1-0
+* Fri May 5 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.1-1
 - resEx returned from check method can be complex structure
   (used by List*, Greylist, SPF, ...)
 - format resouce usage string, add to data hash (can be stored in db)
@@ -109,7 +109,8 @@ fi
 - use psyco if available to improve performance
 - DnsblScore caching improved
 - all db connection are now in try/except block to release connections
-- fixed bug in ListMailDomain
+- fixed bug in ListMailDomain, added expiration time for mem cache
+- cache size can be set in config file
 
 * Sat Apr 29 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.4.2-7
 - fixed bug: data was not handled in separate thread in previous version

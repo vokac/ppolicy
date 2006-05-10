@@ -32,6 +32,7 @@ class PPolicyServerFactory:
         self.config = config
         self.modules = {}
         self.__addChecks(self.getConfig('modules'))
+        self.cacheSize = self.getConfig('cacheSize', 10000)
         self.cacheValue = {}
         self.cacheExpire = {}
         self.cacheLock = threading.Lock()
@@ -183,7 +184,7 @@ class PPolicyServerFactory:
         #logging.getLogger().debug("__cacheSet for %s (%s, %s)" % (key, code, codeEx))
         try:
             # full cache 3/4 cleanup?
-            if len(self.cacheExpire) > 1000:
+            if len(self.cacheExpire) > self.cacheSize:
                 logging.getLogger().debug("memory cache cleanup")
                 exp = self.cacheExpire.values()
                 exp.sort()
