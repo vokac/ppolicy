@@ -50,7 +50,56 @@ class ListMailDomain(Base):
                'retcol': ('name of column returned by check method', None),
                'memCacheExpire': ('memory cache expiration', 15*60),
                'memCacheSize': ('memory cache max size', 1000),
+               'cacheAll': ('cache all records in memory', False),
+               'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
                }
+
+
+    def __cacheAllRefresh(self):
+        """This method has to be called from synchronized block."""
+        if self.allDataCacheRefresh > time.time():
+            return
+
+        conn = self.factory.getDbConnection()
+        try:
+            newCache = {}
+            cursor = conn.cursor()
+
+            sql = self.selectAllSQL
+            logging.getLogger().debug("SQL: %s" % sql)
+            cursor.execute(sql)
+            logging.getLogger().info("cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
+            while True:
+                res = cursor.fetchone()
+                if res == None:
+                    break
+                newCache[res[len(res)-1]] = res[:-1]
+            cursor.close()
+
+            self.allDataCache = newCache
+            self.allDataCacheReady = True
+            self.allDataCacheRefresh = time.time() + self.getParam('cacheAllRefresh')
+        except Exception, e:
+            cursor.close()
+            self.allDataCacheReady = False
+            self.allDataCacheRefresh = time.time() + 60
+            logging.getLogger().error("caching all records failed: %s" % e)
+
+
+    def __searchList(self, paramValue):
+        searchList = []
+
+        if paramValue.find('@') != -1:
+            user, domain = paramValue.split('@', 2)
+            searchList.append(paramValue)
+            searchList.append("%s@" % user)
+            paramValue = domain
+
+        domain = paramValue.split('.')
+        for i in range(0, len(domain)+1):
+            searchList.append(".%s" % ".".join(domain[i:]))
+
+        return searchList
 
 
     def getId(self):
@@ -73,6 +122,18 @@ class ListMailDomain(Base):
 
         table = self.getParam('table')
         column = self.getParam('column')
+        retcol = self.getParam('retcol')
+
+        if retcol == None:
+            self.retcolSQL = 'COUNT(*)'
+        elif type(retcol) == type([]):
+            self.retcolSQL = "`%s`" % "`,`".join(retcol)
+        elif retcol.find(',') != -1:
+            self.retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
+        elif retcol != '*' and retcol.find('(') == -1:
+            self.retcolSQL = "`%s`" % retcol
+        else: # *, COUNT(*), AVG(column), ...
+            self.retcolSQL = retcol
 
         conn = self.factory.getDbConnection()
         try:
@@ -85,37 +146,66 @@ class ListMailDomain(Base):
             cursor.close()
             raise e
 
-        self.lock = threading.Lock()
-        self.cache = {}
+        if not self.getParam('cacheAll', False):
+            self.lock = threading.Lock()
+            self.cache = {}
+        else:
+            self.allDataCache = {}
+            self.allDataCacheReady = False
+            self.allDataCacheRefresh = 0
+            self.allDataCacheLock = threading.Lock()
+
+            self.setParam('cachePositive', 0) # don't use global result
+            self.setParam('cacheUnknown', 0)  # cache when all records
+            self.setParam('cacheNegative', 0) # are cached by this module
+
+            if self.retcolSQL.find('(') != -1:
+                groupBySQL = " GROUP BY `%s`" % column
+            else:
+                groupBySQL = ''
+            self.selectAllSQL = "SELECT %s, LOWER(`%s`) FROM `%s`%s" % (self.retcolSQL, column, table, groupBySQL)
+
+            self.allDataCacheLock.acquire()
+            try:
+                self.__cacheAllRefresh()
+            finally:
+                self.allDataCacheLock.release()
 
 
     def check(self, data, *args, **keywords):
         param = self.getParam('param')
+        paramValue = data.get(param, '').lower()
+
+        if self.getParam('cacheAll', False):
+            ret = -1
+            retEx = None
+
+            self.allDataCacheLock.acquire()
+            try:
+                self.__cacheAllRefresh()
+                if not self.allDataCacheReady:
+                    ret = 0
+                else:
+                    for key in self.__searchList(paramValue):
+                        retEx = self.allDataCache.get(key)
+                        if retEx != None:
+                            ret = 1
+                            break
+            finally:
+                self.allDataCacheLock.release()
+
+            return ret, retEx
+
         table = self.getParam('table')
         column = self.getParam('column')
         retcol = self.getParam('retcol')
-        paramValue = data.get(param, '').lower()
 
         retEx = None
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
 
-            searchList = []
-            if paramValue.find('@') != -1:
-                user, domain = paramValue.split('@', 2)
-                searchList.append(paramValue)
-                searchList.append("%s@" % user)
-                paramValue = domain
-
-            domain = paramValue.split('.')
-            for i in range(0, len(domain)+1):
-                searchList.append(".%s" % ".".join(domain[i:]))
-
-            conn = self.factory.getDbConnection()
-            cursor = conn.cursor()
-
-            for key in searchList:
+            for key in self.__searchList(paramValue):
                 retEx = self.__getCache(key)
                 if retEx == ():
                     retEx = None
@@ -123,18 +213,7 @@ class ListMailDomain(Base):
                 if retEx != None:
                     break
 
-                if retcol == None:
-                    retcolSQL = 'COUNT(*)'
-                elif type(retcol) == type([]):
-                    retcolSQL = "`%s`" % "`,`".join(retcol)
-                elif retcol.find(',') != -1:
-                    retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
-                elif retcol != '*':
-                    retcolSQL = "`%s`" % retcol
-                else:
-                    retcolSQL = retcol
-
-                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (retcolSQL, table, column, key)
+                sql = "SELECT %s FROM `%s` WHERE `%s` = '%s'" % (self.retcolSQL, table, column, key)
 
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
