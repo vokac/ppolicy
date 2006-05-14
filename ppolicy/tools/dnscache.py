@@ -10,6 +10,8 @@
 # $Id$
 #
 import logging
+import time
+import random
 import struct
 import socket
 import threading
@@ -17,12 +19,125 @@ import dns.resolver
 import dns.exception
 
 
+class Cache(object):
+    """Simple threadsafe DNS answer cache.
+
+    @ivar data: A dictionary of cached data
+    @type data: dict
+    @ivar cleaning_interval: The number of seconds between cleanings.  The
+    default is 300 (5 minutes).
+    @type cleaning_interval: float
+    @ivar next_cleaning: The time the cache should next be cleaned (in seconds
+    since the epoch.)
+    @type next_cleaning: float
+    @ivar max_size: The maximum records in the cache.
+    @type max_size: int
+    @ivar lock: Lock for threadsafe handling this cache.
+    @type lock: threading.Lock
+    """
+
+    def __init__(self, cleaning_interval=300.0, max_size=10000):
+        """Initialize a DNS cache. It has to be called with acquired lock!
+
+        @param cleaning_interval: the number of seconds between periodic
+        cleanings.  The default is 300.0
+        @type cleaning_interval: float.
+        @param max_size: The maximum records in the cache.
+        @type max_size: int
+        """
+
+        self.data = {}
+        self.cleaning_interval = cleaning_interval
+        self.next_cleaning = time.time() + self.cleaning_interval
+        self.max_size = max_size
+        self.lock = threading.Lock()
+
+    def maybe_clean(self):
+        """Clean the cache if it's time to do so."""
+
+        now = time.time()
+        if self.next_cleaning <= now or len(self.data) > self.max_size:
+            keys_to_delete = []
+            for (k, v) in self.data.iteritems():
+                if v.expiration <= now:
+                    keys_to_delete.append(k)
+            for k in keys_to_delete:
+                del self.data[k]
+            if len(self.data) > self.max_size:
+                # remove randomly 1/10 of keys
+                keys_in_cache = self.data.keys()
+                keys_to_delete = []
+                for i in range(0, self.max_size / 10 - 1):
+                    keys_to_delete.append(keys_in_cache[i*10+random.randint(0,9)])
+                for k in keys_to_delete:
+                    del self.data[k]
+            now = time.time()
+            self.next_cleaning = now + self.cleaning_interval
+
+    def get(self, key):
+        """Get the answer associated with I{key}.  Returns None if
+        no answer is cached for the key.
+        @param key: the key
+        @type key: (dns.name.Name, int, int) tuple whose values are the
+        query name, rdtype, and rdclass.
+        @rtype: dns.resolver.Answer object or None
+        """
+
+        v = None
+        self.lock.acquire()
+        try:
+            # self.maybe_clean()
+            v = self.data.get(key)
+        finally:
+            self.lock.release()
+        if v is None or v.expiration <= time.time():
+            return None
+        return v
+
+    def put(self, key, value):
+        """Associate key and value in the cache.
+        @param key: the key
+        @type key: (dns.name.Name, int, int) tuple whose values are the
+        query name, rdtype, and rdclass.
+        @param value: The answer being cached
+        @type value: dns.resolver.Answer object
+        """
+
+        self.lock.acquire()
+        try:
+            self.maybe_clean()
+            self.data[key] = value
+        finally:
+            self.lock.release()
+
+    def flush(self, key=None):
+        """Flush the cache.
+
+        If I{key} is specified, only that item is flushed.  Otherwise
+        the entire cache is flushed.
+
+        @param key: the key to flush
+        @type key: (dns.name.Name, int, int) tuple or None
+        """
+
+        self.lock.acquire()
+        try:
+            if not key is None:
+                if self.data.has_key(key):
+                    del self.data[key]
+            else:
+                self.data = {}
+                self.next_cleaning = time.time() + self.cleaning_interval
+        finally:
+            self.lock.release()
+
+
 # DNS query parameters
 _dnsResolvers = {}
-_dnsCache = dns.resolver.Cache()
+_dnsCache = Cache(30*60, 10000)
 _dnsMaxRetry = 3
-_dnsLifetime = 3.0
-_dnsTimeout = 1.0
+_dnsLifetime = 2
+_dnsTimeout = 0.75
 
 
 class DNSCacheError(dns.exception.DNSException):
@@ -32,15 +147,15 @@ class DNSCacheError(dns.exception.DNSException):
 
 
 def getResolver(lifetime, timeout):
-    resolver, resolverLock = _dnsResolvers.get((lifetime, timeout), (None, None))
+    resolver = _dnsResolvers.get((lifetime, timeout))
     if resolver == None:
         resolver = dns.resolver.Resolver()
+        resolver.search = []
         resolver.lifetime = lifetime
         resolver.timeout = timeout
         resolver.cache = _dnsCache
-        resolverLock = threading.Lock()
-        _dnsResolvers[(lifetime, timeout)] = resolver, resolverLock
-    return resolver, resolverLock
+        _dnsResolvers[(lifetime, timeout)] = resolver
+    return resolver
 
 
 def getIpForName(domain, ipv6 = True):
@@ -61,15 +176,8 @@ def getIpForName(domain, ipv6 = True):
         dnsretry = _dnsMaxRetry
         while dnsretry > 0:
             try:
-                answer = []
-                resolver, resolverLock = getResolver(lifetime, timeout)
-                resolverLock.acquire()
-                try:
-                    answer = resolver.query(domain, qtype)
-                except Exception, e:
-                    resolverLock.release()
-                    raise e
-                resolverLock.release()
+                resolver = getResolver(lifetime, timeout)
+                answer = resolver.query(domain, qtype)
                 for rdata in answer:
                     ips.append(rdata.address)
                 break
@@ -106,15 +214,8 @@ def getNameForIp(ip):
     while dnsretry > 0:
         dnsretry -= 1
         try:
-            answer = []
-            resolver, resolverLock = getResolver(lifetime, timeout)
-            resolverLock.acquire()
-            try:
-                answer = resolver.query(ipaddr, 'PTR')
-            except Exception, e:
-                resolverLock.release()
-                raise e
-            resolverLock.release()
+            resolver = getResolver(lifetime, timeout)
+            answer = resolver.query(ipaddr, 'PTR')
             for rdata in answer:
                 ips.append(rdata.target.to_text(True))
             break
@@ -186,15 +287,8 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
         dnsretry -= 1
         try:
             # try to find MX records
-            answer = []
-            resolver, resolverLock = getResolver(lifetime, timeout)
-            resolverLock.acquire()
-            try:
-                answer = resolver.query(domain, 'MX')
-            except Exception, e:
-                resolverLock.release()
-                raise e
-            resolverLock.release()
+            resolver = getResolver(lifetime, timeout)
+            answer = resolver.query(domain, 'MX')
             fqdnPref = {}
             for rdata in answer:
                 fqdnPref[rdata.preference] = rdata.exchange.to_text(True)

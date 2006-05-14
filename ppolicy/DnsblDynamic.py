@@ -45,6 +45,9 @@ class DnsblDynamic(Base):
 
     PARAMS = { 'dnsbl': ('list of DNS blacklists', [ 'NJABLDYNA', 'KROPKADUL', 'SORBSDUL' ]),
                'check_name': ('check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)', True),
+               'cachePositive': (None, 6*60*60),
+               'cacheUnknown': (None, 30*60),
+               'cacheNegative': (None, 12*60*60),
                }
 
 

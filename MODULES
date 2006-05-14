@@ -8,11 +8,11 @@ You can also run `python tools/dnsbl.py --list` to see formated
 output of configured balacklists.
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (43200)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (21600)
         maximum time for caching positive result
-    cacheUnknown (900)
+    cacheUnknown (1800)
         maximum time for caching unknown result
     dnsbl (None)
         name of DNS blacklist defined in this module
@@ -52,11 +52,11 @@ listing their name in dnsbl parameter. You can list all valid
 names by calling `python tools/dnsblScore.py --list`.
 
 Parameters:
-    cacheNegative (3600)
+    cacheNegative (43200)
         maximum time for caching negative result
-    cachePositive (3600)
+    cachePositive (21600)
         maximum time for caching positive result
-    cacheUnknown (600)
+    cacheUnknown (1800)
         maximum time for caching unknown result
     dnsbl (None)
         list of DNS blacklist to use
@@ -100,11 +100,11 @@ address from dynamic alocated space. Use the result as one of the
 decision rule and don't reject mail only relaying on this result.
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (43200)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (21600)
         maximum time for caching positive result
-    cacheUnknown (900)
+    cacheUnknown (1800)
         maximum time for caching unknown result
     check_name (True)
         check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)
@@ -318,11 +318,11 @@ name for each mail and this module delay delivery and increase
 load of remote server.
 
 Parameters:
-    cacheNegative (15)
+    cacheNegative (60)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (86400)
         maximum time for caching positive result
-    cacheUnknown (0)
+    cacheUnknown (30)
         maximum time for caching unknown result
     delay (600)
         how long to delay mail we see its triplet first time
@@ -341,9 +341,11 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
+    2 .... always allow postmaster
     1 .... was seen before
     0 .... some error occured (database, dns, ...)
-    -1 ... Graylist in progress
+    -1 ... greylist in progress
+    -2 ... invalid sender address
 
 Examples:
     # greylisting module with default parameters
@@ -363,20 +365,32 @@ Check if parameter is in specified database. Can be used for
 black/white listing any of parameter comming with ppolicy requests.
 
 Parameters:
+    cacheAll (False)
+        cache all records in memory
+    cacheAllRefresh (900)
+        refresh time in case of caching all records
     cacheNegative (900)
         maximum time for caching negative result
     cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
+    caseSensitive (True)
+        case-sensitive search
+    caseSensitiveDB (None)
+        case-sensitive search - use SQL function LOWER
+    caseSensitiveParam (None)
+        case-sensitive search - convert param to lowercase
     column (None)
         name of database column
     factory (None)
         reference to factory instance
-    lower (False)
-        case-insensitive search
+    memCacheExpire (900)
+        memory cache expiration - used only if param value is array
+    memCacheSize (1000)
+        memory cache max size - used only if param value is array
     param (None)
-        name of parameter to search in database
+        name of parameter in data dictionary (value can be string or array)
     retcol (None)
         name of column returned by check method
     saveResult (True)
@@ -403,8 +417,87 @@ Examples:
     modules['list2'] = ( 'List', { param="sender",
                                    table="my_list",
                                    column="my_column",
-                                   lower=True,
+                                   caseSensitive=False,
                                    retcol="*" } )
+
+
+
+
+Module ListBW
+-------------
+
+Check if array of defined parameters are in blacklist/whitelist.
+Each parameter is searched in b/w list and first occurence is returned.
+
+Parameters:
+    cacheAll (False)
+        cache all records in memory
+    cacheAllRefresh (900)
+        refresh time in case of caching all records
+    cacheNegative (900)
+        maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    caseSensitive (True)
+        case-sensitive search
+    caseSensitiveDB (None)
+        case-sensitive search - use SQL function LOWER
+    caseSensitiveParam (None)
+        case-sensitive search - convert param to lowercase
+    column (None)
+        name of database column
+    columnBlacklist (None)
+        name of blacklist database column
+    columnWhitelist (None)
+        name of whitelist database column
+    factory (None)
+        reference to factory instance
+    memCacheExpire (900)
+        memory cache expiration - used only if param value is array
+    memCacheSize (1000)
+        memory cache max size - used only if param value is array
+    param (None)
+        name of parameter in data dictionary (value can be string or array)
+    retcol (None)
+        name of column returned by check method
+    retcolBlacklist (None)
+        name of blacklist column returned by check method
+    retcolWhitelist (None)
+        name of whitelist column returned by check method
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    tableBlacklist (None)
+        name of blacklist database table where to search parameter
+    tableWhitelist (None)
+        name of whitelist database table where to search parameter
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... parameter was found in whitelist, second parameter include selected row
+    0 .... parameter was not found in whitelist/blacklist or failed to check
+           (request doesn't include required param, database error, ...)
+           second parameter - None in case of error
+                  not None in case record was not found in b/w list
+    1 .... parameter was found in blacklist, second parameter include selected row
+
+Examples:
+    # module for checking if sender is in blacklist/whitelist
+    modules['list1'] = ( 'ListBW', { param="sender_splitted" } )
+    # check if sender in blacklist/whitelist
+    # compare case-insensitive and return whole selected row
+    modules['list2'] = ( 'ListBW', { param="sender_splitted",
+                                     tableBlacklist="my_blacklist",
+                                     tableWhitelist="my_whitelist",
+                                     column="my_column",
+                                     caseSensitive=False,
+                                     caseSensitiveDB=True,
+                                     retcol="*" } )
 
 
 
@@ -507,46 +600,69 @@ Check mail address or its part is in database. Can be used for
 black/white listing sender or recipient mail addresses.
 
 Parameters:
+    cacheAll (True)
+        cache all records in memory
+    cacheAllRefresh (900)
+        refresh time in case of caching all records
     cacheNegative (900)
         maximum time for caching negative result
     cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
-    column (mail)
+    caseSensitive (False)
+        case-sensitive search
+    caseSensitiveDB (True)
+        case-sensitive search - use SQL function LOWER
+    caseSensitiveParam (None)
+        case-sensitive search - convert param to lowercase
+    column (key)
         name of database column
+    columnBlacklist (None)
+        name of blacklist database column
+    columnWhitelist (None)
+        name of whitelist database column
     factory (None)
         reference to factory instance
     memCacheExpire (900)
-        memory cache expiration
+        memory cache expiration - used only if param value is array
     memCacheSize (1000)
-        memory cache max size
-    param (None)
-        name of parameter to search in database
+        memory cache max size - used only if param value is array
+    paramMailDomain (None)
+        parameter with mail/domain to check
     retcol (None)
         name of column returned by check method
+    retcolBlacklist (None)
+        name of blacklist column returned by check method
+    retcolWhitelist (None)
+        name of whitelist column returned by check method
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
         prefix for saved data
-    table (list_mail_domain)
-        name of database table where to search parameter
+    tableBlacklist (blacklist)
+        name of blacklist database table where to search parameter
+    tableWhitelist (whitelist)
+        name of whitelist database table where to search parameter
 
 Check arguments:
     data ... all input data in dict
 
 Check returns:
-    1 .... parameter was found in db, second parameter contain
-           database row that was selected
-    0 .... failed to check (request doesn't include required param, database error, ...)
-    -1 ... parameter was not found in db
+    1 .... parameter was found in whitelist, second parameter include selected row
+    0 .... parameter was not found in whitelist/blacklist or failed to check
+           (request doesn't include required param, database error, ...)
+           second parameter - None in case of error
+                  not None in case record was not found in b/w list
+    1 .... parameter was found in blacklist, second parameter include selected row
 
 Examples:
-    # module for checking if sender is in database table list
-    modules['list1'] = ( 'ListMailDomain', { param="sender" } )
-    # check if sender domain is in database table my_list
-    modules['list2'] = ( 'ListMailDomain', { param="sender",
-                                             table="my_list",
+    # module for checking if sender is in database b/w list
+    modules['list1'] = ( 'ListMailDomain', { paramMailDomain="sender" } )
+    # check if sender domain is in database table my_blacklist, my_whitelist
+    modules['list2'] = ( 'ListMailDomain', { paramMailDomain="sender",
+                                             tableBlacklist="my_blacklist",
+                                             tableWhitelist="my_whitelist",
                                              column="my_column",
                                              retcol="*" } )
 
@@ -556,15 +672,15 @@ Examples:
 Module Resolve
 --------------
 
-Try to resolve ip->name, name->ip, ip->name->ip,
+Try to resolve ip->name, name->ip, name->mx, ip->name->ip,
 name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2.
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (21600)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (86400)
         maximum time for caching positive result
-    cacheUnknown (900)
+    cacheUnknown (1800)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
@@ -575,7 +691,7 @@ Parameters:
     saveResultPrefix (result_)
         prefix for saved data
     type (None)
-        ip->name, name->ip, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2
+        ip->name, name->ip, name->mx, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2
 
 Check arguments:
     data ... all input data in dict
@@ -611,11 +727,11 @@ http://www.openspf.org
 http://en.wikipedia.org/wiki/Sender_Policy_Framework
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (86400)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (86400)
         maximum time for caching positive result
-    cacheUnknown (900)
+    cacheUnknown (21600)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
@@ -701,15 +817,15 @@ first read http://www.postfix.org/ADDRESS_VERIFICATION_README.html
 to see limitation and problem that can happen.
 
 Parameters:
-    cacheNegative (900)
+    cacheNegative (3600)
         maximum time for caching negative result
-    cachePositive (900)
+    cachePositive (86400)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
     dbExpireNegative (10800)
         negative result expiration time in db
-    dbExpirePositive (1814400)
+    dbExpirePositive (2419200)
         positive result expiration time in db
     factory (None)
         reference to factory instance

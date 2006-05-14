@@ -74,8 +74,11 @@ class Verification(Base):
                'timeout': ('set SMTP connection timeout', 20),
                'vtype': ('mx, connection, domain or user verification', 'mx'),
                'table': ('database table with persistent cache', 'verification'),
-               'dbExpirePositive': ('positive result expiration time in db', 60*60*24*21),
-               'dbExpireNegative': ('negative result expiration time in db', 60*60*3),
+               'dbExpirePositive': ('positive result expiration time in db', 28*24*60*60),
+               'dbExpireNegative': ('negative result expiration time in db', 3*60*60),
+               'cachePositive': (None, 24*60*60),
+               'cacheUnknown': (None, 15*60),
+               'cacheNegative': (None, 60*60),
                }
 
 

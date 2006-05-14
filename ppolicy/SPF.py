@@ -43,7 +43,10 @@ class SPF(Base):
         modules['spf1'] = ( 'SPF', {} )
     """
 
-    PARAMS = { }
+    PARAMS = { 'cachePositive': (None, 24*60*60),
+               'cacheUnknown': (None, 6*60*60),
+               'cacheNegative': (None, 24*60*60),
+               }
 
 
     def hashArg(self, data, *args, **keywords):

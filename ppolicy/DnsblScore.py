@@ -52,7 +52,7 @@ class DnsblScore(Base):
                'params': ('which params we should check', [ 'client_address', 'sender' ]),
                'cachePositive': (None, 6*60*60), # cache DNSBL results longer time
                'cacheUnknown': (None, 30*60),    # because it consume a lot of time
-               'cacheNegative': (None, 6*60*60), # to make multiple DNS requests
+               'cacheNegative': (None, 12*60*60),# to make multiple DNS requests
                }
 
 
@@ -77,7 +77,7 @@ class DnsblScore(Base):
             val = data.get(param, '')
             if param in [ 'sender', 'recipient' ]:
                 if val.find("@") != -1:
-                    val = val.split("@", 2)[1]
+                    val = val.split("@", 1)[1]
                 else:
                     val = ''
             paramsVal.append("%s=%s" % (param, val))
@@ -94,7 +94,7 @@ class DnsblScore(Base):
             val = data.get(param, '')
             if param in [ 'sender', 'recipient' ]:
                 if val.find("@") != -1:
-                    val = val.split("@", 2)[1]
+                    val = val.split("@", 1)[1]
                 else:
                     val = ''
 

@@ -13,11 +13,105 @@ import sys, time, string, gc, resource
 import logging
 import threading
 import traceback
-from twisted.internet import reactor, protocol, interfaces, task
+from twisted.internet import reactor, protocol, interfaces
 from twisted.enterprise import adbapi
+from twisted.protocols.basic import LineReceiver
 
 
-class PPolicyServerFactory:
+class Redirect:
+    def __init__(self):
+        self.buf = ''
+    def write(self, buf):
+        self.buf += buf
+    def getBuffer(self):
+        buf = self.buf
+        self.buf = ''
+        return buf
+
+class CommandProtocol(LineReceiver):
+
+    def __init__(self):
+        self.cmd = ''
+        self.stdoutOrig = sys.stdout
+        self.stdoutRedir = Redirect()
+
+    def __printPrefix(self, prefix):
+        delimiter = self.delimiter
+        self.delimiter = ''
+        self.sendLine(prefix)
+        self.delimiter = delimiter
+
+    def connectionMade(self):
+        self.__printPrefix('>>> ')
+
+    def connectionLost(self, reason):
+        pass
+
+    def lineReceived(self, line):
+        logging.getLogger().debug(line)
+        if line.lower() == 'quit':
+            self.sendLine('bye')
+            self.transport.loseConnection()
+            return
+        try:
+            prefix = '>>> '
+            buf = ''
+            if self.cmd == '':
+                if line != '':
+                    sys.stdout = self.stdoutRedir
+                    eval(compile(line, '<prompt>', 'single'), globals(), locals())
+                    sys.stdout = self.stdoutOrig
+                    buf = self.stdoutRedir.getBuffer()
+            else:
+                if line != '':
+                    prefix = '... '
+                    self.cmd = "%s\n%s" % (self.cmd, line)
+                else:
+                    sys.stdout = self.stdoutRedir
+                    eval(compile(self.cmd, '<prompt>', 'exec'), globals(), locals())
+                    sys.stdout = self.stdoutOrig
+                    self.cmd = ''
+                    buf = self.stdoutRedir.getBuffer()
+            if buf != '':
+                if buf[len(buf)-1] == "\n": buf = buf[:-1]
+                logging.getLogger().debug(buf)
+                for line in buf.split("\n"):
+                    self.sendLine(line)
+            self.__printPrefix(prefix)
+        except EOFError:
+            self.sendLine('bye')
+            self.transport.loseConnection()
+        except SyntaxError, e:
+            if self.cmd == '':
+                self.__printPrefix('... ')
+                self.cmd = line
+            else:
+                for line in str(e).split("\n"):
+                    self.sendLine(line)
+                self.__printPrefix('>>> ')
+                self.cmd = ''
+        except Exception, e:
+            self.sendLine(str(e))
+            self.__printPrefix('>>> ')
+        self.stdoutRedir.getBuffer()
+        sys.stdout = self.stdoutOrig
+
+
+class CommandFactory(protocol.Factory):
+
+    protocol = CommandProtocol
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def startFactory(self):
+        pass
+
+    def stopFactory(self):
+        pass
+
+
+class PPolicyFactory:
 
     """This is a factory which produces protocols."""
 
@@ -25,7 +119,7 @@ class PPolicyServerFactory:
 
 
     def __init__(self, config = {}):
-        self.protocol = PPolicyServerRequest
+        self.protocol = PPolicyRequest
         self.numPorts = 0
         self.numProtocols = 0
         self.dbConnPool = None
@@ -180,6 +274,14 @@ class PPolicyServerFactory:
 
     def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
         if key == 0: return
+
+        cacheTime = 0
+        if code > 0: cacheTime = cachePositive
+        elif code < 0: cacheTime = cacheNegative
+        else: cacheTime = cacheUnknown
+
+        if cacheTime <= 0: return
+
         self.cacheLock.acquire()
         #logging.getLogger().debug("__cacheSet for %s (%s, %s)" % (key, code, codeEx))
         try:
@@ -195,15 +297,8 @@ class PPolicyServerFactory:
                 for toDel in toDelArr:
                     del(self.cacheValue[toDel])
                     del(self.cacheExpire[toDel])
-            if code > 0 and cachePositive > 0:
-                self.cacheValue[key] = (code, codeEx)
-                self.cacheExpire[key] = time.time() + cachePositive
-            if code == 0 and cacheUnknown > 0:
-                self.cacheValue[key] = (code, codeEx)
-                self.cacheExpire[key] = time.time() + cacheUnknown
-            if code < 0 and cacheNegative > 0:
-                self.cacheValue[key] = (code, codeEx)
-                self.cacheExpire[key] = time.time() + cacheNegative
+            self.cacheValue[key] = (code, codeEx)
+            self.cacheExpire[key] = time.time() + cacheTime
         except Exception, e:
             self.cacheLock.release()
             raise e
@@ -250,7 +345,7 @@ class PPolicyServerFactory:
 
 
 
-class PPolicyServerRequest(protocol.Protocol):
+class PPolicyRequest(protocol.Protocol):
 
     CONN_LIMIT = 100
 
@@ -285,11 +380,12 @@ class PPolicyServerRequest(protocol.Protocol):
         #reactor.callInThread(self.dataProcess, data)
         # replaced with following Thread class - it is not so effective,
         # because it doesn't use thread pool, but it doesn't leak resources
-        PPolicyServerRequestThread(self.factory, data, self.transport).start()
+        logging.getLogger().debug("test")
+        PPolicyRequestThread(self.factory, data, self.transport).start()
 
 
 
-class PPolicyServerRequestThread(threading.Thread):
+class PPolicyRequestThread(threading.Thread):
 
     def __init__ (self, factory, data, transport):
         threading.Thread.__init__(self)
@@ -301,11 +397,11 @@ class PPolicyServerRequestThread(threading.Thread):
         self.transport = transport
 
 
-    #def dataProcess(self, data): # XXXXX: old usage in PPolicyServerRequest
+    #def dataProcess(self, data): # XXXXX: old usage in PPolicyRequest
     def run(self):
         """Parse data, call check method from config file and return results."""
         try:
-            #parsedData = self.__parseData(data) # XXXXX: old usage in PPolicyServerRequest
+            #parsedData = self.__parseData(data) # XXXXX: old usage in PPolicyRequest
             parsedData = self.__parseData(self.data)
             if parsedData != None:
                 startTime = time.time()
@@ -409,7 +505,7 @@ if __name__ == "__main__":
         }
 
     print ">>> Create Factory"
-    factory = PPolicyServerFactory(config)
+    factory = PPolicyFactory(config)
 
     print ">>> Test Db Connection"
     factory.getDbConnection().cursor().execute("SHOW DATABASES")

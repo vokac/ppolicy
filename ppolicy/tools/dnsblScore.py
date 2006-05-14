@@ -184,6 +184,9 @@ class dnsblScore:
             else:
                 dnsbl = self.config[check]['dnsbl']
                 envfrom = self.config[check].get('envfrom', False)
+            if not self.config[check].has_key('score') or self.config[check]['score'][1] == 0:
+                continue
+            addScore = self.config[check]['score'][1]
     
             if not result.has_key(dnsbl):
                 # test DNS
@@ -197,15 +200,8 @@ class dnsblScore:
                 ips = []
                 if check_name != None:
                     try:
-                        answer = []
-                        resolver, resolverLock = dnscache.getResolver(3.0, 1.0)
-                        resolverLock.acquire()
-                        try:
-                            answer = resolver.query(check_name, 'A')
-                        except Exception, e:
-                            resolverLock.release()
-                            raise e
-                        resolverLock.release()
+                        resolver = dnscache.getResolver(3.0, 1.0)
+                        answer = resolver.query(check_name, 'A')
                         logging.getLogger().debug("%s - result for %s: %s" % (check, check_name, [ x for x in answer ]))
                         for rdata in answer:
                             ips.append(rdata.address)
@@ -220,16 +216,12 @@ class dnsblScore:
                     # test if result match
                     for ip in result[dnsbl]:
                         if re.compile(self.config[check]['value']).match(ip):
-                            if self.config[check].has_key('score'):
-                                addScore = self.config[check]['score'][1]
-                                logging.getLogger().debug("%s[%s]: %s" % (check, ip, addScore))
-                                score += addScore
+                            logging.getLogger().debug("%s[%s]: %s" % (check, ip, addScore))
+                            score += addScore
                             break
                 else:
-                    if self.config[check].has_key('score'):
-                        addScore = self.config[check]['score'][1]
-                        logging.getLogger().debug("%s[%s]: %s" % (check, ip, addScore))
-                        score += addScore
+                    logging.getLogger().debug("%s[%s]: %s" % (check, ip, addScore))
+                    score += addScore
 
         return score
         
@@ -269,11 +261,26 @@ if __name__ == "__main__":
     streamHandler = logging.StreamHandler(sys.stdout)
     streamHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
     logging.getLogger().addHandler(streamHandler)
-    logging.getLogger().setLevel(logging.DEBUG)
+    #logging.getLogger().setLevel(logging.DEBUG)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--list":
         listDnsbl()
         sys.exit()
 
-    for ip in [ '71.99.151.7', '62.193.240.107', '84.108.164.149' ]:
-        print "%s: %s" % (ip, score(ip, 'pradella.biz'))
+    import time
+    for ip, sender in [ ("12.154.9.125", "stephen@quasarman.biz"),
+                        ("12.202.58.19", "philip@pistonheads.biz"),
+                        ("12.205.105.185", "geoffrey@psychologen.biz"),
+                        ("12.214.67.125", "aqruopft35C@yahoo.com"),
+                        ("12.215.156.205", "acr2oof5u65@yahoo.com"),
+                        ("12.218.133.172", "ucmcuuotyvili@earthlink.net"),
+                        ("12.221.22.94", "nicholas@paramed.biz") ]:
+        if sender.find('@') == -1:
+            continue
+        user, domain = sender.split('@', 1)
+        startTime = time.time()
+        sc = score(ip, domain)
+        print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
+        startTime = time.time()
+        sc = score(ip, domain)
+        print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)

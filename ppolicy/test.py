@@ -126,13 +126,13 @@ if __name__ == "__main__":
              'size': '12345' }
     if len(sys.argv) > 1:
         if sys.argv[1] == '--doc':
-            for module in [ 'Dnsbl', 'DnsblScore', 'DnsblDynamic', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'ListDyn', 'ListMailDomain', 'Resolve', 'SPF', 'Trap', 'Verification' ]:
+            for module in [ 'Dnsbl', 'DnsblScore', 'DnsblDynamic', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'ListBW', 'ListDyn', 'ListMailDomain', 'Resolve', 'SPF', 'Trap', 'Verification' ]:
                 doc(module)
             sys.exit()
         moduleName = sys.argv[1]
         moduleParams = {}
         for arg in sys.argv[2:]:
-            arg1, arg2 = arg.split("=", 2)
+            arg1, arg2 = arg.split("=", 1)
             moduleParams[arg1] = arg2
         create(moduleName, moduleName, **moduleParams)
         run(moduleName, data)

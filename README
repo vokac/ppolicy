@@ -29,14 +29,15 @@ previous.
 postfix           >= 2.1           - http://www.postfix.org
 python            >= 2.3           - http://www.python.org
 python-twisted    >= 1.3           - http://twistedmatrix.com
-* MySQL           >= 3.23 (I hope) - http://www.mysql.com
-* dnspython       >= 1.3.3         - http://www.dnspython.org
-** pyperl         >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
+MySQL          *  >= 3.23 (I hope) - http://www.mysql.com
+dnspython      *  >= 1.3.3         - http://www.dnspython.org
+pyperl         ** >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
 
-*  required by many check modules (but not by application core)
-** required by modules that directly call perl (none module now)
-   you can use local patched copy (works with python 2.4 and perl 5.8.8)
-   http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/pyperl
+*   required by many check modules (but not by application core)
+**  version >= 1.3.4 are much slower because of changes in resolver
+*** required by modules that directly call perl (none module now)
+    you can use local patched copy (works with python 2.4 and perl 5.8.8)
+    http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/pyperl
 
 
 1.2 PPolicy download

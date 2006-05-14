@@ -36,9 +36,11 @@ class Greylist(Base):
         data ... all input data in dict
 
     Check returns:
+        2 .... always allow postmaster
         1 .... was seen before
         0 .... some error occured (database, dns, ...)
-        -1 ... Graylist in progress
+        -1 ... greylist in progress
+        -2 ... invalid sender address
 
     Examples:
         # greylisting module with default parameters
@@ -52,9 +54,9 @@ class Greylist(Base):
     PARAMS = { 'table': ('greylist database table', 'greylist'),
                'delay': ('how long to delay mail we see its triplet first time', 10*60),
                'expiration': ('expiration of triplets in database', 60*60*24*31),
-               'cachePositive': (None, 15*60),# positive could be cached
-               'cacheUnknown': (None, 0),  # use only very short time, because
-               'cacheNegative': (None, 15),# of changing greylist time
+               'cachePositive': (None, 24*60*60),# positive can be cached long time
+               'cacheUnknown': (None, 30),  # use only very short time, because
+               'cacheNegative': (None, 60), # of changing greylist time
                }
 
 
@@ -100,7 +102,7 @@ class Greylist(Base):
         # RFC 2821, section 4.1.1.3
         # see RCTP TO: grammar
         if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
-            return 1, "allow mail to postmaster without graylisting"
+            return 2, ("allow mail to postmaster without graylisting", 0)
 
         if sender != '':
             try:
@@ -108,7 +110,7 @@ class Greylist(Base):
             except ValueError:
                 logging.getLogger().warn("%s: sender address in unknown format: %s" %
                                          (self.getId(), sender))
-                return -1, "sender address format icorrect %s" % sender
+                return -2, ("sender address format icorrect %s" % sender, 0)
 
             # list of mailservers
             try:
@@ -116,7 +118,7 @@ class Greylist(Base):
                 spfres, spfstat, spfexpl = spf.check(i=client_address,
                                                      s=sender, h=client_name)
             except Exception, e:
-                return 0, "%s DNS failure: %s" % (self.getId(), e)
+                return 0, ("%s DNS failure: %s" % (self.getId(), e), 0)
         else:
             mailhosts = []
             spfres = ''
@@ -128,6 +130,7 @@ class Greylist(Base):
 
         retCode = 0
         retInfo = "undefined result (%s module error)" % self.getId()
+        retTime = 0
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
@@ -141,16 +144,19 @@ class Greylist(Base):
             if int(cursor.rowcount) > 0:
                 # triplet already exist in database
                 row = cursor.fetchone()
-                if row[1] > 0:
+                greylistExpire = row[1]
+                if greylistExpire > 0:
                     greylistDelay = row[0]
                 if greylistDelay < 0:
                     # and initial delay period was finished
                     retCode = 1
                     retInfo = 'greylisting was already done'
+                    retTime = greylistExpire
                 else:
                     # but we are in initial delay period
                     retCode = -1
                     retInfo = 'greylisting in progress, mail will be accepted in %ss' % greylistDelay
+                    retTime = greylistDelay
                 try:
                     # this is not critical so do it in separate try section
                     sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = LOWER('%s') AND `recipient` = LOWER('%s') AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
@@ -162,6 +168,7 @@ class Greylist(Base):
                 # insert new
                 retCode = -1
                 retInfo = 'greylist in progress: %ss' % greylistDelay
+                retTime = greylistDelay
                 sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES (LOWER('%s'), LOWER('%s'), '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
@@ -174,6 +181,6 @@ class Greylist(Base):
                 pass
             expl = "%s: database error" % self.getId()
             logging.getLogger().error("%s: %s" % (expl, e))
-            return 0, expl
+            return 0, (expl, 0)
 
-        return retCode, retInfo
+        return retCode, (retInfo, retTime)

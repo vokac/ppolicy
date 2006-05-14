@@ -1,0 +1,26 @@
+ppolicy version 2.4.0
+=====================
+
+hardware: PIV, 2x2.8GHz, 2GB RAM
+
+ppolicy.conf:
+factory.check('dos', data)
+factory.check('trap', data, [ 'spamtrap1@example.com', 'spamtrap2@example.com' ])
+factory.check('spf', data)
+factory.check('verify_connection', data)
+factory.check('resolve_ip_name_mx', data)
+factory.check('greylist', data)
+factory.check('dnsbl_xbl', data)
+factory.check('dnsblscore', data)
+factory.check('dnsbldynamic', data)
+
+mail: 169k
+clients: 20
+total time: 1000m
+cpu time:
+  - twistd: 453m
+  - mysqld: 300m
+  - named (PI 100MHz, 64MB RAM): 1000m
+
+stats:
+  work in progress...

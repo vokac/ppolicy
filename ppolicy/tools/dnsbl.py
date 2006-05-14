@@ -50,7 +50,7 @@ class dnsbl:
             self.config[rblcode] = ( rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns )
         configFile.close()
 
-        self.resolver, self.resolverLock = dnscache.getResolver(3.0, 1.0)
+        self.resolver = dnscache.getResolver(3.0, 1.0)
 
 
     def has_config(self, name):
@@ -76,14 +76,7 @@ class dnsbl:
 
         listed = False
         try:
-            answer = []
-            self.resolverLock.acquire()
-            try:
-                answer = self.resolver.query(ipr, 'A')
-            except Exception, e:
-                self.resolverLock.release()
-                raise e
-            self.resolverLock.release()
+            answer = self.resolver.query(ipr, 'A')
             logging.getLogger().debug("result: %s" % [ x for x in answer ])
             for rdata in answer:
                 if ipList == []:

@@ -41,6 +41,9 @@ class Dnsbl(Base):
     """
 
     PARAMS = { 'dnsbl': ('name of DNS blacklist defined in this module', None),
+               'cachePositive': (None, 6*60*60),
+               'cacheUnknown': (None, 30*60),
+               'cacheNegative': (None, 12*60*60),
                }
 
 

@@ -4,8 +4,8 @@
 
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.5.1
-Release: 3
+Version: 2.6.0
+Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -91,7 +91,7 @@ fi
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-%doc NEWS README MODULES TODO ppolicy.sql ppolicy.conf
+%doc NEWS README MODULES TODO TESTS ppolicy.sql ppolicy.conf
 %config(noreplace) %{_sysconfdir}/postfix/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
@@ -101,7 +101,17 @@ fi
 
 
 %changelog
-* Fri May 5 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.1-1
+* Fri May 15 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.0-0
+- increased mem cache expiration for modules using DNS and DB
+- cache all records from List and ListMailDomain in memory
+- added ListBW to search data in blacklist/whitelist
+- added simple debug interface listening at command port
+- changed threadsafe caching of DNS answers
+- improved performance of DumpDataDB insert
+- added name->mx check to Resolve module
+- changed DNS timeouts, info about slow resolver in dnspython >= 1.3.4
+
+* Fri May 13 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.3-1
 - resEx returned from check method can be complex structure
   (used by List*, Greylist, SPF, ...)
 - format resouce usage string, add to data hash (can be stored in db)

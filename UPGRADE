@@ -1,0 +1,9 @@
+ppolicy 2.4.x -> 2.5.x
+======================
+- changed ListMailDomain result (< 0 blacklist, > 0 whitelist, = undefined)
+
+
+ppolicy 2.4.x -> 2.5.x
+======================
+- changed retEx structure for Greylist
+- changed listenPort -> ppolicyPort in ppolicy.conf

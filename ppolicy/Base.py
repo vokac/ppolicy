@@ -192,7 +192,12 @@ class Base(object):
     def setParam(self, key, value):
         """Set module parameter."""
         if not self.paramsHelp.has_key(key):
-            logging.getLogger().error("trying to set undefined parameter %s for %s" % (key, self.getId()))
+            id = 'unknown'
+            try:
+                id = self.getId()
+            except:
+                pass
+            logging.getLogger().error("trying to set undefined parameter \"%s\" for %s" % (key, id))
             return
         if value == None and self.paramsValue.has_key(key):
             del(self.paramsValue[key])
@@ -203,8 +208,16 @@ class Base(object):
     def getParam(self, key, default = None):
         """Get module parameter."""
         if not self.paramsValue.has_key(key):
-            logging.getLogger().error("trying to get undefined parameter %s for %s" % (key, self.getId()))
-        return self.paramsValue.get(key, default)
+            id = 'unknown'
+            try:
+                id = self.getId()
+            except:
+                pass
+            logging.getLogger().error("trying to get undefined parameter \"%s\" for %s" % (key, id))
+        retVal = self.paramsValue.get(key)
+        if retVal == None:
+            retVal = default
+        return retVal
 
 
     def start(self):

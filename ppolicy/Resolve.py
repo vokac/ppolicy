@@ -18,7 +18,7 @@ __version__ = "$Revision$"
 
 
 class Resolve(Base):
-    """Try to resolve ip->name, name->ip, ip->name->ip,
+    """Try to resolve ip->name, name->ip, name->mx, ip->name->ip,
     name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2.
 
     Module arguments (see output of getParams method):
@@ -46,7 +46,10 @@ class Resolve(Base):
     """
 
     PARAMS = { 'param': ('which request parameter should be used', None),
-               'type': ('ip->name, name->ip, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2', None),
+               'type': ('ip->name, name->ip, name->mx, ip->name->ip, name->ip->name, ip1->name->ip2, ip->name->mx, name1->ip->name2', None),
+               'cachePositive': (None, 24*60*60),
+               'cacheUnknown': (None, 30*60),
+               'cacheNegative': (None, 6*60*60),
                }
 
 
@@ -56,7 +59,7 @@ class Resolve(Base):
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
         resolveType = self.getParam('type')
-        if resolveType not in [ 'ip->name', 'name->ip', 'ip->name->ip', 'name->ip->name', 'ip1->name->ip2', 'ip->name->mx', 'name1->ip->name2' ]:
+        if resolveType not in [ 'ip->name', 'name->ip', 'name->mx', 'ip->name->ip', 'name->ip->name', 'ip1->name->ip2', 'ip->name->mx', 'name1->ip->name2' ]:
             raise ParamError("type \"%s\" is not supported" % resolveType)
 
 
@@ -98,6 +101,9 @@ class Resolve(Base):
                 retval = True
         elif resType == 'name->ip':
             if len(dnscache.getIpForName(dta)) > 0:
+                retval = True
+        elif resType == 'name->mx':
+            if len(dnscache.getDomainMailhosts(dta, local=False)) > 0:
                 retval = True
         elif resType == 'ip->name->ip' or resType == 'ip1->name->ip2' or resType == 'ip->name->mx':
             names = dnscache.getNameForIp(dta)

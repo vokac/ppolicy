@@ -13,7 +13,7 @@ import os, sys, imp
 import socket
 import logging
 from ppolicy.log import TwistedHandler
-from ppolicy.protocol import PPolicyServerFactory
+from ppolicy.protocol import PPolicyFactory, CommandFactory
 from twisted.application import internet, service
 from twisted.internet import reactor, protocol
 
@@ -30,7 +30,8 @@ config = {
                        'user'   : 'ppolicy',
                        'passwd' : 'secret',
                        },
-    'listenPort'   : 10030,
+    'ppolicyPort'  : 10030,
+    'commandPort'  : 10031,
     'cacheSize'    : 10000,
     'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
     'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
@@ -42,7 +43,7 @@ config = {
 # logging
 twistedHandler = TwistedHandler()
 #twistedHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
-twistedHandler.setFormatter(logging.Formatter("[%(levelname)s](%(module)s:%(lineno)d) %(message)s"))
+twistedHandler.setFormatter(logging.Formatter("[%(relativeCreated)9.0f][%(levelname)s](%(module)s:%(lineno)d) %(message)s"))
 logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
@@ -85,11 +86,18 @@ logging.getLogger().setLevel(config['logLevel'])
 
 # start twisted application
 reactor.suggestThreadPoolSize(40)
-
-# this is the core part of any tac file, the creation of the
-# root-level application object
+# Create a MultiService
+multiService = service.MultiService()
+# Create PPolicy service
+ppolicyFactory = PPolicyFactory(config)
+ppolicyService = internet.TCPServer(config['ppolicyPort'], ppolicyFactory)
+ppolicyService.setServiceParent(multiService)
+# Create command service
+commandFactory = CommandFactory(ppolicyFactory)
+commandService = internet.TCPServer(config['commandPort'], commandFactory)
+commandService.setServiceParent(multiService)
+# Create an application
 application = service.Application("PPolicyServer")
-factory	= PPolicyServerFactory(config)
-ppolicyService = internet.TCPServer(config['listenPort'], factory)
-# attach the service to its parent application
-ppolicyService.setServiceParent(application)
+# Connect MultiService to the application
+multiService.setServiceParent(application)
+

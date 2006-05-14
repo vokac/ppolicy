@@ -9,7 +9,6 @@
 #
 # $Id$
 #
-import time
 import logging
 from Base import Base, ParamError
 
@@ -75,37 +74,37 @@ class DumpDataDB(Base):
 
 
     def check(self, data, *args, **keywords):
+        newId = 0
         try:
             conn = self.factory.getDbConnection()
-            # conn.autocommit(False) # begin() # this is not well supported in old MySQLdb
             try:
                 table = self.getParam('table')
                 cursor = conn.cursor()
-                cursor.execute("START TRANSACTION")
 
                 # XXX: object.lock.acquire()
                 newId = self.newId
                 self.newId += 1
                 # XXX: object.lock.release()
 
-                sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES (%i, 'date', NOW())" % (table, newId)
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
+                sqlData = []
+                sqlData.append("(%i, 'date', NOW())" % newId)
+                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                    logging.getLogger().debug("%s" % sqlData[len(sqlData)-1])
 
                 for k,v in data.items():
-                    sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES (%i, '%s', '%s')" % (table, newId, k, str(v).replace("'", "\\'"))
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    sqlData.append("(%i, '%s', '%s')" % (newId, k, str(v).replace("'", "\\'")))
+                    if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                        logging.getLogger().debug("%s" % sqlData[len(sqlData)-1])
 
-                cursor.execute("COMMIT")
+                sql = "INSERT INTO `%s` (`id`, `key`, `value`) VALUES %s" % (table, ",".join(sqlData))
+                #logging.getLogger().debug("SQL: %s" % sql) # this is too verbose
+                cursor.execute(sql)
+
                 cursor.close()
-                # conn.commit()
             except Exception, e:
-                cursor.execute("ROLLBACK")
                 cursor.close()
-                # conn.rollback
                 raise e
         except Exception, e:
             logging.getLogger().error("can't write into database: %s" % e)
 
-        return 0, "%s always return undefined" % self.getId()
+        return 0, "%s always return undefined, record #%i" % (self.getId(), newId)
