@@ -1,6 +1,6 @@
 #!/bin/sh
 NAME=ppolicy
-VERSION=2.6.0
+VERSION=2.6.1
 RELEASE=1
 RPMDIR=${HOME}/rpmbuild
 

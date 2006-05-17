@@ -1,5 +1,6 @@
 TODO list sorted by task importance
 -----------------------------------
+* is it dnspython resolver thread safe?
 * some code from start() should be moved to __init__()
 * check escaping of incomming parameters in DB query
 * IPv6 was not tested - don't use with mailserver that listen on IPv6

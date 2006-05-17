@@ -382,7 +382,7 @@ Parameters:
     caseSensitiveParam (None)
         case-sensitive search - convert param to lowercase
     column (None)
-        name of database column
+        name of database column or array of columns according "param"
     factory (None)
         reference to factory instance
     memCacheExpire (900)
@@ -414,9 +414,9 @@ Examples:
     modules['list1'] = ( 'List', { param="sender" } )
     # check if sender domain is in database table my_list
     # compare case-insensitive and return whole selected row
-    modules['list2'] = ( 'List', { param="sender",
+    modules['list2'] = ( 'List', { param=[ "sender", "recipient" ],
                                    table="my_list",
-                                   column="my_column",
+                                   column=[ "my_column1", "my_column2" ],
                                    caseSensitive=False,
                                    retcol="*" } )
 

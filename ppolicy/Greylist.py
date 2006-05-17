@@ -71,7 +71,7 @@ class Greylist(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`))" % table
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`))" % table
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
 
@@ -104,6 +104,7 @@ class Greylist(Base):
         if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
             return 2, ("allow mail to postmaster without graylisting", 0)
 
+        greysubj = client_address
         if sender != '':
             try:
                 user, domain = sender.split("@")
@@ -115,18 +116,14 @@ class Greylist(Base):
             # list of mailservers
             try:
                 mailhosts = dnscache.getDomainMailhosts(domain)
-                spfres, spfstat, spfexpl = spf.check(i=client_address,
-                                                     s=sender, h=client_name)
+                if client_address in mailhosts:
+                    greysubj = domain
+                else:
+                    spfres, spfstat, spfexpl = spf.check(i=client_address, s=sender, h=client_name)
+                    if spfres == 'pass':
+                        greysubj = domain
             except Exception, e:
                 return 0, ("%s DNS failure: %s" % (self.getId(), e), 0)
-        else:
-            mailhosts = []
-            spfres = ''
-
-        if client_address in mailhosts or spfres == 'pass':
-            greysubj = domain
-        else:
-            greysubj = client_address
 
         retCode = 0
         retInfo = "undefined result (%s module error)" % self.getId()
@@ -136,7 +133,7 @@ class Greylist(Base):
             cursor = conn.cursor()
             table = self.getParam('table')
 
-            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = LOWER('%s') AND `recipient` = LOWER('%s') AND `client_address` = '%s'" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
+            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             greylistDelay = self.getParam('delay')
@@ -159,7 +156,7 @@ class Greylist(Base):
                     retTime = greylistDelay
                 try:
                     # this is not critical so do it in separate try section
-                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = LOWER('%s') AND `recipient` = LOWER('%s') AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
+                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
                     logging.getLogger().debug("SQL: %s" % sql)
                     cursor.execute(sql)
                 except Exception, e:
@@ -169,7 +166,7 @@ class Greylist(Base):
                 retCode = -1
                 retInfo = 'greylist in progress: %ss' % greylistDelay
                 retTime = greylistDelay
-                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES (LOWER('%s'), LOWER('%s'), '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
+                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
 

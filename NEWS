@@ -1,4 +1,4 @@
-Changes in PPolicy 2.6.0 (May 15 2006)
+Changes in PPolicy 2.6.1 (May 16 2006)
 ======================================
 - increased mem cache expiration for modules using DNS and DB
 - added option cache all records from List and ListMailDomain in memory
@@ -8,6 +8,10 @@ Changes in PPolicy 2.6.0 (May 15 2006)
 - improved performance of DumpDataDB insert
 - added name->mx check to Resolve module
 - changed DNS timeouts, info about slow resolver in dnspython >= 1.3.4
+- logging gc status only when loglevel < DEBUG (consume lot of resources)
+- minor SQL query optimization
+- List now support array of parameters and columns
+- fixed bug in searching domain mailhost IP addresses
 
 
 Changes in PPolicy 2.5.3 (May 9 2006)

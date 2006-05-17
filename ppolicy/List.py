@@ -40,16 +40,16 @@ class List(Base):
         modules['list1'] = ( 'List', { param="sender" } )
         # check if sender domain is in database table my_list
         # compare case-insensitive and return whole selected row
-        modules['list2'] = ( 'List', { param="sender",
+        modules['list2'] = ( 'List', { param=[ "sender", "recipient" ],
                                        table="my_list",
-                                       column="my_column",
+                                       column=[ "my_column1", "my_column2" ],
                                        caseSensitive=False,
                                        retcol="*" } )
     """
 
     PARAMS = { 'param': ('name of parameter in data dictionary (value can be string or array)', None),
                'table': ('name of database table where to search parameter', None),
-               'column': ('name of database column', None),
+               'column': ('name of database column or array of columns according "param"', None),
                'retcol': ('name of column returned by check method', None),
                'caseSensitive': ('case-sensitive search', True),
                'caseSensitiveParam': ('case-sensitive search - convert param to lowercase', None),
@@ -83,6 +83,8 @@ class List(Base):
         if self.allDataCacheRefresh > time.time():
             return
 
+        column = self.getParam('column')
+
         conn = self.factory.getDbConnection()
         try:
             newCache = {}
@@ -96,7 +98,10 @@ class List(Base):
                 res = cursor.fetchone()
                 if res == None:
                     break
-                newCache[res[len(res)-1]] = res[:-1]
+                if type(column) == str:
+                    newCache[res[len(res)-1]] = res[:-1]
+                else:
+                    newCache[res[-len(column):]] = res[:-len(column)]
             cursor.close()
 
             self.allDataCache = newCache
@@ -110,19 +115,25 @@ class List(Base):
 
 
     def getId(self):
-        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), self.getParam('param'))
+        return "%s[%s(%s,%s)]" % (self.type, self.name, self.getParam('table'), str(self.getParam('param')))
 
 
     def hashArg(self, data, *args, **keywords):
-        param = self.getParam('param')
         caseSensitive = self.getParam('caseSensitive', True)
         caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
+        param = self.getParam('param')
+        if type(param) == str:
+            param = [ param ]
 
-        paramValue = str(data.get(param, ''))
-        if not caseSensitiveParam:
-            paramValue = paramValue.lower()
+        paramValue = []
+        for par in param:
+            parVal = str(data.get(par, ''))
+            if caseSensitiveParam:
+                paramValue.append("%s=%s" % (par, parVal))
+            else:
+                paramValue.append("%s=%s" % (par, parVal.lower()))
 
-        return hash("%s=%s" % (param, paramValue))
+        return hash("\n".join(paramValue))
 
 
     def start(self):
@@ -134,7 +145,12 @@ class List(Base):
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
         table = self.getParam('table')
+        param = self.getParam('param')
         column = self.getParam('column')
+        if type(param) != type(column):
+            raise ParamError("type of \"param\" (%s) doesn't match type of \"column\" (%s)" % (param, column))
+        if type(column) == str:
+            column = [ column ]
         retcol = self.getParam('retcol')
         caseSensitive = self.getParam('caseSensitive', True)
         #caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
@@ -145,7 +161,7 @@ class List(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, column, column)
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, "` VARCHAR(100) NOT NULL, `".join(column), "`, `".join(column))
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             cursor.close()
@@ -167,11 +183,11 @@ class List(Base):
             self.setParam('cacheNegative', 0) # are cached by this module
 
             if not caseSensitiveDB:
-                columnSQL = 'LOWER(`%s`)' % column
-                groupBySQL = " GROUP BY LOWER(`%s`)" % column
+                columnSQL = 'LOWER(`%s`)' % "`), LOWER(`".join(column)
+                groupBySQL = " GROUP BY LOWER(`%s`)" % "`), LOWER(`".join(column)
             else:
-                columnSQL = '`%s`' % column
-                groupBySQL = " GROUP BY `%s`" % column
+                columnSQL = '`%s`' % "`, `".join(column)
+                groupBySQL = " GROUP BY `%s`" % "`, `".join(column)
             if self.retcolSQL.find('(') == -1:
                 groupBySQL = ''
             self.selectAllSQL = "SELECT %s, %s FROM `%s`%s" % (self.retcolSQL, columnSQL, table, groupBySQL)
@@ -184,17 +200,36 @@ class List(Base):
 
 
     def check(self, data, *args, **keywords):
-        param = self.getParam('param')
-        paramValue = data.get(param, [ '' ])
-        if type(paramValue) == str:
-            paramValue = [ paramValue ]
-
         caseSensitive = self.getParam('caseSensitive', True)
         caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
         caseSensitiveDB = self.getParam('caseSensitiveDB', caseSensitive)
 
-        if not caseSensitiveParam:
-            paramValue = [ x.lower() for x in paramValue ]
+        param = self.getParam('param')
+        if type(param) == str:
+            paramValue = data.get(param, [ '' ])
+            if type(paramValue) == str:
+                paramValue = [ paramValue ]
+            if not caseSensitiveParam:
+                paramValue = [ x.lower() for x in paramValue ]
+        else:
+            paramVal = []
+            paramValLen = -1
+            for par in param:
+                paramV = data.get(par, [ '' ])
+                if type(paramV) == str:
+                    paramV = [ paramV ]
+                if not caseSensitiveParam:
+                    paramV = [ x.lower() for x in paramV ]
+                if paramValLen == -1:
+                    paramValLen = len(paramV)
+                elif paramValLen != len(paramV):
+                    logging.getLogger().error("size of params values is different for %s" % par)
+                    return 0, None
+                paramVal.append(paramV)
+            paramValue = [ () for x in range(0, paramValLen) ]
+            for i in range(0, paramValLen):
+                for paramV in paramVal:
+                    paramValue[i] += ( paramV[i], )
 
         ret = -1
         retEx = None
@@ -222,7 +257,7 @@ class List(Base):
         retcol = self.getParam('retcol')
         memCacheExpire = self.getParam('memCacheExpire')
         memCacheSize = self.getParam('memCacheSize')
-        useMemCache = type(data.get(param, '')) != str and memCacheExpire != None and memCacheSize != None and memCacheSize > 0
+        useMemCache = len(paramValue) > 1 and memCacheExpire != None and memCacheSize != None and memCacheSize > 0
 
         try:
             conn = self.factory.getDbConnection()
@@ -239,10 +274,20 @@ class List(Base):
                         ret = 1
                         break
 
-                if not caseSensitiveDB:
-                    sqlWhere = "WHERE LOWER(`%s`) = LOWER('%s')" % (column, paramVal)
+                if type(column) == str:
+                    if not caseSensitiveDB:
+                        sqlWhere = "WHERE LOWER(`%s`) = LOWER('%s')" % (column, paramVal)
+                    else:
+                        sqlWhere = "WHERE `%s` = '%s'" % (column, paramVal)
                 else:
-                    sqlWhere = "WHERE `%s` = '%s'" % (column, paramVal)
+                    sqlWhereAnd = []
+                    for i in range(0, len(column)):
+                        if not caseSensitiveDB:
+                            sqlWhereAnd.append("LOWER(`%s`) = LOWER('%s')" % (column[i], paramVal[i]))
+                        else:
+                            sqlWhereAnd.append("`%s` = '%s'" % (column[i], paramVal[i]))
+                    sqlWhere = "WHERE %s" % " AND ".join(sqlWhereAnd)
+
                 sql = "SELECT %s FROM `%s` %s" % (self.retcolSQL, table, sqlWhere)
 
                 logging.getLogger().debug("SQL: %s" % sql)

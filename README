@@ -29,9 +29,9 @@ previous.
 postfix           >= 2.1           - http://www.postfix.org
 python            >= 2.3           - http://www.python.org
 python-twisted    >= 1.3           - http://twistedmatrix.com
-MySQL          *  >= 3.23 (I hope) - http://www.mysql.com
-dnspython      *  >= 1.3.3         - http://www.dnspython.org
-pyperl         ** >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
+MySQL         *   >= 3.23 (I hope) - http://www.mysql.com
+dnspython     **  >= 1.3.3         - http://www.dnspython.org
+pyperl        *** >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
 
 *   required by many check modules (but not by application core)
 **  version >= 1.3.4 are much slower because of changes in resolver
@@ -43,7 +43,7 @@ pyperl         ** >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
 1.2 PPolicy download
 
 Primary site for this PPolicy server is
-http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy. You can
+http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download. You can
 download there prebuild RPM package or sources in SRPM and tgz format.
 
 

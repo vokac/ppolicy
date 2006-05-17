@@ -4,7 +4,7 @@
 
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.6.0
+Version: 2.6.1
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -101,7 +101,7 @@ fi
 
 
 %changelog
-* Fri May 15 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.0-0
+* Fri May 16 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.1-1
 - increased mem cache expiration for modules using DNS and DB
 - cache all records from List and ListMailDomain in memory
 - added ListBW to search data in blacklist/whitelist
@@ -110,6 +110,10 @@ fi
 - improved performance of DumpDataDB insert
 - added name->mx check to Resolve module
 - changed DNS timeouts, info about slow resolver in dnspython >= 1.3.4
+- logging gc status only when loglevel < DEBUG (consume lot of resources)
+- minor SQL query optimization
+- List now support array of parameters and columns
+- fixed bug in searching domain mailhost IP addresses
 
 * Fri May 13 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.3-1
 - resEx returned from check method can be complex structure

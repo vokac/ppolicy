@@ -231,7 +231,7 @@ class PPolicyFactory:
                 data["%s_info" % prefix] = codeEx
                 data["%s_cache" % prefix] = not (hitCache == '')
                 data["%s_time" % prefix] = runTime
-                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                if logging.getLogger().getEffectiveLevel() < logging.DEBUG:
                     rusage = resource.getrusage(resource.RUSAGE_SELF)
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     data["%s_resource" % prefix] = "cache(%i), gc(%s, %s), rs%s" % (len(self.cacheValue), len(gc.get_objects()), len(gc.garbage), rusageStr)
@@ -323,7 +323,6 @@ class PPolicyFactory:
             logging.getLogger().info("Stopping factory %s" % self)
 	    self.stopFactory()
         if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-            logging.getLogger().debug("gc: %s" % len(gc.get_objects()))
             gc.collect()
             logging.getLogger().debug("gc: %s" % len(gc.get_objects()))
             logging.getLogger().debug("gc: %s" % gc.get_objects())
@@ -380,7 +379,6 @@ class PPolicyRequest(protocol.Protocol):
         #reactor.callInThread(self.dataProcess, data)
         # replaced with following Thread class - it is not so effective,
         # because it doesn't use thread pool, but it doesn't leak resources
-        logging.getLogger().debug("test")
         PPolicyRequestThread(self.factory, data, self.transport).start()
 
 
@@ -407,7 +405,7 @@ class PPolicyRequestThread(threading.Thread):
                 startTime = time.time()
                 reqid = parsedData.get('instance', "unknown%i" % startTime)
                 logging.getLogger().info("%s start" % reqid)
-                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                if logging.getLogger().getEffectiveLevel() < logging.DEBUG:
                     rusage = list(resource.getrusage(resource.RUSAGE_SELF))
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
@@ -416,7 +414,7 @@ class PPolicyRequestThread(threading.Thread):
 
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))
-                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                if logging.getLogger().getEffectiveLevel() < logging.DEBUG:
                     rusage = list(resource.getrusage(resource.RUSAGE_SELF))
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))

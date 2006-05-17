@@ -291,12 +291,15 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
             answer = resolver.query(domain, 'MX')
             fqdnPref = {}
             for rdata in answer:
-                fqdnPref[rdata.preference] = rdata.exchange.to_text(True)
+                if not fqdnPref.has_key(rdata.preference):
+                    fqdnPref[rdata.preference] = []
+                fqdnPref[rdata.preference].append(rdata.exchange.to_text(True))
             fqdnPrefKeys = fqdnPref.keys()
             fqdnPrefKeys.sort()
             for key in fqdnPrefKeys:
-                for ip in getIpForName(fqdnPref[key], ipv6):
-                    ips.append(ip)
+                for mailhost in fqdnPref[key]:
+                    for ip in getIpForName(mailhost, ipv6):
+                        ips.append(ip)
             break
         except dns.exception.Timeout:
             logging.getLogger().debug("DNS timeout (%s, %s), try #%s, query: %s [%s]" %

@@ -61,7 +61,7 @@ class DumpDataDB(Base):
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
 
-            sql = "SELECT IF(MAX(`id`) IS NULL, 1, MAX(`id`)+1) FROM `%s`" % table
+            sql = "SELECT IFNULL(MAX(`id`), 1) FROM `%s`" % table
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             row = cursor.fetchone()
