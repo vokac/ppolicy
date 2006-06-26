@@ -70,6 +70,7 @@ class ListBW(Base):
                'cacheAll': ('cache all records in memory', False),
                'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
                }
+    DB_ENGINE="ENGINE=InnoDB"
                
 
     def __retcolSQL(self, retcol):
@@ -181,11 +182,11 @@ class ListBW(Base):
         try:
             cursor = conn.cursor()
             if tableWhitelist != None:
-                sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (tableWhitelist, columnWhitelist, columnWhitelist)
+                sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (tableWhitelist, columnWhitelist, columnWhitelist, ListBW.DB_ENGINE)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
             if tableBlacklist != None:
-                sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (tableBlacklist, columnBlacklist, columnBlacklist)
+                sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (tableBlacklist, columnBlacklist, columnBlacklist, ListBW.DB_ENGINE)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
             cursor.close()

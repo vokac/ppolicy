@@ -341,7 +341,7 @@ if __name__ == "__main__":
         print getIpForName(domain)
     print
     print ">>>>> %s" % getNameForIp.__name__
-    for ip in [ "147.32.8.9", "147.32.9.20" ]:
+    for ip in [ "147.32.8.9", "147.32.9.20", "193.84.160.101" ]:
         print ">>> %s" % ip
         print getNameForIp(ip)
     print

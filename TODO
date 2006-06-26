@@ -1,6 +1,5 @@
 TODO list sorted by task importance
 -----------------------------------
-* is it dnspython resolver thread safe?
 * some code from start() should be moved to __init__()
 * check escaping of incomming parameters in DB query
 * IPv6 was not tested - don't use with mailserver that listen on IPv6
@@ -10,9 +9,10 @@ TODO list sorted by task importance
 * remove log files after rotation - impossible with twisted log module
 * stopping modules should be synchronized with check method
 * make DNS check more robust in case of DNS server failure (timeouts)
+* check module examples (incorrect using param dict)
+* module which check information from whois (e.g. creation/change date)
+* check results of update spf.py module
 
 * automatic module tests
 * DOS, Trap are not fully tested
 * DB synchronization
-* blacklist client/sender according spamassassin hits ratio good/bad
-* whitelist foreign sender when local user reply to its mail

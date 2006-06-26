@@ -57,11 +57,24 @@ class DnsblDynamic(Base):
 
         if check_name:
             # match domain name looking like something.xxx-yyy-zzz.provider.com
-            self.patterns.append(re.compile('(\d{1,3}[.x-]){3}'))
+            self.patterns.append(re.compile('(\d{1,3}[.x-]){2}\d{1,3}\.[^.]+\.[^.]+'))
             # match domain name looking like ip-123-123.provider.com
-            self.patterns.append(re.compile('ip-(\d{1,2}-){2}'))
+            self.patterns.append(re.compile('ip(-\d{1,3}){2}\.[^.]+\.[^.]+'))
+            # match domain name looking like abc-123-abc-123.provider.com
+            self.patterns.append(re.compile('(\w+-){3}\w+\.[^.]+\.[^.]+'))
+            # match domain name looking like 087206149137.provider.com
+            self.patterns.append(re.compile('\d{12,}\w*\.[^.]+\.[^.]+'))
+            # match domain name looking like net220216005.provider.com
+            self.patterns.append(re.compile('net\d{9,}\w*\.[^.]+\.[^.]+'))
+            # match domain name looking like pool12-34.provider.com
+            self.patterns.append(re.compile('(user|host|pool|dial|ppp(oe)?|dhcp|(a|x)?dsl|internetdsl|dynamic|dyn-ip|cable|catv)(|\.|x|-)\d+([.x-]\d+)+\.[^.]+\.[^.]+'))
+#            # match domain name looking like 01234567.provider.com
+#            self.patterns.append(re.compile('[0-9a-fA-F]{8}\w*\.[^.]+\.[^.]+'))
             # match domain name looking like something.dhcp.level1.level2
-            self.patterns.append(re.compile('[.-](dial|ppp|dhcp|a?dsl)(|-[^.]+)\.[^.]+\.[^.]'))
+            self.patterns.append(re.compile('[.-](user|host|pool|dial|ppp(oe)?|dhcp|(a|x)?dsl|internetdsl|dynamic|dyn-ip|cable|catv)(|-[^.]+)\.[^.]+\.[^.]+'))
+            # match domain name looking like dlp-14.as2.tz-1.bih.net.ba
+            # at least six parts and on of them end with -123 or 123
+            self.patterns.append(re.compile('.+-?\d+(\..+){5,}|(\..+){1,}.+-?\d+(\..+){4}|(\..+){2,}.+-?\d+(\..+){3}|(\..+){3,}.+-?\d+(\..+){2}'))
 
 
     def hashArg(self, data, *args, **keywords):

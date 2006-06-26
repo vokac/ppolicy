@@ -1,6 +1,6 @@
 #!/bin/sh
 NAME=ppolicy
-VERSION=2.6.1
+VERSION=2.6.4
 RELEASE=1
 RPMDIR=${HOME}/rpmbuild
 
@@ -22,6 +22,7 @@ TESTS \
 setup.py \
 ppolicy.conf \
 ppolicy.init \
+ppolicy.sysconfig \
 ppolicy.spec \
 ppolicy.tap \
 ppolicy.sql \

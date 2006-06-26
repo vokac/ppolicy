@@ -44,6 +44,7 @@ class DumpDataDB(Base):
                'cacheUnknown': (None, 0),
                'cacheNegative': (None, 0),
                }
+    DB_ENGINE="ENGINE=InnoDB"
 
 
     def start(self):
@@ -57,15 +58,15 @@ class DumpDataDB(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `key` VARCHAR(50) NOT NULL, `value` VARCHAR(1000), PRIMARY KEY (`id`, `key`))" % table
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`id` INT NOT NULL, `key` VARCHAR(50) NOT NULL, `value` VARCHAR(1000), PRIMARY KEY (`id`, `key`)) %s" % (table, DumpDataDB.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
 
-            sql = "SELECT IFNULL(MAX(`id`), 1) FROM `%s`" % table
+            sql = "SELECT IFNULL(MAX(`id`), 0) FROM `%s`" % table
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             row = cursor.fetchone()
-            self.newId = row[0]
+            self.newId = row[0]+1
 
             cursor.close()
         except Exception, e:
@@ -107,4 +108,4 @@ class DumpDataDB(Base):
         except Exception, e:
             logging.getLogger().error("can't write into database: %s" % e)
 
-        return 0, "%s always return undefined, record #%i" % (self.getId(), newId)
+        return 0, "%s ok, record #%i" % (self.getId(), newId)

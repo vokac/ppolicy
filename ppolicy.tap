@@ -10,6 +10,7 @@
 # $Id$
 #
 import os, sys, imp
+import signal
 import socket
 import logging
 from ppolicy.log import TwistedHandler
@@ -63,26 +64,44 @@ if not os.path.isfile(config['configFile']):
     sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
-try:
-    ppolicy_config = imp.load_source("ppolicy_config", config['configFile'])
-except ImportError, err:
-    msg = "Error importing config file %s: %s" % (config['configFile'], err)
-    logging.getLogger().error(msg)
-    sys.stderr.write("%s\n" % msg)
-    sys.exit(1)
-except Exception, err:
-    msg = "Error loading config: %s" % err
-    logging.getLogger().error(msg)
-    sys.stderr.write("%s\n" % msg)
-    sys.exit(1)
+
+def read_config(signum, frame):
+    try:
+        if not os.path.isfile(config['configFile']):
+            logging.getLogger().error("Configuration file %s doesn't exist" % config['configFile'])
+            return
+        ppolicy_config = imp.load_source("ppolicy_config", config['configFile'])
+    except ImportError, err:
+        msg = "Error importing config file %s: %s" % (config['configFile'], err)
+        logging.getLogger().error(msg)
+        sys.stderr.write("%s\n" % msg)
+        sys.exit(1)
+    except Exception, err:
+        msg = "Error loading config: %s" % err
+        logging.getLogger().error(msg)
+        sys.stderr.write("%s\n" % msg)
+        sys.exit(1)
 
 
-# get configuration from config file
-for key in config.keys():
-    if hasattr(ppolicy_config, key):
-        config[key] = getattr(ppolicy_config, key)
-logging.getLogger().setLevel(config['logLevel'])
+    # get configuration from config file
+    for key in dir(ppolicy_config):
+        if key[:2] == '__': continue
+        val = getattr(ppolicy_config, key)
+        if type(val).__name__ == 'module': continue
+        if config.has_key(key):
+            config[key] = val
+        else:
+            logging.getLogger().warn("Unknown configuration option: %s" % key)
 
+    logging.getLogger().setLevel(config['logLevel'])
+    logging.getLogger().info("reading configuration from %s" % config['configFile'])
+
+
+# reload configuration on SIGHUP
+signal.signal(signal.SIGHUP, read_config)
+
+# read initial configuration
+read_config(0, None)
 
 # start twisted application
 reactor.suggestThreadPoolSize(40)
@@ -90,8 +109,13 @@ reactor.suggestThreadPoolSize(40)
 multiService = service.MultiService()
 # Create PPolicy service
 ppolicyFactory = PPolicyFactory(config)
-ppolicyService = internet.TCPServer(config['ppolicyPort'], ppolicyFactory)
-ppolicyService.setServiceParent(multiService)
+if type(config['ppolicyPort']) not in [ type([]), type(()) ]:
+    ppolicyPort = [ config['ppolicyPort'] ]
+else:
+    ppolicyPort = config['ppolicyPort']
+for port in ppolicyPort:
+    ppolicyService = internet.TCPServer(port, ppolicyFactory)
+    ppolicyService.setServiceParent(multiService)
 # Create command service
 commandFactory = CommandFactory(ppolicyFactory)
 commandService = internet.TCPServer(config['commandPort'], commandFactory)

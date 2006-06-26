@@ -76,8 +76,8 @@ class DnsblScore(Base):
         for param in params:
             val = data.get(param, '')
             if param in [ 'sender', 'recipient' ]:
-                if val.find("@") != -1:
-                    val = val.split("@", 1)[1]
+                if val.rfind("@") != -1:
+                    val = val[val.rfind('@')+1:]
                 else:
                     val = ''
             paramsVal.append("%s=%s" % (param, val))
@@ -93,8 +93,8 @@ class DnsblScore(Base):
         for param in params:
             val = data.get(param, '')
             if param in [ 'sender', 'recipient' ]:
-                if val.find("@") != -1:
-                    val = val.split("@", 1)[1]
+                if val.rfind("@") != -1:
+                    val = val[val.rfind('@')+1:]
                 else:
                     val = ''
 

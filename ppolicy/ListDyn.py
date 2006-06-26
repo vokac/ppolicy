@@ -91,6 +91,8 @@ class ListDyn(Base):
                'cacheUnknown': (None, 0),  # it is possible to use this cache, but it
                'cacheNegative': (None, 0), # needs some changes in current code
                }
+    DB_ENGINE="ENGINE=InnoDB"
+
 
     def __mapping(self, dictName, defType = 'VARCHAR(255)', defEsc = True, defLower = False):
         mapping = self.getParam('mapping')
@@ -177,7 +179,7 @@ class ListDyn(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (%s)" % (table, ",".join(cols+idx))
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (table, ",".join(cols+idx), ListDyn.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             if hardExpire > 0:

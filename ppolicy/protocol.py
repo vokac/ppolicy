@@ -120,6 +120,11 @@ class PPolicyFactory:
 
     def __init__(self, config = {}):
         self.protocol = PPolicyRequest
+        self.cacheLock = threading.Lock()
+        self.__initConfig(config)
+
+
+    def __initConfig(self, config):
         self.numPorts = 0
         self.numProtocols = 0
         self.dbConnPool = None
@@ -128,8 +133,14 @@ class PPolicyFactory:
         self.__addChecks(self.getConfig('modules'))
         self.cacheSize = self.getConfig('cacheSize', 10000)
         self.cacheValue = {}
-        self.cacheExpire = {}
-        self.cacheLock = threading.Lock()
+        self.cacheExpire = {}        
+
+
+    def reload(self, config = {}):
+        # FIXME: Implement factrory reloading
+        self.doStop() # FIXME: stop all "check" before doing "__stopCheck"
+        self.__initConfig(config)
+        self.doStart()
 
 
     def getDbConnection(self):
@@ -192,8 +203,12 @@ class PPolicyFactory:
     def check(self, name, data, *args, **keywords):
         """Called from config file. We should cache results here."""
         startTime = time.time()
+        allStartTime = data.get('resource_start_time', startTime)
+        reqid = data.get('instance', "unknown%i" % allStartTime)
+
         if not self.modules.has_key(name):
-            raise Exception("Module named \"%s\" was not defined" % name)
+            raise Exception("module named \"%s\" was not defined" % name)
+
         prefix = "result_%s" % name
         saveResult = False
         try:
@@ -211,6 +226,7 @@ class PPolicyFactory:
             if not running:
                 obj.start()
             
+            logging.getLogger().info("%s running %s[%i]" % (reqid, name, int((startTime - allStartTime) * 1000)))
             hashArg = obj.hashArg(data, *args, **keywords)
             if hashArg != 0:
                 hashArg = "%s%s" % (name, hashArg)
@@ -218,41 +234,40 @@ class PPolicyFactory:
             code, codeEx = self.__cacheGet(hashArg)
             if code == None:
                 hitCache = ''
-                #logging.getLogger().debug("running %s.check(%s, %s, %s)" % (name, data, args, keywords))
-                logging.getLogger().info("%s running" % name)
+                #logging.getLogger().debug("%s: running %s.check(%s, %s, %s)" % (reqid, name, data, args, keywords))
                 code, codeEx = obj.check(data, *args, **keywords)
                 self.__cacheSet(hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
             else:
                 hitCache = ' cached'
 
-            runTime = int((time.time() - startTime) * 1000)
+            endTime = time.time()
             if obj.getParam('saveResult', False):
                 data["%s_code" % prefix] = code
                 data["%s_info" % prefix] = codeEx
                 data["%s_cache" % prefix] = not (hitCache == '')
-                data["%s_time" % prefix] = runTime
+                data["%s_time" % prefix] = int((endTime - startTime) * 1000)
                 if logging.getLogger().getEffectiveLevel() < logging.DEBUG:
                     rusage = resource.getrusage(resource.RUSAGE_SELF)
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     data["%s_resource" % prefix] = "cache(%i), gc(%s, %s), rs%s" % (len(self.cacheValue), len(gc.get_objects()), len(gc.garbage), rusageStr)
-            logging.getLogger().info("%s%s result[%s]: %s (%s)" % (name, hitCache, runTime, code, codeEx))
+            logging.getLogger().info("%s result%s %s[%i,%i]: %s (%s)" % (reqid, hitCache, name, int((endTime - allStartTime) * 1000), int((endTime - startTime) * 1000), code, codeEx))
 
             return code, codeEx
         except Exception, e:
             code = 0
             codeEx = "%s failed with exception" % name
-            runTime = int((startTime - time.time()) * 1000)
+            endTime = time.time()
             try:
                 if saveResult:
                     data["%s_code" % prefix] = code
                     data["%s_info" % prefix] = codeEx
-                    data["%s_time" % prefix] = runTime
+                    data["%s_time" % prefix] = int((endTime - startTime) * 1000)
             except:
                 pass
 
-            logging.getLogger().error("%s failed: %s" % (name, e))
+            logging.getLogger().error("%s failed %s[%i,%i]: %s" % (reqid, name, int((endTime - allStartTime) * 1000), int((endTime - startTime) * 1000), e))
             exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
-            logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
+            logging.getLogger().error("%s: %s" % (reqid, traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback)))
             # raise e
             return code, codeEx
 
@@ -398,19 +413,23 @@ class PPolicyRequestThread(threading.Thread):
     #def dataProcess(self, data): # XXXXX: old usage in PPolicyRequest
     def run(self):
         """Parse data, call check method from config file and return results."""
+        startTime = time.time()
+        reqid = "unknown%i" % startTime
         try:
             #parsedData = self.__parseData(data) # XXXXX: old usage in PPolicyRequest
             parsedData = self.__parseData(self.data)
             if parsedData != None:
-                startTime = time.time()
+                if not parsedData.has_key('resource_start_time'):
+                    parsedData['resource_start_time'] = startTime
                 reqid = parsedData.get('instance', "unknown%i" % startTime)
-                logging.getLogger().info("%s start" % reqid)
+                logging.getLogger().info("%s start[%i]" % (reqid, startTime))
                 if logging.getLogger().getEffectiveLevel() < logging.DEBUG:
                     rusage = list(resource.getrusage(resource.RUSAGE_SELF))
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
-                action, actionEx = self.check(self.factory, parsedData)
+                iaddress = self.transport.getPeer()
+                action, actionEx = self.check(self.factory, parsedData, iaddress.port)
 
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))

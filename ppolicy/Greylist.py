@@ -58,6 +58,7 @@ class Greylist(Base):
                'cacheUnknown': (None, 30),  # use only very short time, because
                'cacheNegative': (None, 60), # of changing greylist time
                }
+    DB_ENGINE="ENGINE=InnoDB"
 
 
     def start(self):
@@ -71,7 +72,7 @@ class Greylist(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`))" % table
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
 
@@ -141,18 +142,18 @@ class Greylist(Base):
             if int(cursor.rowcount) > 0:
                 # triplet already exist in database
                 row = cursor.fetchone()
-                greylistExpire = row[1]
-                if greylistExpire > 0:
+                greylistExpireCurr = row[1]
+                if greylistExpireCurr > 0:
                     greylistDelay = row[0]
                 if greylistDelay < 0:
                     # and initial delay period was finished
                     retCode = 1
                     retInfo = 'greylisting was already done'
-                    retTime = greylistExpire
+                    retTime = greylistExpireCurr
                 else:
                     # but we are in initial delay period
                     retCode = -1
-                    retInfo = 'greylisting in progress, mail will be accepted in %ss' % greylistDelay
+                    retInfo = 'greylisting in progress: %ss (%s)' % (greylistDelay, greylistExpireCurr)
                     retTime = greylistDelay
                 try:
                     # this is not critical so do it in separate try section
@@ -164,7 +165,7 @@ class Greylist(Base):
             else:
                 # insert new
                 retCode = -1
-                retInfo = 'greylist in progress: %ss' % greylistDelay
+                retInfo = 'greylisting in progress: %ss' % greylistDelay
                 retTime = greylistDelay
                 sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
                 logging.getLogger().debug("SQL: %s" % sql)

@@ -1,6 +1,8 @@
-ppolicy 2.4.x -> 2.5.x
+ppolicy 2.5.x -> 2.6.x
 ======================
 - changed ListMailDomain result (< 0 blacklist, > 0 whitelist, = undefined)
+- changed default log dir to /var/log/ppolicy
+  (/var/spool/ppolicy can be removed)
 
 
 ppolicy 2.4.x -> 2.5.x

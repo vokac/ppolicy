@@ -1,3 +1,49 @@
+Module Country
+--------------
+
+Country module for recognizing country according IP address
+or domain name.
+
+Parameters:
+    cacheNegative (0)
+        maximum time for caching negative result
+    cachePositive (0)
+        maximum time for caching positive result
+    cacheUnknown (0)
+        maximum time for caching unknown result
+    country (None)
+        check if IP is in this country
+    dataPath (None)
+        path to GeoIP.dat file
+    factory (None)
+        reference to factory instance
+    param (None)
+        name of parameter in data dictionary
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... ok, country match, second parameter is country name
+    0 .... undefined (some error)
+    -1 ... failed, country doesn't match, second parameter is country name
+
+Examples:
+    # return country for client_address
+    modules['country1'] = ( 'Country', { 'param': 'client_address',
+                                         'dataPath': '/usr/share/GeoIP/GeoIP.dat' } )
+    # check if client_address is 'cz'
+    modules['country2'] = ( 'Country', { 'param': 'client_address',
+                                         'dataPath': '/usr/share/GeoIP/GeoIP.dat',
+                                         'country': 'CZ' } )
+
+
+
+
 Module Dnsbl
 ------------
 
@@ -221,7 +267,7 @@ Examples:
     # make instance of dummy module
     modules['dummy1'] = ( 'Dummy', {} )
     # make instance of dummy module with parameters
-    modules['dummy2'] = ( 'Dummy', { test1=1, test2="def" } )
+    modules['dummy2'] = ( 'Dummy', { 'test1': 1, 'test2': "def" } )
 
 
 
@@ -669,6 +715,54 @@ Examples:
 
 
 
+Module P0f
+----------
+
+P0f module detect sender OS using patched version p0f (that require
+only sender IP address to detect OS) and its unix socket interface
+to get data. It can be downloaded from
+http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/p0f
+
+This module returns tuple with information described in p0f-query.h
+p0f_response structure. Most important for our purposes are
+retEx[3] ... detected OS
+retEx[4] ... details about detected OS (e.g. version)
+retEx[5] ... distance of sender
+retEx[12] .. uptime (not reliable)
+
+Parameters:
+    cacheNegative (3600)
+        maximum time for caching negative result
+    cachePositive (3600)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    socket (/var/run/p0f.socket)
+        p0f socket for sending requests
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... success (p0f response structure in second parameter)
+    0 .... undefined (no data)
+    -1 ... failed (error getting data from p0f)
+
+Examples:
+    # make instance of p0f module
+    modules['p0f1'] = ( 'P0f', {} )
+    # make instance of p0f module with different socket path
+    modules['p0f2'] = ( 'P0f', { 'socket': '/tmp/p0f.socket' } )
+
+
+
+
 Module Resolve
 --------------
 
@@ -864,6 +958,44 @@ Examples:
     # recipient user verification
     modules['verification'] = ( 'Verification', { param="recipient",
                                                   vtype="user" } )
+
+
+
+
+Module Whois
+------------
+
+Whois module can be used to return IP whois informations
+
+Parameters:
+    cacheNegative (3600)
+        maximum time for caching negative result
+    cachePositive (3600)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    test1 (client_address)
+        test parameter 1
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... ok 
+    0 .... undefined (default for this module)
+    -1 ... failed
+
+Examples:
+    # make instance of dummy module
+    modules['whois1'] = ( 'Whois', {} )
+    # make instance of dummy module with parameters
+    modules['whois2'] = ( 'Whois', { 'param': "client_address" } )
 
 
 

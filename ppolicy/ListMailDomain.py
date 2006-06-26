@@ -62,10 +62,11 @@ class ListMailDomain(ListBW):
     def __searchList(self, paramValue):
         searchList = []
 
-        if paramValue.find('@') != -1:
-            user, domain = paramValue.split('@', 1)
+        if paramValue.rfind('@') != -1:
+            user = paramValue[:paramValue.rfind('@')+1]   # user@
+            domain = paramValue[paramValue.rfind('@')+1:]
             searchList.append(paramValue)
-            searchList.append("%s@" % user)
+            searchList.append(user)
             paramValue = domain
 
         domain = paramValue.split('.')

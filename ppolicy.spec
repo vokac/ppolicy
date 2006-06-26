@@ -4,7 +4,7 @@
 
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.6.1
+Version: 2.6.4
 Release: 1
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
@@ -41,8 +41,9 @@ done
 
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
+install -p -D -m644 ppolicy.sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/ppolicy
 install -p -D -m644 ppolicy.tap $RPM_BUILD_ROOT%{_sbindir}/ppolicy.tap
-install -d $RPM_BUILD_ROOT%{_var}/spool/ppolicy
+install -d $RPM_BUILD_ROOT%{_var}/log/ppolicy
 
 
 %clean
@@ -93,15 +94,36 @@ fi
 %defattr(-,root,root)
 %doc NEWS README MODULES TODO TESTS ppolicy.sql ppolicy.conf
 %config(noreplace) %{_sysconfdir}/postfix/*
+%{_sysconfdir}/sysconfig/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
 %{python_sitelib}/ppolicy/tools/*.cf
 %{python_sitelib}/ppolicy/tools/*.dat
-%attr(-,nobody,mail) %{_var}/spool/ppolicy
+%attr(-,nobody,mail) %{_var}/log/ppolicy
 
 
 %changelog
-* Fri May 16 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.1-1
+* Sun Jun 25 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.4-0
+- changed log dir to /var/log/ppolicy
+- added support to reload ppolicy.conf on SIGHUP
+  (right now only simple changes in check method are safe)
+- added P0f module
+- added Whois module (dummy skeleton)
+
+* Mon Jun 19 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.3-10
+- better performance logging with DEBUG log level
+- fixed bug in spf in case of splitted TXT record in DNS
+- disabled spf internal DNS cache (not thread safe, out of control)
+- DB_ENGINE constant to specify mysql database type
+- ppolicy can listen on more ports for conncetion from postfix
+  with different configuration
+- added GeoIP/Country module
+- fixed bug in greylist expiration
+- updated dynamic patterns
+- updated and patched pyspf from http://sourceforge.net/projects/pymilter
+- changed log dir to /var/log/ppolicy
+  
+* Fri May 26 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.1-1
 - increased mem cache expiration for modules using DNS and DB
 - cache all records from List and ListMailDomain in memory
 - added ListBW to search data in blacklist/whitelist

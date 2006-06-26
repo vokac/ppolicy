@@ -34,7 +34,7 @@ class Dummy(Base):
         # make instance of dummy module
         modules['dummy1'] = ( 'Dummy', {} )
         # make instance of dummy module with parameters
-        modules['dummy2'] = ( 'Dummy', { test1=1, test2="def" } )
+        modules['dummy2'] = ( 'Dummy', { 'test1': 1, 'test2': "def" } )
     """
 
     PARAMS = { 'test1': ('test parameter 1', None),

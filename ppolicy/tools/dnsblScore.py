@@ -257,30 +257,39 @@ def listDnsbl():
 
 
 
+def debugScore(ip, sender = ''):
+    import time
+    if sender.find('@') != -1:
+        user, domain = sender.split('@', 1)
+    else:
+        domain = sender
+    startTime = time.time()
+    sc = score(ip, domain)
+    print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
+    startTime = time.time()
+    sc = score(ip, domain)
+    print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
+
 if __name__ == "__main__":
     streamHandler = logging.StreamHandler(sys.stdout)
     streamHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
     logging.getLogger().addHandler(streamHandler)
-    #logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--list":
         listDnsbl()
         sys.exit()
 
-    import time
-    for ip, sender in [ ("12.154.9.125", "stephen@quasarman.biz"),
+    if len(sys.argv) > 2:
+        debugScore(sys.argv[1], sys.argv[2])
+        sys.exit()
+
+    for ip, sender in [ ("213.29.7.193", "petr.jambor@centrum.cz"),
+                        ("12.154.9.125", "stephen@quasarman.biz"),
                         ("12.202.58.19", "philip@pistonheads.biz"),
                         ("12.205.105.185", "geoffrey@psychologen.biz"),
                         ("12.214.67.125", "aqruopft35C@yahoo.com"),
                         ("12.215.156.205", "acr2oof5u65@yahoo.com"),
                         ("12.218.133.172", "ucmcuuotyvili@earthlink.net"),
                         ("12.221.22.94", "nicholas@paramed.biz") ]:
-        if sender.find('@') == -1:
-            continue
-        user, domain = sender.split('@', 1)
-        startTime = time.time()
-        sc = score(ip, domain)
-        print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
-        startTime = time.time()
-        sc = score(ip, domain)
-        print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
+        debugScore(ip, sender)

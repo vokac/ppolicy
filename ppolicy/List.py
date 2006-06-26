@@ -59,7 +59,8 @@ class List(Base):
                'cacheAll': ('cache all records in memory', False),
                'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
                }
-               
+    DB_ENGINE="ENGINE=InnoDB"
+    
 
     def __retcolSQL(self, retcol):
         retcolSQL = ''
@@ -161,7 +162,7 @@ class List(Base):
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`))" % (table, "` VARCHAR(100) NOT NULL, `".join(column), "`, `".join(column))
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (table, "` VARCHAR(100) NOT NULL, `".join(column), "`, `".join(column), List.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             cursor.close()

@@ -90,7 +90,8 @@ class Verification(Base):
 
         # create email address to check
         if value.find("@") != -1:
-            user, domain = value.split("@", 1)
+            user = value[:value.rfind('@')]
+            domain = value[value.rfind('@')+1:]
         else:
             user = 'postmaster'
             domain = value

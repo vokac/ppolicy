@@ -6,7 +6,7 @@
 # description: Start-up script for the Twisted service ppolicy.tap
 # processname: ppolicy
 # config: /etc/postfix/ppolicy.conf
-# pidfile: /var/spool/ppolicy/ppolicy.pid
+# pidfile: /var/log/ppolicy/ppolicy.pid
 
 # Source function library.
 . /etc/rc.d/init.d/functions
@@ -15,10 +15,10 @@
 PPOLICY_ACCOUNT="nobody"
 SYSCONFIG="/etc/sysconfig/ppolicy"
 
-pidfile=/var/spool/ppolicy/ppolicy.pid
-rundir=/var/spool/ppolicy
+pidfile=/var/log/ppolicy/ppolicy.pid
+rundir=/var/log/ppolicy
 file=/usr/sbin/ppolicy.tap
-logfile=/var/spool/ppolicy/ppolicy.log
+logfile=/var/log/ppolicy/ppolicy.log
 twistd=/usr/bin/twistd
 
 prog="ppolicy"
@@ -40,6 +40,11 @@ fi
 if [ ! -d "${rundir}" ]; then
     echo "$0: Aborting, run directory $rundir doesn't exist."
     exit 1
+fi
+if [ `id -u $PPOLICY_ACCOUNT` != `stat --format=%u ${rundir}` ]; then
+    echo "$0: Aborting, run directory $rundir owner differs from ppolicy account."
+    exit 1
+    #chown -R $PPOLICY_ACCOUNT ${rundir}
 fi
 
 start() {

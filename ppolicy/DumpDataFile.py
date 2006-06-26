@@ -69,4 +69,4 @@ class DumpDataFile(Base):
             except Exception, e:
                 logging.getLogger().warn("error reopening \"%s\": %s" % (fileName, e))
 
-        return 0, "%s always return undefined" % self.getId()
+        return 0, "%s ok" % self.getId()
