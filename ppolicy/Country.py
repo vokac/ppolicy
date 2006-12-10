@@ -62,7 +62,9 @@ class Country(Base):
         if not os.access(dataPath, os.R_OK):
             raise ParamError("can't access GeoIP data in %s" % dataPath)
 
-        self.reIP = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+        self.reIPv4 = re.compile("^([012]?\d{1,2}\.){3}[012]?\d{1,2}$")
+        self.reIPv6 = re.compile('^([0-9a-fA-F]{0,4}:){0,7}([0-9a-fA-F]{0,4}|([012]?\d{1,2}\.){3}[012]?\d{1,2})$')
+
         try:
             self.gi = GeoIP.open(dataPath, GeoIP.GEOIP_MEMORY_CACHE)
         except SystemError, e:
@@ -80,17 +82,20 @@ class Country(Base):
 
 
     def check(self, data, *args, **keywords):
-        param = self.getParam('param')
-        country = self.getParam('country')
+        param = self.getParam('param', None, keywords)
+        country = self.getParam('country', None, keywords)
         paramValue = data.get(param, '')
 
         if self.gi == None:
             return 0, None
 
-        if self.reIP.match(paramValue) == None:
-            pc = self.gi.country_code_by_name(paramValue)
-        else:
+        if self.reIPv4.match(paramValue) != None:
             pc = self.gi.country_code_by_addr(paramValue)
+        elif self.reIPv6.match(paramValue) != None:
+            logging.getLogger().info("GeoIP doesn't support IPv6 lookup for %s" % paramValue)
+            return 0, None
+        else:
+            pc = self.gi.country_code_by_name(paramValue)
 
         if pc == None:
             return 0, None

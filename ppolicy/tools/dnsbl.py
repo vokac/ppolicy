@@ -9,7 +9,7 @@
 #
 # $Id$
 #
-import sys, os.path
+import sys, os.path, re
 import logging
 import dnscache
 import dns.exception
@@ -52,6 +52,9 @@ class dnsbl:
 
         self.resolver = dnscache.getResolver(3.0, 1.0)
 
+        self.reIPv4 = re.compile("^([012]?\d{1,2}\.){3}[012]?\d{1,2}$")
+        self.reIPv6 = re.compile('^([0-9a-fA-F]{0,4}:){0,7}([0-9a-fA-F]{0,4}|([012]?\d{1,2}\.){3}[012]?\d{1,2})$')
+
 
     def has_config(self, name):
         return self.config.has_key(name)
@@ -64,6 +67,10 @@ class dnsbl:
     def check(self, name, ip, ipList = []):
         if not self.config.has_key(name):
             logging.getLogger().warn("there is not %s dnsbl list in config file" % name)
+            return False
+
+        if self.reIPv4.match(ip) == None:
+            logging.getLogger().info("%s doesn't looks like valid IPv4 address" % ip)
             return False
 
         rbls, rblw, rbln, rblp, rblabout, rblstatus, rblremoval, longname, check, txt, rbltype, rbldns = self.config[name]

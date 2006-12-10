@@ -63,7 +63,7 @@ class DnsblScore(Base):
         params = self.getParam('params', [])
         paramsNew = []
         for param in params:
-            if param in [ 'client_address', 'client_name', 'sender', 'recipient' ]:
+            if param in [ 'client_address', 'client_name', 'reverse_client_name', 'sender', 'recipient' ]:
                 paramsNew.append(param)
             else:
                 logging.getLogger().warn("don't know how to score %s" % param)

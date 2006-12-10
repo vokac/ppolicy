@@ -205,7 +205,7 @@ class Base(object):
             self.paramsValue[key] = value
 
 
-    def getParam(self, key, default = None):
+    def getParam(self, key, default = None, paramsValueNew = {}):
         """Get module parameter."""
         if not self.paramsValue.has_key(key):
             my_id = 'unknown'
@@ -214,9 +214,15 @@ class Base(object):
             except:
                 pass
             logging.getLogger().error("trying to get undefined parameter \"%s\" for %s" % (key, my_id))
-        retVal = self.paramsValue.get(key)
+
+        if paramsValueNew.has_key(key):
+            retVal = paramsValueNew.get(key)
+        else:
+            retVal = self.paramsValue.get(key)
+
         if retVal == None:
             retVal = default
+
         return retVal
 
 

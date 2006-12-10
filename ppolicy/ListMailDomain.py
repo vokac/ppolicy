@@ -47,11 +47,7 @@ class ListMailDomain(ListBW):
                                                  retcol="*" } )
     """
 
-    PARAMS = { 'paramMailDomain': ('parameter with mail/domain to check', None),
-               'param': (None, None),           # defined in start method
-               'tableBlacklist': (None, 'blacklist'),
-               'tableWhitelist': (None, 'whitelist'),
-               'column': (None, 'key'),
+    PARAMS = { 'column': (None, 'key'),
                'caseSensitive': (None, False),  # don't use LOWER(`key`),
                'caseSensitiveDB': (None, True), # because of index performance
                'cacheAll': (None, True),
@@ -60,51 +56,52 @@ class ListMailDomain(ListBW):
 
 
     def __searchList(self, paramValue):
+        """This should be compatible with Amavis lookup list
+        except we don't care for recipient delimiter '+'
+            - lookup for user+foo@example.com
+            - lookup for user@example.com (only if $recipient_delimiter is '+')
+            - lookup for user+foo (only if domain part is local)
+            - lookup for user     (only local; only if $recipient_delimiter is '+')
+            - lookup for @example.com
+            - lookup for @.example.com
+            - lookup for @.com
+            - lookup for @.       (catchall)
+        """
         searchList = []
 
+        if paramValue == None:
+            return []
+
         if paramValue.rfind('@') != -1:
-            user = paramValue[:paramValue.rfind('@')+1]   # user@
+            user = paramValue[:paramValue.rfind('@')]
             domain = paramValue[paramValue.rfind('@')+1:]
-            searchList.append(paramValue)
-            searchList.append(user)
+            searchList.append(paramValue)         # user@domain.tld
+            searchList.append(user)               # user
+            searchList.append("@%s" % domain)     # @domain.tld
             paramValue = domain
 
+        if len(paramValue) == 0:
+            return [ '@.' ]
+
         domain = paramValue.split('.')
-        for i in range(0, len(domain)+1):
-            searchList.append(".%s" % ".".join(domain[i:]))
+        for i in range(0, len(domain)+1):         # @.domainl.tld, @.tld, @.
+            searchList.append("@.%s" % ".".join(domain[i:]))
 
         return searchList
 
 
-    def getId(self):
-        return "%s[%s(%s)]" % (self.type, self.name, self.getParam('paramMailDomain'))
-
-
-    def hashArg(self, data, *args, **keywords):
-        param = self.getParam('paramMailDomain')
-        paramValue = data.get(param, '')
-        if type(paramValue) != str:
-            logging.getLogger().error("parameter is not string: %s" % str(paramValue))
-            return 0
-
-        return hash("%s=%s" % (param, paramValue.lower()))
-
-
-    def start(self):
-        param = self.getParam('paramMailDomain')
-        self.setParam('param', "%s_list_mail_domain" % param)
-
-        ListBW.start(self)
-
-
     def check(self, data, *args, **keywords):
-        param = self.getParam('paramMailDomain')
-        paramValue = data.get(param, '')
-        if type(paramValue) != str:
-            logging.getLogger().error("parameter is not string: %s" % str(paramValue))
-            return 0, None
-
         param = self.getParam('param')
-        data[param] = paramValue.lower()
+        caseSensitive = self.getParam('caseSensitive', True)
+        caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
 
-        return ListBW.check(self, data, *args, **keywords)
+        paramValue = str(data.get(param, ''))
+        if not caseSensitiveParam:
+            paramValue = paramValue.lower()
+
+        for checkValue in self.__searchList(paramValue):
+            ret, retEx = ListBW.check(self, { param: checkValue }, *args, **keywords)
+            if ret != 0:
+                return ret, retEx
+
+        return 0, None

@@ -66,8 +66,8 @@ class P0f(Base):
 
         self.p0f_socket = None
 
-        # IPv4 pattern
-        self.IPv4_pattern = re.compile('[012]?\d{1,2}\.[012]?\d{1,2}\.[012]?\d{1,2}\.[012]?\d{1,2}')
+        self.reIPv4 = re.compile("^([012]?\d{1,2}\.){3}[012]?\d{1,2}$")
+        self.reIPv6 = re.compile('^([0-9a-fA-F]{0,4}:){0,7}([0-9a-fA-F]{0,4}|([012]?\d{1,2}\.){3}[012]?\d{1,2})$')
 
 
     def stop(self):
@@ -84,8 +84,8 @@ class P0f(Base):
     def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
 
-        if self.IPv4_pattern.match(client_address) == None:
-            logging.getLogger().warn("client address %s doesn't looks like valid IPv4 address" % client_address)
+        if self.reIPv4.match(client_address) == None:
+            logging.getLogger().info("client address %s doesn't looks like valid IPv4 address" % client_address)
             return -1, None
 
         p0f_socket_path = self.getParam('socket')
@@ -107,19 +107,33 @@ class P0f(Base):
         retry = 3
         while retry > 0:
             try:
-                if self.p0f_socket == None:
-                    logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
-                    self.p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                    self.p0f_socket.connect(p0f_socket_path)
-                self.p0f_socket.send(query)
-                response = self.p0f_socket.recv(1024)
+##                if self.p0f_socket == None:
+##                    logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
+##                    self.p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+##                    self.p0f_socket.connect(p0f_socket_path)
+##                self.p0f_socket.send(query)
+##                response = self.p0f_socket.recv(1024)
+                logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
+                p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                p0f_socket.connect(p0f_socket_path)
+                p0f_socket.send(query)
+                p0f_socket.recv(1024)
                 break
             except Exception, e:
                 logging.getLogger().warn("query error: %s" % e)
-                if self.p0f_socket != None:
-                    self.p0f_socket.close()
-                self.p0f_socket = None
+##                if self.p0f_socket != None:
+##                    self.p0f_socket.close()
+##                self.p0f_socket = None
                 retry -= 1
+##         try:
+##             logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
+##             p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+##             p0f_socket.connect(p0f_socket_path)
+##             p0f_socket.send(query)
+##             p0f_socket.close()
+##             response = p0f_socket.recv(1024)
+##         except Exception, e:
+##             logging.getLogger().warn("query error: %s" % e)
 
         if response == None:
             logging.getLogger().debug("no response for: %s" % client_address)
@@ -127,7 +141,12 @@ class P0f(Base):
 
         # (magic, id, type, genre, detail, dist, link, tos, fw, nat, real, score, mflags, uptime)
         try:
-            retEx = struct.unpack("I I B 20s 40s b 30s 30s B B B h H i", response)
+            retEx = []
+            for i in struct.unpack("I I B 20s 40s b 30s 30s B B B h H i", response):
+                if type(i) == str and i.find('\x00') != -1:
+                    retEx.append(i[:i.find('\x00')])
+                else:
+                    retEx.append(i)
         except struct.error, e:
             logging.getLogger().error("error unpacking response (%s): %s" % (e, str(response)))
             return -1, None

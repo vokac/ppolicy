@@ -4,8 +4,8 @@
 
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
-Version: 2.6.4
-Release: 1
+Version: 2.6.5
+Release: 3
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -42,6 +42,7 @@ done
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
 install -p -D -m644 ppolicy.sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/ppolicy
+#install -p -D -m644 ppolicy.logrotate $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/ppolicy
 install -p -D -m644 ppolicy.tap $RPM_BUILD_ROOT%{_sbindir}/ppolicy.tap
 install -d $RPM_BUILD_ROOT%{_var}/log/ppolicy
 
@@ -94,7 +95,8 @@ fi
 %defattr(-,root,root)
 %doc NEWS README MODULES TODO TESTS ppolicy.sql ppolicy.conf
 %config(noreplace) %{_sysconfdir}/postfix/*
-%{_sysconfdir}/sysconfig/*
+%config(noreplace) %{_sysconfdir}/sysconfig/*
+#%config(noreplace) %{_sysconfdir}/logrotate.d/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
 %{python_sitelib}/ppolicy/tools/*.cf
@@ -103,12 +105,22 @@ fi
 
 
 %changelog
-* Sun Jun 25 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.4-0
+* Sun Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-0
+- fixed handlint < and > in sender/recipient address
+- added LookupLDAP module
+- changed transport output to unbuffered(?),
+  because of python-twisted 2.x compatibility
+
+
+* Sun Jun 25 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.4-4
 - changed log dir to /var/log/ppolicy
 - added support to reload ppolicy.conf on SIGHUP
   (right now only simple changes in check method are safe)
 - added P0f module
 - added Whois module (dummy skeleton)
+- changed return code for SPF module
+- cleanup for IPv6 support
+- ListMailDomain should work now
 
 * Mon Jun 19 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.3-10
 - better performance logging with DEBUG log level

@@ -68,5 +68,6 @@ class DumpDataFile(Base):
                 self.file = open(self.getParam('fileName'), "a")
             except Exception, e:
                 logging.getLogger().warn("error reopening \"%s\": %s" % (fileName, e))
+            return -1, "%s fail" % self.getId()
 
-        return 0, "%s ok" % self.getId()
+        return 1, "%s ok" % self.getId()

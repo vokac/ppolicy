@@ -42,9 +42,12 @@ if [ ! -d "${rundir}" ]; then
     exit 1
 fi
 if [ `id -u $PPOLICY_ACCOUNT` != `stat --format=%u ${rundir}` ]; then
-    echo "$0: Aborting, run directory $rundir owner differs from ppolicy account."
-    exit 1
-    #chown -R $PPOLICY_ACCOUNT ${rundir}
+    #echo "$0: Aborting, run directory $rundir owner differs from ppolicy account."
+    #echo "run \"chown $PPOLICY_ACCOUNT ${rundir}\" if appropriate"
+    #exit 1
+    echo "Log/run directory owner "`stat --format=%u ${rundir}`" doesn't match ppolicy account $PPOLICY_ACCOUNT"
+    echo "Changing ownership for ${rundir} to $PPOLICY_ACCOUNT"
+    chown $PPOLICY_ACCOUNT ${rundir}
 fi
 
 start() {

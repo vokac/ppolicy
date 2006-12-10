@@ -1,10 +1,28 @@
-Changes in PPolicy 2.6.4 (Jun 24 2006)
+Changes in PPolicy 2.6.5 (Dec 10 2006)
+======================================
+- fixed handlint < and > in sender/recipient address
+- added LookupLDAP module
+- changed transport output to unbuffered(?),
+  because of python-twisted 2.x compatibility
+- added support to split tables in DumpDataDB
+
+
+Changes in PPolicy 2.6.4 (Jul 10 2006)
 ======================================
 - changed log dir to /var/log/ppolicy
 - added support to reload ppolicy.conf on SIGHUP
   (right now only simple changes in check method are safe)
 - added P0f module
 - added Whois module (dummy skeleton)
+- changed return code for SPF module
+- cleanup for IPv6 support
+- ListMailDomain should work now
+- better handling for check method parameters
+- fixed bug passing wrong port number to check method
+- changed algorithm to generate list of domains for ListMailDomain
+  (to be compatible with Amavis lookup list)
+- fixed bug in ListBW (it returns 1 for blacklist)
+- added tests for module DnsblDynamic
 
 
 Changes in PPolicy 2.6.3 (Jun 12 2006)

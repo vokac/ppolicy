@@ -30,6 +30,8 @@ class Redirect:
 
 class CommandProtocol(LineReceiver):
 
+    COMMANDS = [ "quit" ]
+
     def __init__(self):
         self.cmd = ''
         self.stdoutOrig = sys.stdout
@@ -42,6 +44,8 @@ class CommandProtocol(LineReceiver):
         self.delimiter = delimiter
 
     def connectionMade(self):
+        # self.sendLine("Write python expression or call predefined command.")
+        # self.sendLine("Commands: %s\n", ", ".join(CommandProtocol.COMMANDS))
         self.__printPrefix('>>> ')
 
     def connectionLost(self, reason):
@@ -49,6 +53,7 @@ class CommandProtocol(LineReceiver):
 
     def lineReceived(self, line):
         logging.getLogger().debug(line)
+        ppolicyFactory = self.factory.factory
         if line.lower() == 'quit':
             self.sendLine('bye')
             self.transport.loseConnection()
@@ -150,9 +155,6 @@ class PPolicyFactory:
         if self.dbConnPool == None:
             self.dbConnPool = adbapi.ConnectionPool(self.config.get('databaseAPI'),
                                                     **self.config.get('database'))
-            #self.dbConnPool.min = 3
-            #self.dbConnPool.max = 5
-            self.dbConnPool.noisy = 1
             self.dbConnPool.start()
 
         return self.dbConnPool.connect()
@@ -378,7 +380,7 @@ class PPolicyRequest(protocol.Protocol):
         if self.factory.numProtocols > self.CONN_LIMIT:
             logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
             dataResponse(self.transport, self.returnOnConnLimit[0], self.returnOnConnLimit[1])
-            #self.transport.write("Too many connections, try later") 
+            #self.transport.writeSomeData("Too many connections, try later") 
             self.transport.loseConnection()
 
 
@@ -462,9 +464,6 @@ class PPolicyRequestThread(threading.Thread):
                     return None
             try:
                 k, v = line.split('=', 1)
-                if k == 'sender' or k == 'recipient':
-                    if len(v) != 0 and v[0] == '<': v = v[1:]
-                    if len(v) != 0 and v[-1] == '<': v = v[:-1]
                 #if k == 'instance' and self.cluster == True:
                 #    self.clusterip = self.transport.getPeer().host
                 #    v = '%s_%s' % (self.clusterip, v)
@@ -485,13 +484,13 @@ def dataResponse(transport, action=None, actionEx=None):
     """Check response"""
     if action == None:
         logging.getLogger().debug("output: action=dunno")
-        transport.write("action=dunno\n\n")
+        transport.writeSomeData("action=dunno\n\n")
     elif actionEx == None:
         logging.getLogger().debug("output: action=%s" % action)
-        transport.write("action=%s\n\n" % action)
+        transport.writeSomeData("action=%s\n\n" % action)
     else:
         logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
-        transport.write("action=%s %s\n\n" % (action, actionEx))
+        transport.writeSomeData("action=%s %s\n\n" % (action, actionEx))
 
 
 

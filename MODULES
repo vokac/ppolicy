@@ -289,10 +289,14 @@ Parameters:
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
+    interval (None)
+        split interval (value depends on split type)
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
         prefix for saved data
+    split (None)
+        split database (None, "records", "date")
     table (dump)
         database where to dump data from requests
 
@@ -300,7 +304,7 @@ Check arguments:
     data ... all input data in dict
 
 Check returns:
-    this module always return 0 (undefined result)
+    this module always return 1 and resEx is set to the new database ID
 
 Examples:
     # definition for module for saving request info in default
@@ -674,8 +678,8 @@ Parameters:
         memory cache expiration - used only if param value is array
     memCacheSize (1000)
         memory cache max size - used only if param value is array
-    paramMailDomain (None)
-        parameter with mail/domain to check
+    param (None)
+        name of parameter in data dictionary (value can be string or array)
     retcol (None)
         name of column returned by check method
     retcolBlacklist (None)
@@ -686,9 +690,9 @@ Parameters:
         save returned value in data hash for further modules
     saveResultPrefix (result_)
         prefix for saved data
-    tableBlacklist (blacklist)
+    tableBlacklist (None)
         name of blacklist database table where to search parameter
-    tableWhitelist (whitelist)
+    tableWhitelist (None)
         name of whitelist database table where to search parameter
 
 Check arguments:
@@ -711,6 +715,69 @@ Examples:
                                              tableWhitelist="my_whitelist",
                                              column="my_column",
                                              retcol="*" } )
+
+
+
+
+Module LookupLDAP
+-----------------
+
+LookupLDAP module for searching records in LDAP
+
+Parameters:
+    attributes (None)
+        attributes returned by LDAP query
+    base (None)
+        LDAP search base
+    bind_dn (None)
+        LDAP bind DN (None == anonymous bind)
+    bind_method (128)
+        LDAP bind method (only simple is supported)
+    bind_pass (None)
+        LDAP bind password
+    cacheNegative (900)
+        maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    filter (None)
+        LDAP filter (%m will be replaced by "param" value
+    param (None)
+        name of parameter in data dictionary
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    scope (2)
+        LDAP search scope
+    uri (None)
+        LDAP server URI
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... ok, found records for the filter
+    0 .... undefined (problem with LDAP query, e.g. failing connection)
+    -1 ... failed to find records for the filter
+
+Examples:
+    # recipient ldap lookup in ldap1/2.domain.tld with "mail" filter
+    modules['lookup_ldap1'] = ( 'LookupLDAP', { 'param': 'recipient',
+            'uri': 'ldap://ldap1.domain.tld ldap://ldap2.domain.tld',
+            'base': 'ou=People,dc=domain,dc=tld',
+            'filter': '(mail=%m)' } )
+    # recipient ldap lookup that returns common name attribute
+    modules['lookup_ldap1'] = ( 'LookupLDAP', { 'param': 'recipient',
+            'uri': 'ldap://ldap1.domain.tld ldap://ldap2.domain.tld',
+            'base': 'ou=People,dc=domain,dc=tld',
+            'bind_dn': 'cn=PPolicy User,ou=People,dc=domain,dc=tld',
+            'bind_pass': 'secret',
+            'scope': ldap.SCOPE_ONELEVEL,
+            'filter': '(mail=%m)', 'attributes': 'cn' } )
 
 
 
@@ -841,7 +908,8 @@ Check returns:
     1 .... SPF passed, second parameter contain values returned
            by tools.spf function (result, status, explanation)
     0 .... undefined SPF records or exception when checking SPF
-    -1 ... SPF failed
+    -1 ... SPF softfail or temperror
+    -2 ... SPF fail or permerror
     
 
 Examples:

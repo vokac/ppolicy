@@ -3,6 +3,10 @@ ppolicy 2.5.x -> 2.6.x
 - changed ListMailDomain result (< 0 blacklist, > 0 whitelist, = undefined)
 - changed default log dir to /var/log/ppolicy
   (/var/spool/ppolicy can be removed)
+- changed return code for SPF module (-1 ... softfail, -2 ... fail)
+- changed return code for DumpDataDB, it returns 1 and record number
+- changed algorithm for searching domain parts in ListMailDomain
+  (to be compatible with Amavis lookup table)
 
 
 ppolicy 2.4.x -> 2.5.x

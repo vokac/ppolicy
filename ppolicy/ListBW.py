@@ -265,7 +265,7 @@ class ListBW(Base):
                             break
                         retEx = self.allDataCacheBlacklist.get(paramVal)
                         if retEx != None:
-                            ret = 1
+                            ret = -1
                             break
 
                 if ret == 0:
@@ -322,7 +322,7 @@ class ListBW(Base):
                         else:
                             retEx = None
 
-                if tableWhitelist != None:
+                if tableBlacklist != None:
                     if not caseSensitiveDB:
                         sqlWhere = "WHERE LOWER(`%s`) = LOWER('%s')" % (columnBlacklist, paramVal)
                     else:

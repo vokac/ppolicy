@@ -142,6 +142,9 @@ class dnsblScore:
                     if self.configMain[v['name']].get('envfrom', False):
                         v['envfrom'] = True
 
+        self.reIPv4 = re.compile("^([012]?\d{1,2}\.){3}[012]?\d{1,2}$")
+        self.reIPv6 = re.compile('^([0-9a-fA-F]{0,4}:){0,7}([0-9a-fA-F]{0,4}|([012]?\d{1,2}\.){3}[012]?\d{1,2})$')
+
 
     def __addConfig(self, cid, params = {}):
         if not self.config.has_key(cid):
@@ -165,9 +168,14 @@ class dnsblScore:
         score = 0
         result = {}
         if ip != None:
-            ipr = ip.split('.')
-            ipr.reverse()
-            ipr = '.'.join(ipr)
+            # XXX: IPv6
+            if self.reIPv4.match(ip) == None:
+                logging.getLogger().info("%s doesn't looks like valid IPv4 address" % ip)
+                ipr = None
+            else:
+                ipr = ip.split('.')
+                ipr.reverse()
+                ipr = '.'.join(ipr)
         else:
             ipr = None
         for check in checkList:

@@ -35,7 +35,8 @@ class SPF(Base):
         1 .... SPF passed, second parameter contain values returned
                by tools.spf function (result, status, explanation)
         0 .... undefined SPF records or exception when checking SPF
-        -1 ... SPF failed
+        -1 ... SPF softfail or temperror
+        -2 ... SPF fail or permerror
         
 
     Examples:
@@ -72,9 +73,11 @@ class SPF(Base):
             return 0, None
 
 
-        if result.lower() == 'deny':
-            return -1, (result, mtastatus, mtaexpl)
-        if result.lower() == 'pass':
+        if result.lower() in [ 'pass', 'local', 'trusted' ]:
             return 1, (result, mtastatus, mtaexpl)
+        elif result.lower() in [ 'softfail', 'temperror' ]:
+            return -1, (result, mtastatus, mtaexpl)
+        elif result.lower() in [ 'fail', 'permerror' ]:
+            return -2, (result, mtastatus, mtaexpl)
 
         return 0, (result, mtastatus, mtaexpl)

@@ -1,21 +1,22 @@
 #!/bin/sh
+APP=ppolicy
 BASE=/home/vokac/workspace
-PPBASE=${BASE}/ppolicy
-PYTHON_PATH=${BASE}
+APPBASE=${BASE}/${APP}
+PYTHONPATH=${APPBASE}
 
 if [ $# -gt 0 -a "x$1" == "xrestart" ]; then
-  PID=`ps -eo pid,cmd | grep ppolicy | grep twistd | sed 's/ *//' | sed 's/ .*//'`
+  PID=`ps -eo pid,cmd | grep ${APP} | grep twistd | sed 's/ *//' | sed 's/ .*//'`
   if [ x$PID != "x" ]; then
     echo "killing ${PID}"
     kill $PID
   fi
 fi
 
-CMD="/usr/bin/twistd --rundir=${PPBASE} --file=${PPBASE}/ppolicy.tap --python=${PPBASE}/ppolicy.tap --no_save --logfile=${PPBASE}/ppolicy.log --pidfile=${PPBASE}/ppolicy.pid"
+CMD="/usr/bin/twistd --rundir=${APPBASE} --file=${APPBASE}/${APP}.tap --python=${APPBASE}/${APP}.tap --no_save --logfile=${APPBASE}/${APP}.log --pidfile=${APPBASE}/${APP}.pid"
 echo ${CMD}
 ${CMD}
 
 cat << EOF
-To stop running ppolicy:
-kill `ps -eo pid,cmd | grep ppolicy | grep twistd | sed 's/ *//' | sed 's/ .*//'`
+To stop running ${APP}:
+kill `ps -eo pid,cmd | grep ${APP} | grep twistd | sed 's/ *//' | sed 's/ .*//'`
 EOF

@@ -1,17 +1,22 @@
 TODO list sorted by task importance
 -----------------------------------
+* test/cleanup LookupLDAP module
+* timeout for request processing (kill "dead" connections)
+* rewrite ppolicy.tools - these modules are poorly designed (e.g. dnsbl*)
+* params for modules check method
 * some code from start() should be moved to __init__()
 * check escaping of incomming parameters in DB query
 * IPv6 was not tested - don't use with mailserver that listen on IPv6
   (or don't use modules that work with client_address)
-* database synchronization task (greylist)
+* database synchronization task (e.g. for greylist) between multiple mailgw
 * caching in memory results of ListDyn
 * remove log files after rotation - impossible with twisted log module
 * stopping modules should be synchronized with check method
 * make DNS check more robust in case of DNS server failure (timeouts)
-* check module examples (incorrect using param dict)
 * module which check information from whois (e.g. creation/change date)
-* check results of update spf.py module
+* check results for updated spf.py module
+* create "primary online" module (spammers try to use backup MX,
+  so this module check if Primary is online...)
 
 * automatic module tests
 * DOS, Trap are not fully tested

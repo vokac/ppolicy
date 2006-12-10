@@ -30,6 +30,9 @@ config = {
                        'db'     : 'ppolicy',
                        'user'   : 'ppolicy',
                        'passwd' : 'secret',
+                       'cp_min' : 3,    # connection pool min conns
+                       'cp_max' : 5,    # connection pool max conns
+                       'cp_noisy': 1,   # noisy connection pool logging
                        },
     'ppolicyPort'  : 10030,
     'commandPort'  : 10031,
