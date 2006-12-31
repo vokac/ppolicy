@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.6.5
-Release: 3
+Release: 4
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -35,7 +35,7 @@ python setup.py build
 [ ! -z "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != '/' ] && rm -rf "$RPM_BUILD_ROOT"
 
 python setup.py install --optimize=2 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
-for file in ppolicy/tools/*.dat ppolicy/tools/*.cf; do
+for file in ppolicy/tools/*.dat; do
   install -m 0644 $file $RPM_BUILD_ROOT%{python_sitelib}/ppolicy/tools
 done
 
@@ -99,17 +99,17 @@ fi
 #%config(noreplace) %{_sysconfdir}/logrotate.d/*
 %{_sysconfdir}/init.d/*
 %{_sbindir}/*
-%{python_sitelib}/ppolicy/tools/*.cf
 %{python_sitelib}/ppolicy/tools/*.dat
 %attr(-,nobody,mail) %{_var}/log/ppolicy
 
 
 %changelog
-* Sun Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-0
+* Sun Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-4
 - fixed handlint < and > in sender/recipient address
 - added LookupLDAP module
 - changed transport output to unbuffered(?),
   because of python-twisted 2.x compatibility
+- scoring DNS blacklist rewritten
 
 
 * Sun Jun 25 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.4-4

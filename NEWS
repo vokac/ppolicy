@@ -1,10 +1,11 @@
-Changes in PPolicy 2.6.5 (Dec 10 2006)
+Changes in PPolicy 2.6.5 (Dec 30 2006)
 ======================================
 - fixed handlint < and > in sender/recipient address
 - added LookupLDAP module
 - changed transport output to unbuffered(?),
   because of python-twisted 2.x compatibility
 - added support to split tables in DumpDataDB
+- scoring DNS blacklist rewritten
 
 
 Changes in PPolicy 2.6.4 (Jul 10 2006)

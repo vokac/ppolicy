@@ -25,7 +25,7 @@ class Dnsbl(Base):
     output of configured balacklists.
 
     Module arguments (see output of getParams method):
-    dnsbl
+    dnsbl, scoreOnly
 
     Check arguments:
         data ... all input data in dict
@@ -40,7 +40,7 @@ class Dnsbl(Base):
         modules['dnsbl1'] = ( 'Dnsbl', { dnsbl="ORDB" } )
     """
 
-    PARAMS = { 'dnsbl': ('name of DNS blacklist defined in this module', None),
+    PARAMS = { 'dnsbl': ('name of DNS blacklists defined in this module', None),
                'cachePositive': (None, 6*60*60),
                'cacheUnknown': (None, 30*60),
                'cacheNegative': (None, 12*60*60),
@@ -53,7 +53,7 @@ class Dnsbl(Base):
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
         dnsblName = self.getParam('dnsbl')
-        if not dnsbl.has_config(dnsblName):
+        if not dnsbl.getInstance().has_config(dnsblName):
             raise ParamError("there is not %s dnsbl list in config file" % dnsblName)
 
 
@@ -63,12 +63,8 @@ class Dnsbl(Base):
 
     def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
+        sender = None # FIXME: we should check also sender domain!!!
         dnsblName = self.getParam('dnsbl')
 
-        res = dnsbl.check(dnsblName, client_address)
-        if res == None:
-            return 0, "error checking %s in %s" % (client_address, dnsblName)
-        if res:
-            return 1, "%s blacklisted in %s" % (client_address, dnsblName)
-        else:
-            return -1, "%s is not in %s blacklist" % (client_address, dnsblName)
+        resHit, resScore = dnsbl.check(client_address, sender, [ dnsblName ], False)
+        return resHit, resScore

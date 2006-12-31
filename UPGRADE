@@ -1,3 +1,7 @@
+ppolicy 2.6.5-3 -> 2.6.5-4
+==========================
+- changed configuration of DNS blacklist score (see tools/dnsbl.dat)
+
 ppolicy 2.5.x -> 2.6.x
 ======================
 - changed ListMailDomain result (< 0 blacklist, > 0 whitelist, = undefined)

@@ -1,7 +1,7 @@
 #!/bin/sh
 NAME=ppolicy
 VERSION=2.6.5
-RELEASE=3
+RELEASE=4
 RPMDIR=${HOME}/rpmbuild
 
 perl -p -i -e "s/^Version: .*/Version: ${VERSION}/" ppolicy.spec
@@ -29,7 +29,7 @@ ppolicy.sql \
 ${NAME}-${VERSION}
 
 #cp ppolicy.xml ${NAME}-${VERSION}/doc
-find ppolicy -name "*.py" -o -name "*.dat" -o -name "*.cf" | while read FILE; do
+find ppolicy -name "*.py" -o -name "*.dat" | while read FILE; do
   mkdir -p ${NAME}-${VERSION}/`dirname ${FILE}`
   cp ${FILE} ${NAME}-${VERSION}/${FILE}
 done

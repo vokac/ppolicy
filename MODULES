@@ -47,6 +47,7 @@ Examples:
 Module Dnsbl
 ------------
 
+30 Dec 11:44:02 [INFO](dnsbl:24) using dnspython library
 Check if client address is listed in specified DNS blacklist.
 see tools/dnsbl.txt for list of valid blacklist names - original
 file can be downloaded from http://moensted.dk/spam/drbsites.txt
@@ -61,7 +62,7 @@ Parameters:
     cacheUnknown (1800)
         maximum time for caching unknown result
     dnsbl (None)
-        name of DNS blacklist defined in this module
+        name of DNS blacklists defined in this module
     factory (None)
         reference to factory instance
     saveResult (True)
@@ -92,10 +93,10 @@ blacklists and make sum of scores that are defined in spamassassin
 config files. Returned result depends on parameter treshold (this
 module can return -1,0,1 or exact score if treshold is None).
 
-This module use tools.dnsblScore.score to score mail. By default
+This module use tools.dnsbl.score to score mail. By default
 it uses all available checks, but you can specify your custom by
 listing their name in dnsbl parameter. You can list all valid
-names by calling `python tools/dnsblScore.py --list`.
+names by calling `python tools/dnsbl.py --list`.
 
 Parameters:
     cacheNegative (43200)
@@ -154,7 +155,7 @@ Parameters:
         maximum time for caching unknown result
     check_name (True)
         check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)
-    dnsbl (['NJABLDYNA', 'KROPKADUL', 'SORBSDUL'])
+    dnsbl (None)
         list of DNS blacklists
     factory (None)
         reference to factory instance
@@ -173,7 +174,7 @@ Check returns:
 
 Examples:
     # check if sender mailserver is in ORDB blacklist
-    modules['dnsbl1'] = ( 'DnsblDynamic', {} )
+    modules['dnsbl1'] = ( 'DnsblDynamic', { 'dnsbl': [ 'NJABLDYNA', 'SORBSDUL' ] } )
 
 
 
@@ -238,11 +239,11 @@ Module Dummy
 Dummy module skeleton for creating new modules
 
 Parameters:
-    cacheNegative (0)
+    cacheNegative (900)
         maximum time for caching negative result
-    cachePositive (0)
+    cachePositive (900)
         maximum time for caching positive result
-    cacheUnknown (0)
+    cacheUnknown (900)
         maximum time for caching unknown result
     factory (None)
         reference to factory instance

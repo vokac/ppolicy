@@ -12,7 +12,7 @@
 #
 import logging
 from Base import Base, ParamError
-from tools import dnsblScore
+from tools import dnsbl
 
 
 __version__ = "$Revision$"
@@ -24,10 +24,10 @@ class DnsblScore(Base):
     config files. Returned result depends on parameter treshold (this
     module can return -1,0,1 or exact score if treshold is None).
 
-    This module use tools.dnsblScore.score to score mail. By default
+    This module use tools.dnsbl.score to score mail. By default
     it uses all available checks, but you can specify your custom by
     listing their name in dnsbl parameter. You can list all valid
-    names by calling `python tools/dnsblScore.py --list`.
+    names by calling `python tools/dnsbl.py --list`.
 
     Module arguments (see output of getParams method):
     dnsbl, treshold, params
@@ -57,8 +57,14 @@ class DnsblScore(Base):
 
 
     def start(self):
-        # force to create singleton
-        dnsblScore.getInstance()
+        for attr in [ 'dnsbl' ]:
+            if self.getParam(attr) == None:
+                raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
+
+        dnsblNames = self.getParam('dnsbl')
+        for dnsblName in dnsblNames:
+            if not dnsbl.getInstance().has_config(dnsblName):
+                raise ParamError("there is not %s dnsbl list in config file" % dnsblName)
 
         params = self.getParam('params', [])
         paramsNew = []
@@ -85,7 +91,7 @@ class DnsblScore(Base):
 
 
     def check(self, data, *args, **keywords):
-        dnsblName = self.getParam('dnsbl')
+        dnsblNames = self.getParam('dnsbl')
         treshold = self.getParam('treshold')
         params = self.getParam('params', [])
 
@@ -99,15 +105,11 @@ class DnsblScore(Base):
                     val = ''
 
             if param == 'client_address':
-                if dnsblName != None:
-                    score += dnsblScore.score(ip=val, checkList=dnsblName)
-                else:
-                    score += dnsblScore.score(ip=val)
+                resHit, resScore = dnsbl.score(val, None, dnsblNames)
+                score += resScore
             else:
-                if dnsblName != None:
-                    score += dnsblScore.score(domain=val, checkList=dnsblName)
-                else:
-                    score += dnsblScore.score(domain=val)
+                resHit, resScore = dnsbl.score(None, val, dnsblNames)
+                score += resScore
 
         if treshold == None:
             return score, "%s blacklist score" % self.getId()

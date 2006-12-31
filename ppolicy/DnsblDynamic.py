@@ -40,10 +40,10 @@ class DnsblDynamic(Base):
 
     Examples:
         # check if sender mailserver is in ORDB blacklist
-        modules['dnsbl1'] = ( 'DnsblDynamic', {} )
+        modules['dnsbl1'] = ( 'DnsblDynamic', { 'dnsbl': [ 'NJABLDYNA', 'SORBSDUL' ] } )
     """
 
-    PARAMS = { 'dnsbl': ('list of DNS blacklists', [ 'NJABLDYNA', 'KROPKADUL', 'SORBSDUL' ]),
+    PARAMS = { 'dnsbl': ('list of DNS blacklists', None),
                'check_name': ('check format of client name (e.g. xxx-yyy-zzz.dsl.provider.com)', True),
                'cachePositive': (None, 6*60*60),
                'cacheUnknown': (None, 30*60),
@@ -52,6 +52,14 @@ class DnsblDynamic(Base):
 
 
     def start(self):
+        if self.getParam('dnsbl') == None:
+            raise ParamError("parameter \"dnsbl\" has to be specified for this module")
+
+        dnsblNames = self.getParam('dnsbl')
+        for dnsblName in dnsblNames:
+            if not dnsbl.getInstance().has_config(dnsblName):
+                raise ParamError("there is not %s dnsbl list in config file" % dnsblName)
+
         self.patternInclude = []
         self.patternExclude = []
         check_name = self.getParam('check_name', False)
@@ -84,6 +92,7 @@ class DnsblDynamic(Base):
 
     def check(self, data, *args, **keywords):
         client_address = data.get('client_address')
+        sender = None # FIXME: we should check also sender domain!!!
         reverse_client_name = data.get('reverse_client_name')
         dnsblNames = self.getParam('dnsbl', [])
         check_name = self.getParam('check_name', False)
@@ -110,10 +119,9 @@ class DnsblDynamic(Base):
                         return 1, "%s (%s) is dynamic identified by regex" % (client_address, reverse_client_name)
         
         # check listing in dnsbl
-        for dnsblName in dnsblNames:
-            res = dnsbl.check(dnsblName, client_address)
-            if res != None and res:
-                return 1, "%s (%s) is dynamic listed in %s" % (client_address, reverse_client_name, dnsblName)
+        resHit, resScore = dnsbl.check(client_address, sender, dnsblNames, False)
+        if resHit > 0:
+            return 1, "%s (%s) is dynamic listed, score %s" % (client_address, reverse_client_name, resScore)
 
         return -1, "%s (%s) is not in dynamic range" % (client_address, reverse_client_name)
 
