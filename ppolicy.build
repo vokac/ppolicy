@@ -1,12 +1,13 @@
 #!/bin/sh
 NAME=ppolicy
 VERSION=2.6.5
-RELEASE=4
+RELEASE=8
 RPMDIR=${HOME}/rpmbuild
 
 perl -p -i -e "s/^Version: .*/Version: ${VERSION}/" ppolicy.spec
 perl -p -i -e "s/^Release: .*/Release: ${RELEASE}/" ppolicy.spec
 perl -p -i -e "s/^(\s*version\s*=\s*).*(,.*)\$/\1'${VERSION}'\2/" setup.py
+perl -p -i -e "s/^(\s*logging.getLogger\(\).info\(\"version:).*(\"\)).*/\1 ${VERSION}-${RELEASE}\2/" ppolicy.tap
 
 ppolicy/test.py --doc > MODULES
 

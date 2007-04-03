@@ -141,9 +141,11 @@ class PPolicyFactory:
         self.cacheExpire = {}        
 
 
-    def reload(self, config = {}):
+    def reload(self, config = None):
         # FIXME: Implement factrory reloading
         self.doStop() # FIXME: stop all "check" before doing "__stopCheck"
+        if config == None:
+            config = self.config
         self.__initConfig(config)
         self.doStart()
 
@@ -386,7 +388,7 @@ class PPolicyRequest(protocol.Protocol):
 
     def connectionLost(self, reason):
         logging.getLogger().debug("connection %s lost: %s" % (self.factory.numProtocols, reason))
-        self.factory.numProtocols = self.factory.numProtocols-1
+        self.factory.numProtocols -= 1
 
 
     def dataReceived(self, data):
@@ -430,8 +432,7 @@ class PPolicyRequestThread(threading.Thread):
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
-                iaddress = self.transport.getPeer()
-                action, actionEx = self.check(self.factory, parsedData, iaddress.port)
+                action, actionEx = self.check(self.factory, parsedData, self.transport.getHost())
 
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))

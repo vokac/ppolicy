@@ -1,3 +1,8 @@
+ppolicy 2.6.5-4 -> 2.6.5-5
+==========================
+- changed database structure for Greylisting
+  drop older tables and new will be created automaticaly
+
 ppolicy 2.6.5-3 -> 2.6.5-4
 ==========================
 - changed configuration of DNS blacklist score (see tools/dnsbl.dat)

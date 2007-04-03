@@ -29,6 +29,12 @@ class Greylist(Base):
     name for each mail and this module delay delivery and increase
     load of remote server.
 
+    You should run following cleanup tasks from cron job (may be it
+    will be part of this module in the future). Replace XXXX and YYYY
+    with same value as for "mustRetry" and "expire":
+    mysql 'DELETE FROM `greylist` WHERE UNIX_TIMESTAMP(`date`) + XXXX < UNIX_TIMESTAMP() AND `state` = 0
+    mysql 'DELETE FROM `greylist` WHERE UNIX_TIMESTAMP(`date`) + YYYY < UNIX_TIMESTAMP()
+
     Module arguments (see output of getParams method):
     table
 
@@ -53,6 +59,7 @@ class Greylist(Base):
 
     PARAMS = { 'table': ('greylist database table', 'greylist'),
                'delay': ('how long to delay mail we see its triplet first time', 10*60),
+               'mustRetry': ('time we wait to receive next mail after we geylisted it', 12*60*60),
                'expiration': ('expiration of triplets in database', 60*60*24*31),
                'cachePositive': (None, 24*60*60),# positive can be cached long time
                'cacheUnknown': (None, 30),  # use only very short time, because
@@ -65,20 +72,28 @@ class Greylist(Base):
         if self.factory == None:
             raise ParamError("this module need reference to fatory and database connection pool")
 
+        for param in [ 'table', 'delay', 'mustRetry', 'expiration' ]:
+            if self.getParam(param) == None:
+                raise ParamError("%s has to be specified for this module" % param)
+
         table = self.getParam('table')
-        if table == None:
-            raise ParamError('table has to be specified for this module')
+        #delay = self.getParam('delay')
+        mustRetry = self.getParam('mustRetry')
+        expiration = self.getParam('expiration')
 
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `delay` DATETIME, `expire` DATETIME, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
-            logging.getLogger().debug("SQL: %s" % sql)
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `date` DATETIME, `state` TINYINT DEFAULT 0, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
+            if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
 
-            sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`expire`) < UNIX_TIMESTAMP()" % table
-            logging.getLogger().debug("SQL: %s" % sql)
+            sql = "DELETE FROM `%s` WHERE (UNIX_TIMESTAMP(`date`) + %i < UNIX_TIMESTAMP() AND `state` = 0) OR (UNIX_TIMESTAMP(`date`) + %i < UNIX_TIMESTAMP())" % (table, mustRetry, expiration)
+            if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
+
             cursor.close()
         except Exception, e:
             cursor.close()
@@ -86,7 +101,7 @@ class Greylist(Base):
 
 
     def hashArg(self, data, *args, **keywords):
-        return hash("\n".join(map(lambda x: "%s=%s" % (x, data.get(x, '').lower()), [ 'sender', 'recipient', 'client_address' ])))
+        return hash("\n".join([ "%s=%s" % (x, data.get(x, '').lower()) for x in [ 'sender', 'recipient', 'client_address' ] ]))
 
 
     def check(self, data, *args, **keywords):
@@ -103,7 +118,7 @@ class Greylist(Base):
         # RFC 2821, section 4.1.1.3
         # see RCTP TO: grammar
         if recipient == 'postmaster' or recipient[:11] == 'postmaster@':
-            return 2, ("allow mail to postmaster without graylisting", 0)
+            return 2, ("allow mail to postmaster without greylisting", 0)
 
         greysubj = client_address
         if sender != '':
@@ -134,32 +149,50 @@ class Greylist(Base):
             cursor = conn.cursor()
             table = self.getParam('table')
 
-            sql = "SELECT UNIX_TIMESTAMP(`delay`) - UNIX_TIMESTAMP() AS `greylistDelay`, UNIX_TIMESTAMP(`expire`) - UNIX_TIMESTAMP() AS `greylistExpire` FROM `%s` WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
-            logging.getLogger().debug("SQL: %s" % sql)
-            cursor.execute(sql)
+            sql = "SELECT UNIX_TIMESTAMP() - UNIX_TIMESTAMP(`date`) AS `delta`, `state` FROM `%s` WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
+            
+            if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                logging.getLogger().debug("SQL: %s %s" % (sql, str((sender, recipient, greysubj))))
+            cursor.execute(sql, (sender, recipient, greysubj))
             greylistDelay = self.getParam('delay')
             greylistExpire = self.getParam('expiration')
             if int(cursor.rowcount) > 0:
                 # triplet already exist in database
                 row = cursor.fetchone()
-                greylistExpireCurr = row[1]
-                if greylistExpireCurr > 0:
-                    greylistDelay = row[0]
-                if greylistDelay < 0:
+                delta = row[0]
+                state = row[1]
+                greylistExpire -= delta
+                if state <= 0:
+                    greylistDelay -= delta
+                if (state <= 0 and greylistDelay <= 0) or greylistExpire > 0:
                     # and initial delay period was finished
                     retCode = 1
                     retInfo = 'greylisting was already done'
-                    retTime = greylistExpireCurr
+                    retTime = greylistExpire
                 else:
                     # but we are in initial delay period
                     retCode = -1
-                    retInfo = 'greylisting in progress: %ss (%s)' % (greylistDelay, greylistExpireCurr)
+                    retInfo = 'greylisting in progress: %ss (%s)' % (greylistDelay, greylistExpire)
                     retTime = greylistDelay
                 try:
                     # this is not critical so do it in separate try section
-                    sql = "UPDATE `%s` SET `expire` = FROM_UNIXTIME(UNIX_TIMESTAMP()+%i) WHERE `sender` = '%s' AND `recipient` = '%s' AND `client_address` = '%s'" % (table, greylistExpire, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"))
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    sql = None
+                    if retCode == 1:
+                        if state == 1:
+                            sql = "UPDATE `%s` SET `date` = NOW() WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
+                        else:
+                            sql = "UPDATE `%s` SET `date` = NOW(), `state` = 1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
+                    else:
+                        if state == 0:
+                            sql = "UPDATE `%s` SET `state` = -1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
+                        elif state > 0:
+                            # update expired record -> set state to initial
+                            # greylisting period
+                            sql = "UPDATE `%s` SET `date` = NOW(), `state` = -1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
+                    if sql != None:
+                        if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                            logging.getLogger().debug("SQL: %s %s" % (sql, str((sender, recipient, greysubj))))
+                        cursor.execute(sql, (sender, recipient, greysubj))
                 except Exception, e:
                     logging.getLogger().error("updating expiration time failed: %s" % e)
             else:
@@ -167,9 +200,10 @@ class Greylist(Base):
                 retCode = -1
                 retInfo = 'greylisting in progress: %ss' % greylistDelay
                 retTime = greylistDelay
-                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `delay`, `expire`) VALUES ('%s', '%s', '%s', FROM_UNIXTIME(UNIX_TIMESTAMP()+%i), FROM_UNIXTIME(UNIX_TIMESTAMP()+%i))" % (table, sender.replace("'", "\\'"), recipient.replace("'", "\\'"), greysubj.replace("'", "\\'"), greylistDelay, greylistExpire)
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
+                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `date`, `state`) VALUES (%%s, %%s, %%s, NOW(), 0)" % table
+                if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str((sender, recipient, greysubj))))
+                cursor.execute(sql, (sender, recipient, greysubj))
 
             cursor.close()
         except Exception, e:

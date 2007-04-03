@@ -17,6 +17,7 @@ TODO list sorted by task importance
 * check results for updated spf.py module
 * create "primary online" module (spammers try to use backup MX,
   so this module check if Primary is online...)
+* RFC 3463 - Enhanced Mail System Status Codes
 
 * automatic module tests
 * DOS, Trap are not fully tested

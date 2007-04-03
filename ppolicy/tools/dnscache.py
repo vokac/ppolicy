@@ -138,12 +138,45 @@ _dnsCache = Cache(30*60, 10000)
 _dnsMaxRetry = 3
 _dnsLifetime = 2
 _dnsTimeout = 0.75
+_dnsTimeoutBlacklist = {}
+_dnsTimeoutBlacklistInterval = 60*60
+_dnsTimeoutBlacklistSize = 1000
+_dnsTimeoutBlacklistLock = threading.Lock()
 
 
 class DNSCacheError(dns.exception.DNSException):
     """Base exception class for check modules."""
     def __init__(self, args = ""):
         dns.exception.DNSException.__init__(self, args)
+
+
+def dnsTimeoutBlacklistHas(key):
+    if _dnsTimeoutBlacklist.has_key(key):
+        expire = _dnsTimeoutBlacklist[key]
+        if time.time() < expire:
+            return True
+    return False
+
+
+def dnsTimeoutBlacklistAdd(key, interval):
+    global _dnsTimeoutBlacklist
+    logging.getLogger().debug("blacklisting DNS for %s" % str(key))
+    _dnsTimeoutBlacklistLock.acquire()
+    try:
+        _dnsTimeoutBlacklist[key] = time.time() + interval
+        if len(_dnsTimeoutBlacklist) > _dnsTimeoutBlacklistSize:
+            expValues = _dnsTimeoutBlacklist.values()
+            expValues.sort()
+            expire = expValues[3*_dnsTimeoutBlacklistSize/4]
+            if expire > time.time(): expire = time.time()
+            expNew = {}
+            for k, v in _dnsTimeoutBlacklist.items():
+                if v > expire:
+                    expNew[k] = v
+            _dnsTimeoutBlacklist = expNew
+    except Exception, e:
+        logging.getLogger().debug("error updating dns blacklist: %s" % e)
+    _dnsTimeoutBlacklistLock.release()
 
 
 def getResolver(lifetime, timeout):
@@ -161,6 +194,10 @@ def getResolver(lifetime, timeout):
 def getIpForName(domain, ipv6 = True):
     """Return IP addresses for FQDN. Optional parametr @ipv6 specify
     if IPv6 addresses should be added too (default: True)"""
+
+    # don't process DNS query for servers that timeouts
+    if dnsTimeoutBlacklistHas((domain.lower(), 'A')):
+        raise DNSCacheError("DNS error getting IP for domain name (cached): %s" % domain)
 
     ips = []
     dnsretry = _dnsMaxRetry
@@ -193,6 +230,7 @@ def getIpForName(domain, ipv6 = True):
             dnsretry -= 1
 
         if dnsretry == 0 and len(ips) == 0:
+            dnsTimeoutBlacklistAdd((domain.lower(), 'A'), _dnsTimeoutBlacklistInterval)
             raise DNSCacheError("DNS error getting IP for domain name: %s" % domain)
 
     return ips
@@ -200,6 +238,10 @@ def getIpForName(domain, ipv6 = True):
 
 def getNameForIp(ip):
     """Return domain name for the IP using reverse record resolution."""
+
+    # don't process DNS query for servers that timeouts
+    if dnsTimeoutBlacklistHas((ip.lower(), 'PTR')):
+        raise DNSCacheError("DNS error getting domain name for IP (cached): %s" % ip)
 
     ips = []
     dnsretry = _dnsMaxRetry
@@ -229,6 +271,7 @@ def getNameForIp(ip):
             break
 
     if dnsretry == 0 and len(ips) == 0:
+        dnsTimeoutBlacklistAdd((ip.lower(), 'PTR'), _dnsTimeoutBlacklistInterval)
         raise DNSCacheError("DNS error getting domain name for IP: %s" % ip)
 
     return ips
@@ -278,6 +321,10 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
     """Return IP addresses of mail exchangers for the domain
     sorted by priority."""
 
+    # don't process DNS query for servers that timeouts
+    if dnsTimeoutBlacklistHas((domain.lower(), 'MX')):
+        raise DNSCacheError("DNS error getting mailhost for domain name (cached): %s" % domain)
+
     ips = []
     dnsretry = _dnsMaxRetry
     lifetime = _dnsLifetime
@@ -316,6 +363,7 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
             break
 
     if dnsretry == 0 and len(ips) == 0:
+        dnsTimeoutBlacklistAdd((domain.lower(), 'MX'), _dnsTimeoutBlacklistInterval)
         raise DNSCacheError("DNS error getting mailhost for domain name: %s" % domain)
 
     # remove invalid IP from the list of mailhost

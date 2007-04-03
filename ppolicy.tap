@@ -32,14 +32,14 @@ config = {
                        'passwd' : 'secret',
                        'cp_min' : 3,    # connection pool min conns
                        'cp_max' : 5,    # connection pool max conns
-                       'cp_noisy': 1,   # noisy connection pool logging
+                       'cp_noisy': 0,   # noisy connection pool logging
                        },
     'ppolicyPort'  : 10030,
     'commandPort'  : 10031,
     'cacheSize'    : 10000,
     'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
     'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
-    'check'        : lambda x: ('dunno', ''),
+    'check'        : lambda x, y, z: ('dunno', ''),
     'modules'      : {},
 }
 
@@ -50,6 +50,9 @@ twistedHandler = TwistedHandler()
 twistedHandler.setFormatter(logging.Formatter("[%(relativeCreated)9.0f][%(levelname)s](%(module)s:%(lineno)d) %(message)s"))
 logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
+
+logging.getLogger().info("command: %s" % " ".join(sys.argv))
+logging.getLogger().info("version: 2.6.5-8")
 
 # Import Psyco if available
 try:

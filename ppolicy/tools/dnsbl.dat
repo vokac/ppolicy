@@ -1,7 +1,7 @@
 # 
-# configuration file for dnsblNew.py
+# configuration file for dnsbl.py
 # file structure:
-# name    url    score    env
+# name    url    score    env    [regex for returned IP address matching]
 # 
 # 
 # 
@@ -99,8 +99,18 @@ __DNS_FROM_RFC_ABUSE fulldom.rfc-ignorant.org 0 True 127.0.0.4
 # 
 # drbsites config file
 # 
-# ORDB - Open Relay DataBase (http://www.ordb.org/)
-ORDB relays.ordb.org 0 False 
+# SBL - Spamhaus Block List (http://spamhaus.org/sbl/)
+SBL sbl.spamhaus.org 0 False 
+# XBL - Exploits Block List (includes CBL) (http://www.spamhaus.org/XBL/)
+XBL xbl.spamhaus.org 0 False 
+# PBL - The Policy Block List (http://www.spamhaus.org/pbl/)
+PBL pbl.spamhaus.org 0 False 
+# SBLXBL - Combined zone to reduce queries. Includes both SBL and XBL zones (http://spamhaus.org/sbl/)
+SBLXBL sbl-xbl.spamhaus.org 0 False 
+# ZEN - Spamhaus combined SBL, XBL and PBL - replaces SBLXBL (http://www.spamhaus.org/zen/)
+ZEN zen.spamhaus.org 0 False 
+# CBL - The CBL - Composite Blocking List (http://cbl.abuseat.org/)
+CBL cbl.abuseat.org 0 False 
 # NJABL - Not Just Another Blacklist. (http://njabl.org/)
 NJABL dnsbl.njabl.org 0 False 
 # NJABLDYNA - NJABL list of dynamic ip spaces (http://njabl.org/dynablock.html)
@@ -109,16 +119,8 @@ NJABLDYNA dynablock.njabl.org 0 False
 NJABLCOMBINED combined.njabl.org 0 False 
 # NJABLBHNC - NJABL Bad host, no cookie (http://njabl.org/)
 NJABLBHNC bhnc.njabl.org 0 False 
-# CBL - The CBL - Composite Blocking List (http://cbl.abuseat.org/)
-CBL cbl.abuseat.org 0 False 
-# SBL - Spamhaus Block List (http://spamhaus.org/sbl/)
-SBL sbl.spamhaus.org 0 False 
-# XBL - Exploits Block List (includes CBL) (http://www.spamhaus.org/XBL/)
-XBL xbl.spamhaus.org 0 False 
 # SPAMCOP - SpamCop Blocking List (http://spamcop.net/bl.shtml)
 SPAMCOP bl.spamcop.net 0 False 
-# SBLXBL - Combined zone to reduce queries. Includes both SBL and XBL zones (http://spamhaus.org/sbl/)
-SBLXBL sbl-xbl.spamhaus.org 0 False 
 # DSBLLIST - Distributed Sender Boycott List: single-stage relays tested by trusted users (http://dsbl.org/)
 DSBLLIST list.dsbl.org 0 False 
 # DSBLUNCONFIRMED - Distributed Sender Boycott List: single-stage relays, multihop relays and listings by anonymous users (http://dsbl.org/)

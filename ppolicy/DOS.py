@@ -41,11 +41,11 @@ class DOS(Base):
 
     Examples:
         # limit number of mail from one sender to 1000/hod
-        modules['dos1'] = ( 'DOS', { params="sender" } )
+        modules['dos1'] = ( 'DOS', { 'params': "sender" } )
         # limit number of mail from one sender
         # and one mailserver to 100 in 10 minutes
-        modules['dos2'] = ( 'DOS', { params=["sender","client_address"],
-                            limitCount=100, limitTime=10 } )
+        modules['dos2'] = ( 'DOS', { 'params': ["sender","client_address"],
+                            'limitCount': 100, 'limitTime': 10 } )
     """
 
     PARAMS = { 'params': ('parameters that will be used to test equality', None),
@@ -85,6 +85,7 @@ class DOS(Base):
     def check(self, data, *args, **keywords):
         # normalize data and get all possible keys
         params = self.getParam('params')
+        limitCount = int(self.getParam('limitCount'))
 
         # create all parameter combinations (cartesian product)
         valX = []
@@ -94,7 +95,7 @@ class DOS(Base):
                 paramVal = list(tuple)
             if type(paramVal) != list:
                 paramVal = [ paramVal ]
-            if paramVal == []:
+            if len(paramVal) == 0:
                 paramVal = [ '' ]
             if len(valX) == 0:
                 for val in paramVal:
@@ -107,18 +108,20 @@ class DOS(Base):
                 valX = valXnew
 
         # test frequency for all keys
+        ddetail = []
         hasDosKey = False
         for paramsVal in valX:
             key = hash("\n".join([ "%s=%s" % (x,y) for x,y in paramsVal ]))
-            dos = self.__checkDos(key)
-            if not hasDosKey and dos:
+            hitsum = self.__checkDos(key)
+            ddetail.append((key, hitsum))
+            if not hasDosKey and hitsum > limitCount:
                 hasDosKey = True
 
         logging.getLogger().debug("%s: size %i" % (self.getId(), len(self.cache)))
         if hasDosKey:
-            return 1, "%s: DOS attack treshold reached" % self.getId()
+            return 1, ddetail
         else:
-            return -1, "%s: did not reach DOS treshold" % self.getId()
+            return -1, ddetail
 
 
     def __checkDos(self, key):
@@ -127,8 +130,8 @@ class DOS(Base):
         limitGran = int(self.getParam('limitGran'))
         limitInt = int(limitTime / limitGran)
 
-        data, nextUpdate = self.cache.get(key, (None, None))
-        if data != None:
+        if self.cache.has_key(key):
+            data, nextUpdate = self.cache.get(key, (None, None))
             if nextUpdate < time.time():
                 sh = long((time.time() - nextUpdate) / limitInt) + 1
                 if sh > len(data):
@@ -149,4 +152,4 @@ class DOS(Base):
 
         self.cache[key] = (data, nextUpdate)
 
-        return sum(data) > limitCount
+        return sum(data)

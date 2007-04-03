@@ -159,7 +159,7 @@ class dnsbl:
                 if domain != None:
                     check_name = "%s.%s" % (domain, bl)
             if check_name != None:
-                check_items.append((check_name, value, score))
+                check_items.append((bl, check_name, value, score))
                 if check_name not in check_items_bl:
                     check_items_bl.append(check_name)
 
@@ -174,19 +174,19 @@ class dnsbl:
         retHit = 0
         retScore = 0
 
-        for name, value, score in check_items:
+        for bl, name, value, score in check_items:
             if not check_items_bl_res.has_key(name): continue
             ips = check_items_bl_res[name]
 
             if value != '':
                 for ip in ips:
                     if re.compile(value).match(ip):
-                        logging.getLogger().debug("%s[%s]: %s" % (name, value, score))
+                        logging.getLogger().debug("%s[%s:%s]: %s" % (bl, name, value, score))
                         retHit += 1
                         retScore += score
                         break
             else:
-                logging.getLogger().debug("%s[%s]: %s" % (name, value, score))
+                logging.getLogger().debug("%s[%s]: %s" % (bl, name, score))
                 retHit += 1
                 retScore += score
 
@@ -225,6 +225,10 @@ class dnsbl:
 
         for bl in check_items_bl:
 
+            # don't process DNS query for servers that timeouts
+            if dnscache.dnsTimeoutBlacklistHas((bl.lower(), 'A')):
+                continue
+
             ips = []
             try:
                 resolver = dnscache.getResolver(3.0, 1.0)
@@ -233,6 +237,7 @@ class dnsbl:
                     ips.append(rdata.address)
             except dns.exception.Timeout:
                 logging.getLogger().debug("DNS timeout, query: %s" % bl)
+                dnscache.dnsTimeoutBlacklistAdd((bl.lower(), 'A'), 24*60*60)
             except dns.exception.DNSException:
                 # no results or DNS problem
                 pass
@@ -402,8 +407,8 @@ def debugCheck(ip, sender = ''):
         user, domain = sender.split('@', 1)
     else:
         domain = sender
-    startTime = time.time()
     dnsblList = [ 'DNS_FROM_AHBL_RHSBL', 'DNS_FROM_RFC_BOGUSMX', 'DNS_FROM_RFC_DSN', 'DNS_FROM_SECURITYSAGE', 'DNS_FROM_SECURITYSAGE', 'RCVD_IN_BL_SPAMCOP_NET', 'RCVD_IN_DSBL', 'RCVD_IN_NJABL_DUL', 'RCVD_IN_NJABL_PROXY', 'RCVD_IN_NJABL_SPAM', 'RCVD_IN_SBL', 'RCVD_IN_SORBS_DUL', 'RCVD_IN_SORBS_SOCKS', 'RCVD_IN_SORBS_WEB', 'RCVD_IN_SORBS_ZOMBIE', 'RCVD_IN_WHOIS_BOGONS', 'RCVD_IN_WHOIS_HIJACKED', 'RCVD_IN_WHOIS_INVALID', 'RCVD_IN_XBL' ]
+    startTime = time.time()
     sc = check(ip, domain, dnsblList)
     print "%15s[%6.2f]: %s" % (ip, time.time()-startTime, sc)
     startTime = time.time()

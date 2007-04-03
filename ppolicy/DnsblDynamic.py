@@ -76,11 +76,11 @@ class DnsblDynamic(Base):
             # match domain name looking like net220216005.provider.com
             self.patternInclude.append(re.compile('net\d{9,}\w*\.[^.]+\.[^.]+'))
             # match domain name looking like pool12-34.provider.com
-            self.patternInclude.append(re.compile('(user|host|pool|dial|dialup|dip0|ppp(oe)?|dhcp|(a|x)?dsl|internetdsl|dynamic|dyn-ip|dyn|static|cable|catv|broadband\d*)(|\.|x|-)\d+([.x-]\d+)+\.[^.]+\.[^.]+'))
+            self.patternInclude.append(re.compile('(user|host|pool|dial|dialup|dip0|ppp(oe)?|dhcp|(a|s|x)?dsl|internetdsl|dynamic|dyn-ip|dyn|static|cable|catv|broadband\d*)(|\.|x|-)\d+([.x-]\d+)+\.[^.]+\.[^.]+'))
 #            # match domain name looking like 01234567.provider.com
 #            self.patternInclude.append(re.compile('[0-9a-fA-F]{8}\w*\.[^.]+\.[^.]+'))
             # match domain name looking like something.dhcp.level1.level2
-            self.patternInclude.append(re.compile('[.-](user|host|pool|dial|dialup|dip0|ppp(oe)?|dhcp|(a|x)?dsl|internetdsl|dynamic|dyn-ip|dyn|static|cable|catv|broadband\d*)(|-[^.]+)\.[^.]+\.[^.]+'))
+            self.patternInclude.append(re.compile('[.-](user|host|pool|dial|dialup|dip0|ppp(oe)?|dhcp|(a|s|x)?dsl|internetdsl|dynamic|dyn-ip|dyn|static|cable|catv|broadband\d*)(|-[^.]+)\.[^.]+\.[^.]+'))
             # match domain name looking like dlp-14.as2.tz-1.bih.net.ba
             # at least six parts and on of them end with -123 or 123
             self.patternInclude.append(re.compile('.+-?\d+(\..+){5,}|(\..+){1,}.+-?\d+(\..+){4}|(\..+){2,}.+-?\d+(\..+){3}|(\..+){3,}.+-?\d+(\..+){2}'))

@@ -47,7 +47,7 @@ Examples:
 Module Dnsbl
 ------------
 
-30 Dec 11:44:02 [INFO](dnsbl:24) using dnspython library
+02 Mar 03:48:07 [INFO](dnsbl:24) using dnspython library
 Check if client address is listed in specified DNS blacklist.
 see tools/dnsbl.txt for list of valid blacklist names - original
 file can be downloaded from http://moensted.dk/spam/drbsites.txt
@@ -224,11 +224,11 @@ Check returns:
 
 Examples:
     # limit number of mail from one sender to 1000/hod
-    modules['dos1'] = ( 'DOS', { params="sender" } )
+    modules['dos1'] = ( 'DOS', { 'params': "sender" } )
     # limit number of mail from one sender
     # and one mailserver to 100 in 10 minutes
-    modules['dos2'] = ( 'DOS', { params=["sender","client_address"],
-                        limitCount=100, limitTime=10 } )
+    modules['dos2'] = ( 'DOS', { 'params': ["sender","client_address"],
+                        'limitCount': 100, 'limitTime': 10 } )
 
 
 
@@ -368,6 +368,12 @@ retry to send mail again and some mailing list has unique sender
 name for each mail and this module delay delivery and increase
 load of remote server.
 
+You should run following cleanup tasks from cron job (may be it
+will be part of this module in the future). Replace XXXX and YYYY
+with same value as for "mustRetry" and "expire":
+mysql 'DELETE FROM `greylist` WHERE UNIX_TIMESTAMP(`date`) + XXXX < UNIX_TIMESTAMP() AND `state` = 0
+mysql 'DELETE FROM `greylist` WHERE UNIX_TIMESTAMP(`date`) + YYYY < UNIX_TIMESTAMP()
+
 Parameters:
     cacheNegative (60)
         maximum time for caching negative result
@@ -381,6 +387,8 @@ Parameters:
         expiration of triplets in database
     factory (None)
         reference to factory instance
+    mustRetry (43200)
+        time we wait to receive next mail after we geylisted it
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
