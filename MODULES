@@ -47,7 +47,7 @@ Examples:
 Module Dnsbl
 ------------
 
-02 Mar 03:48:07 [INFO](dnsbl:24) using dnspython library
+17 Jul 18:52:28 [INFO](dnsbl:24) using dnspython library
 Check if client address is listed in specified DNS blacklist.
 see tools/dnsbl.txt for list of valid blacklist names - original
 file can be downloaded from http://moensted.dk/spam/drbsites.txt
@@ -924,6 +924,44 @@ Check returns:
 Examples:
     # define module for checking SPF
     modules['spf1'] = ( 'SPF', {} )
+
+
+
+
+Module Sleep
+------------
+
+Sleep module for debugging
+
+Parameters:
+    cacheNegative (900)
+        maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    sleep (1)
+        sleep interval in seconds (default 1s)
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... ok 
+    0 .... undefined (default for this module)
+    -1 ... failed
+
+Examples:
+    # make instance of Sleep module
+    modules['Sleep1'] = ( 'Sleep', {} )
+    # make instance of Sleep module with parameters
+    modules['Sleep2'] = ( 'Sleep', { 'sleep': 10 } )
 
 
 

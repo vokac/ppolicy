@@ -98,4 +98,20 @@ class Dummy(Base):
             args -- array of arguments defined in ppolicy.conf
             keywords -- dict of arguments defined in ppolicy.conf
         """
+        ## example of communication with DB
+        # dbPool = self.factory.getdbPool()
+        ##
+        # d = dbPool.runOperation("SQL QUERY ? ?", (sqlData1, sqlData2))
+        # d.addErrback(lambda x: logging.getLogger().error("db query error: " % str(x)))
+        ##
+        # d = dbPool.runQuery("SELECT * FROM `something`)
+        # d.addCallback(lambda x: for r in x: logging.getLogger().info("row: %s" % str(r)))
+        # d.addErrback(lambda x: logging.getLogger().error("db query error: " % str(x)))
+        ##
+        # conn = dbPool.connect()
+        # cursor = conn.cursor()
+        # cursor.execute()
+        # cursor.close()
+        # dbPool.disconnect(conn)
+
         return 0, 'dummy'

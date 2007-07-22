@@ -95,6 +95,7 @@ class Greylist(Base):
             cursor.execute(sql)
 
             cursor.close()
+            conn.commit()
         except Exception, e:
             cursor.close()
             raise e
@@ -144,8 +145,8 @@ class Greylist(Base):
         retCode = 0
         retInfo = "undefined result (%s module error)" % self.getId()
         retTime = 0
+        conn = self.factory.getDbConnection()
         try:
-            conn = self.factory.getDbConnection()
             cursor = conn.cursor()
             table = self.getParam('table')
 
@@ -206,6 +207,7 @@ class Greylist(Base):
                 cursor.execute(sql, (sender, recipient, greysubj))
 
             cursor.close()
+            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

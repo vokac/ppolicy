@@ -104,6 +104,7 @@ class List(Base):
                 else:
                     newCache[res[-len(column):]] = res[:-len(column)]
             cursor.close()
+            conn.commit()
 
             self.allDataCache = newCache
             self.allDataCacheReady = True
@@ -166,6 +167,7 @@ class List(Base):
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             cursor.close()
+            conn.commit()
         except Exception, e:
             cursor.close()
             raise e
@@ -306,6 +308,7 @@ class List(Base):
                     self.__setCache(paramVal, ())
 
             cursor.close()
+            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

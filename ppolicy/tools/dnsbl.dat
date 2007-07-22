@@ -8,15 +8,13 @@
 # spamassassin config file
 # 
 # RCVD_IN_NJABL_RELAY[njabl] - NJABL: sender is confirmed open relay
-RCVD_IN_NJABL_RELAY combined.njabl.org 0.001 False 127.0.0.2
+RCVD_IN_NJABL_RELAY combined.njabl.org 1.841 False 127.0.0.2
 # __DNS_FROM_RFC_POST[rfci_envfrom] - 
 __DNS_FROM_RFC_POST fulldom.rfc-ignorant.org 0 True 127.0.0.3
-# RCVD_IN_XBL[zen-notfirsthop] - Received via a relay in Spamhaus XBL
-RCVD_IN_XBL zen.spamhaus.org 3.114 False 
-# RCVD_IN_NJABL_DUL[njabl-notfirsthop] - NJABL: dialup sender did non-local SMTP
-RCVD_IN_NJABL_DUL combined.njabl.org 1.713 False 
+# RCVD_IN_XBL[zen-lastexternal] - Received via a relay in Spamhaus XBL
+RCVD_IN_XBL zen.spamhaus.org 2.896 False 
 # RCVD_IN_BL_SPAMCOP_NET[spamcop] - Received via a relay in bl.spamcop.net
-RCVD_IN_BL_SPAMCOP_NET bl.spamcop.net 1.332 False 
+RCVD_IN_BL_SPAMCOP_NET bl.spamcop.net 2.188 False 
 # RCVD_IN_SORBS_MISC[sorbs] - SORBS: sender is open proxy server
 RCVD_IN_SORBS_MISC dnsbl.sorbs.net 0.001 False 127.0.0.4
 # __RCVD_IN_IADB[iadb-firsttrusted] - 
@@ -24,37 +22,39 @@ __RCVD_IN_IADB iadb.isipp.com 0 False
 # RCVD_IN_BSP_TRUSTED[bsp-firsttrusted] - Sender is in Bonded Sender Program (trusted relay)
 RCVD_IN_BSP_TRUSTED sa-trusted.bondedsender.org 0 False 
 # DNS_FROM_AHBL_RHSBL[ahbl] - Envelope sender listed in dnsbl.ahbl.org
-DNS_FROM_AHBL_RHSBL rhsbl.ahbl.org 0.306 True 
+DNS_FROM_AHBL_RHSBL rhsbl.ahbl.org 2.025 True 
 # __RCVD_IN_SORBS[sorbs] - SORBS: sender is listed in SORBS
 __RCVD_IN_SORBS dnsbl.sorbs.net 0 False 
 # RCVD_IN_WHOIS_HIJACKED[whois] - CompleteWhois: sender on hijacked IP block
 RCVD_IN_WHOIS_HIJACKED combined-HIB.dnsiplists.completewhois.com 1.0 False 127.0.0.3
 # RCVD_IN_SORBS_WEB[sorbs] - SORBS: sender is a abuseable web server
-RCVD_IN_SORBS_WEB dnsbl.sorbs.net 1.236 False 127.0.0.7
+RCVD_IN_SORBS_WEB dnsbl.sorbs.net 1.117 False 127.0.0.7
 # __RCVD_IN_WHOIS[whois] - 
 __RCVD_IN_WHOIS combined-HIB.dnsiplists.completewhois.com 0 False 
 # HABEAS_CHECKED[habeas-firsttrusted] - Habeas Checked
 HABEAS_CHECKED sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[6789]\d
 # RCVD_IN_NJABL_SPAM[njabl] - NJABL: sender is confirmed spam source
-RCVD_IN_NJABL_SPAM combined.njabl.org 1.905 False 127.0.0.4
-# RCVD_IN_DSBL[dsbl-notfirsthop] - Received via a relay in list.dsbl.org
-RCVD_IN_DSBL list.dsbl.org 1.801 False 
+RCVD_IN_NJABL_SPAM combined.njabl.org 3.096 False 127.0.0.4
+# RCVD_IN_DSBL[dsbl-lastexternal] - Received via a relay in list.dsbl.org
+RCVD_IN_DSBL list.dsbl.org 0.753 False 
 # DNS_FROM_RFC_DSN[rfci_envfrom] - Envelope sender in dsn.rfc-ignorant.org
-DNS_FROM_RFC_DSN fulldom.rfc-ignorant.org 2.872 True 127.0.0.2
+DNS_FROM_RFC_DSN fulldom.rfc-ignorant.org 2.527 True 127.0.0.2
 # RCVD_IN_SORBS_SOCKS[sorbs] - SORBS: sender is open SOCKS proxy server
-RCVD_IN_SORBS_SOCKS dnsbl.sorbs.net 1.823 False 127.0.0.3
+RCVD_IN_SORBS_SOCKS dnsbl.sorbs.net 0.182 False 127.0.0.3
 # __RCVD_IN_NJABL[njabl] - Received via a relay in combined.njabl.org
 __RCVD_IN_NJABL combined.njabl.org 0 False 
 # RCVD_IN_SBL[zen] - Received via a relay in Spamhaus SBL
-RCVD_IN_SBL zen.spamhaus.org 2.712 False 127.0.0.2
+RCVD_IN_SBL zen.spamhaus.org 2.81 False 127.0.0.2
 # RCVD_IN_MAPS_RSS[rss] - Relay in RSS, http://www.mail-abuse.org/rss/
 RCVD_IN_MAPS_RSS relays.mail-abuse.org 0.0 False 
 # RCVD_IN_WHOIS_BOGONS[whois] - CompleteWhois: sender on bogons IP block
-RCVD_IN_WHOIS_BOGONS combined-HIB.dnsiplists.completewhois.com 1.811 False 127.0.0.2
+RCVD_IN_WHOIS_BOGONS combined-HIB.dnsiplists.completewhois.com 0.01 False 127.0.0.2
+# RCVD_IN_PBL[zen-lastexternal] - Received via a relay in Spamhaus PBL
+RCVD_IN_PBL zen.spamhaus.org 0.509 False 
 # RCVD_IN_SORBS_HTTP[sorbs] - SORBS: sender is open HTTP proxy server
 RCVD_IN_SORBS_HTTP dnsbl.sorbs.net 0.001 False 127.0.0.2
 # RCVD_IN_NJABL_CGI[njabl] - NJABL: sender is an open formmail
-RCVD_IN_NJABL_CGI combined.njabl.org 0.001 False 127.0.0.8
+RCVD_IN_NJABL_CGI combined.njabl.org 0.0 False 127.0.0.8
 # HABEAS_ACCREDITED_COI[habeas-firsttrusted] - Habeas Accredited Confirmed Opt-In or Better
 HABEAS_ACCREDITED_COI sa-accredit.habeas.com 0 False 
 # RCVD_IN_BSP_OTHER[bsp-untrusted] - Sender is in Bonded Sender Program (other relay)
@@ -64,24 +64,24 @@ __RCVD_IN_ZEN zen.spamhaus.org 0 False
 # RCVD_IN_MAPS_NML[nml] - Relay in NML, http://www.mail-abuse.org/nml/
 RCVD_IN_MAPS_NML nonconfirm.mail-abuse.org 0.0 False 
 # DNS_FROM_RFC_BOGUSMX[rfci_envfrom] - Envelope sender in bogusmx.rfc-ignorant.org
-DNS_FROM_RFC_BOGUSMX fulldom.rfc-ignorant.org 2.034 True 127.0.0.8
+DNS_FROM_RFC_BOGUSMX fulldom.rfc-ignorant.org 2.125 True 127.0.0.8
 # __RFC_IGNORANT_ENVFROM[rfci_envfrom] - 
 __RFC_IGNORANT_ENVFROM fulldom.rfc-ignorant.org 0 True 
-# RCVD_IN_WHOIS_INVALID[whois-notfirsthop] - CompleteWhois: sender on invalid IP block
-RCVD_IN_WHOIS_INVALID combined-HIB.dnsiplists.completewhois.com 2.151 False 
+# RCVD_IN_WHOIS_INVALID[whois-lastexternal] - CompleteWhois: sender on invalid IP block
+RCVD_IN_WHOIS_INVALID combined-HIB.dnsiplists.completewhois.com 1.199 False 
 # RCVD_IN_NJABL_MULTI[njabl] - NJABL: sent through multi-stage open relay
-RCVD_IN_NJABL_MULTI combined.njabl.org 0.001 False 127.0.0.5
+RCVD_IN_NJABL_MULTI combined.njabl.org 0.0 False 127.0.0.5
 # HABEAS_ACCREDITED_SOI[habeas-firsttrusted] - Habeas Accredited Opt-In or Better
 HABEAS_ACCREDITED_SOI sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[45]\d
 # RCVD_IN_SORBS_SMTP[sorbs] - SORBS: sender is open SMTP relay
-RCVD_IN_SORBS_SMTP dnsbl.sorbs.net 0.001 False 127.0.0.5
-# RCVD_IN_SORBS_DUL[sorbs-notfirsthop] - SORBS: sent directly from dynamic IP address
-RCVD_IN_SORBS_DUL dnsbl.sorbs.net 1.988 False 
+RCVD_IN_SORBS_SMTP dnsbl.sorbs.net 0.0 False 127.0.0.5
+# RCVD_IN_SORBS_DUL[sorbs-lastexternal] - SORBS: sent directly from dynamic IP address
+RCVD_IN_SORBS_DUL dnsbl.sorbs.net 1.615 False 
 # RCVD_IN_NJABL_PROXY[njabl] - NJABL: sender is an open proxy
-RCVD_IN_NJABL_PROXY combined.njabl.org 0.327 False 127.0.0.9
+RCVD_IN_NJABL_PROXY combined.njabl.org 1.693 False 127.0.0.9
 # RCVD_IN_SORBS_ZOMBIE[sorbs] - SORBS: sender is on a hijacked network
-RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.24 False 127.0.0.9
-# RCVD_IN_MAPS_DUL[dialup-notfirsthop] - Relay in DUL, http://www.mail-abuse.org/dul/
+RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.01 False 127.0.0.9
+# RCVD_IN_MAPS_DUL[dialup-lastexternal] - Relay in DUL, http://www.mail-abuse.org/dul/
 RCVD_IN_MAPS_DUL dialups.mail-abuse.org 0.0 False 
 # RCVD_IN_MAPS_RBL[rbl] - Relay in RBL, http://www.mail-abuse.org/rbl/
 RCVD_IN_MAPS_RBL blackholes.mail-abuse.org 0.0 False 
@@ -90,9 +90,9 @@ __DNS_FROM_RFC_WHOIS fulldom.rfc-ignorant.org 0 True 127.0.0.5
 # RCVD_IN_IADB_VOUCHED[iadb-firsttrusted] - ISIPP IADB lists as vouched-for sender
 RCVD_IN_IADB_VOUCHED iadb.isipp.com 0 False ^127.0.1.255$
 # DNS_FROM_SECURITYSAGE[securitysage] - Envelope sender in blackholes.securitysage.com
-DNS_FROM_SECURITYSAGE blackhole.securitysage.com 2.001 True 
+DNS_FROM_SECURITYSAGE blackhole.securitysage.com 0.127 True 
 # RCVD_IN_SORBS_BLOCK[sorbs] - SORBS: sender demands to never be tested
-RCVD_IN_SORBS_BLOCK dnsbl.sorbs.net 0.001 False 127.0.0.8
+RCVD_IN_SORBS_BLOCK dnsbl.sorbs.net 0.0 False 127.0.0.8
 # __DNS_FROM_RFC_ABUSE[rfci_envfrom] - 
 __DNS_FROM_RFC_ABUSE fulldom.rfc-ignorant.org 0 True 127.0.0.4
 # 
@@ -129,7 +129,7 @@ DSBLUNCONFIRMED unconfirmed.dsbl.org 0 False
 DSBLMULTI multihop.dsbl.org 0 False 
 # PSS - Open Socks Servers ()
 PSS pss.spambusters.org.ar 0 False 
-# SSFABEL - networks (mostly in Asia and South America) that keep sending spam (www.spamsources.fabel.dk)
+# SSFABEL - networks (mostly in Asia and South America) that keep sending spam (http://www.spamsources.fabel.dk)
 SSFABEL spamsources.fabel.dk 0 False 
 # WSFF - open relays and more (http://www.rfc1149.net/wsff.phtml)
 WSFF will-spam-for-food.eu.org 0 False 
@@ -137,10 +137,6 @@ WSFF will-spam-for-food.eu.org 0 False
 OPM opm.blitzed.org 0 False 
 # VBL - MessageLabs VBL (http://vbl.messagelabs.com/)
 VBL vbl.messagelabs.com 0 False 
-# EXSILIA-PROXIES - open proxies (small) (http://www.exsilia.net/)
-EXSILIA-PROXIES proxies.exsilia.net 0 False 
-# EXSILIA-SPAM - local bl at exsilia.net (http://www.exsilia.net/)
-EXSILIA-SPAM spam.exsilia.net 0 False 
 # FLOWGO - ip-space assigned to FloNetwork systems ()
 FLOWGO flowgoaway.com 0 False 
 # LNSG - Leadmon.Net\'s SpamGuard Listings (http://www.leadmon.net/spamguard/)
@@ -157,14 +153,12 @@ FIVETEN blackholes.five-ten-sg.com 0 False
 TUBERLIN rblmap.tu-berlin.de 0 False 
 # SPAMBAG - Spambags (http://www.spambag.org)
 SPAMBAG blacklist.spambag.org 0 False 
-# PEOPLTIT - local bl at People.it (http://mail.people.it/)
-PEOPLTIT mail.people.it 0 False 
 # TRIUMF - open relays, open formmail.pl and open proxy (http://andrew.triumf.ca/relaytest.html)
 TRIUMF rbl.triumf.ca 0 False 
 # NOMOREFUNN - local bl at moensted.dk (http://moensted.dk/spam/no-more-funn/)
 NOMOREFUNN no-more-funn.moensted.dk 0 False 
 # LTAMS - OpenLists List Tracking And Monitoring System (http://www.openlists.cjb.net/)
-LTAMS openlists.orbs.org 0 False 
+LTAMS n/a 0 False 
 # KUNDENSE - local bl of kundenserver.de (http://relaytest.kundenserver.de/)
 KUNDENSE relays.bl.kundenserver.de 0 False 
 # PDL - Pan-Am Dynamic List (http://www.pan-am.ca/pdl/)
@@ -279,12 +273,14 @@ BITONLY bitonly.dnsbl.bit.nl 0 False
 BITALL all.dnsbl.bit.nl 0 False 
 # EMAILBASURA - EmailBasura spam received in Spain (http://www.emailbasura.org/)
 EMAILBASURA bl.emailbasura.org 0 False 
-# WPBL - Weighted Private Block List (http://wpbl.pc9.org/)
-WPBL dnsbl.wpbl.pc9.org 0 False 
+# WPBL - Weighted Private Block List (http://www.wpbl.info/)
+WPBL db.wpbl.info 0 False 
 # WOODYBL - Woody\'s private SMTP Blacklist ()
 WOODYBL blacklist.woody.ch 0 False 
 # ZEBL - ZoneEdit Combined Zone level 1 ()
 ZEBL zebl.zoneedit.com 0 False 
+# REGIT64 - Regedit64.net Public DNSBL Service (http://www.regedit64.net/dnsbl/home.aspx)
+REGIT64 dnsbl.regedit64.net 0 False 
 # RBLJPVIRUS - Anti-virus RBL (http://www.rbl.jp/)
 RBLJPVIRUS virus.rbl.jp 0 False 
 # RBLJPSHORT - reject spam sent from ADSL or PPP connections which have dynamic IP addresses (http://www.rbl.jp/)
@@ -301,6 +297,8 @@ IMP-SPAM spamrbl.imp.ch 0 False
 SWINOG dnsrbl.swinog.ch 0 False 
 # T-FWL - The Trusted Forwarder SPF Global Whitelist (http://www.trusted-forwarder.org/)
 T-FWL wl.trusted-forwarder.org 0 False 
+# DNSWL - DNS Whitelist – Protect against false positives (http://www.dnswl.org/)
+DNSWL list.dnswl.org 0 False 
 # EFNET - EFnet RBL (http://rbl.efnet.org/)
 EFNET rbl.efnet.org 0 False 
 # INTERSERVER - Checks multiple spam traps and blocks the IPs of the sender to those email addresses. (http://rbl.interserver.net/)
@@ -427,6 +425,8 @@ UCEPROTECTL1 dnsbl-1.uceprotect.net 0 False
 UCEPROTECTL2 dnsbl-2.uceprotect.net 0 False 
 # UCEPROTECTL3 - UCEPROTECT®-Network Project - Level 3 (http://www.uceprotect.net/en/index.php?m=3&s=5)
 UCEPROTECTL3 dnsbl-3.uceprotect.net 0 False 
+# APEWS - Anonymous Postmasters Early Warning System (http://apews.org/)
+APEWS l2.apews.dnsbl.uceprotect.net 0 False 
 # ARIXDICTFRESH - Recent dictionary spammer (http://nospam.arix.com/dns.php)
 ARIXDICTFRESH fresh.dict.rbl.arix.com 0 False 
 # ARIXDICTSTALE - Sender has a history of dictionary spamming (http://nospam.arix.com/dns.php)
@@ -477,6 +477,8 @@ SORBSDUL dul.dnsbl.sorbs.net 0 False
 SORBSSPEWS-L1 l1.spews.dnsbl.sorbs.net 0 False 
 # SORBSSPEWS-L2 - Spam Prevention Early Warning System - Level 2 Mirror (http://dnsbl.sorbs.net/)
 SORBSSPEWS-L2 l2.spews.dnsbl.sorbs.net 0 False 
+# SORBSAPEWS - Anonymous Postmasters Early Warning System (http://apews.org/)
+SORBSAPEWS l2.apews.dnsbl.sorbs.net 0 False 
 # TQM3 - TQMcube real time blacklists (http://www.tqmcube.com/)
 TQM3 dnsbl.tqmcube.com 0 False 
 # TQM3DYN - TQMcube Dynamic Ranges (http://www.tqmcube.com/)
@@ -1159,6 +1161,350 @@ COMPLEATEHIB combined-HIB.dnsiplists.completewhois.com 0 False
 BOGON bogons.cymru.com 0 False 
 # KOREA - ip-space assigned to KRNIC (http://www.iecc.com/korea.html)
 KOREA korea.services.net 0 False 
+# CLUE-UN - ip-space assigned to Unknown Country (http://www.cluecentral.net/rbl/)
+CLUE-UN un.rbl.cluecentral.net 0 False 
+# CLUE-AD - ip-space assigned to Andorra (http://www.cluecentral.net/rbl/)
+CLUE-AD ad.rbl.cluecentral.net 0 False 
+# CLUE-AE - ip-space assigned to United Arab Emirates (http://www.cluecentral.net/rbl/)
+CLUE-AE ae.rbl.cluecentral.net 0 False 
+# CLUE-AG - ip-space assigned to Antigua and Barbuda (http://www.cluecentral.net/rbl/)
+CLUE-AG ag.rbl.cluecentral.net 0 False 
+# CLUE-AL - ip-space assigned to Albania (http://www.cluecentral.net/rbl/)
+CLUE-AL al.rbl.cluecentral.net 0 False 
+# CLUE-AM - ip-space assigned to Armenia (http://www.cluecentral.net/rbl/)
+CLUE-AM am.rbl.cluecentral.net 0 False 
+# CLUE-AN - ip-space assigned to Netherlands Antilles (http://www.cluecentral.net/rbl/)
+CLUE-AN an.rbl.cluecentral.net 0 False 
+# CLUE-AO - ip-space assigned to Angola (http://www.cluecentral.net/rbl/)
+CLUE-AO ao.rbl.cluecentral.net 0 False 
+# CLUE-AP - ip-space assigned in Asia Pacific area (http://www.cluecentral.net/rbl/)
+CLUE-AP ap.rbl.cluecentral.net 0 False 
+# CLUE-AR - ip-space assigned to Argentina (http://www.cluecentral.net/rbl/)
+CLUE-AR ar.rbl.cluecentral.net 0 False 
+# CLUE-AS - ip-space assigned to American Samoa (http://www.cluecentral.net/rbl/)
+CLUE-AS as.rbl.cluecentral.net 0 False 
+# CLUE-AT - ip-space assigned to Austria (http://www.cluecentral.net/rbl/)
+CLUE-AT at.rbl.cluecentral.net 0 False 
+# CLUE-AU - ip-space assigned to Australia (http://www.cluecentral.net/rbl/)
+CLUE-AU au.rbl.cluecentral.net 0 False 
+# CLUE-AW - ip-space assigned to Aruba (http://www.cluecentral.net/rbl/)
+CLUE-AW aw.rbl.cluecentral.net 0 False 
+# CLUE-AZ - ip-space assigned to Azerbaijan (http://www.cluecentral.net/rbl/)
+CLUE-AZ az.rbl.cluecentral.net 0 False 
+# CLUE-BA - ip-space assigned to Bosnia and Herzegovina (http://www.cluecentral.net/rbl/)
+CLUE-BA ba.rbl.cluecentral.net 0 False 
+# CLUE-BB - ip-space assigned to Barbados (http://www.cluecentral.net/rbl/)
+CLUE-BB bb.rbl.cluecentral.net 0 False 
+# CLUE-BD - ip-space assigned to Bangladesh (http://www.cluecentral.net/rbl/)
+CLUE-BD bd.rbl.cluecentral.net 0 False 
+# CLUE-BE - ip-space assigned to Belgium (http://www.cluecentral.net/rbl/)
+CLUE-BE be.rbl.cluecentral.net 0 False 
+# CLUE-BF - ip-space assigned to Burkina Faso (http://www.cluecentral.net/rbl/)
+CLUE-BF bf.rbl.cluecentral.net 0 False 
+# CLUE-BG - ip-space assigned to Bulgaria (http://www.cluecentral.net/rbl/)
+CLUE-BG bg.rbl.cluecentral.net 0 False 
+# CLUE-BH - ip-space assigned to Bahrain (http://www.cluecentral.net/rbl/)
+CLUE-BH bh.rbl.cluecentral.net 0 False 
+# CLUE-BJ - ip-space assigned to Benin (http://www.cluecentral.net/rbl/)
+CLUE-BJ bj.rbl.cluecentral.net 0 False 
+# CLUE-BM - ip-space assigned to Bermuda (http://www.cluecentral.net/rbl/)
+CLUE-BM bm.rbl.cluecentral.net 0 False 
+# CLUE-BN - ip-space assigned to Brunei Darussalam (http://www.cluecentral.net/rbl/)
+CLUE-BN bn.rbl.cluecentral.net 0 False 
+# CLUE-BO - ip-space assigned to Bolivia (http://www.cluecentral.net/rbl/)
+CLUE-BO bo.rbl.cluecentral.net 0 False 
+# CLUE-BR - ip-space assigned to Brazil (http://www.cluecentral.net/rbl/)
+CLUE-BR br.rbl.cluecentral.net 0 False 
+# CLUE-BS - ip-space assigned to Bahamas (http://www.cluecentral.net/rbl/)
+CLUE-BS bs.rbl.cluecentral.net 0 False 
+# CLUE-BT - ip-space assigned to Bhutan (http://www.cluecentral.net/rbl/)
+CLUE-BT bt.rbl.cluecentral.net 0 False 
+# CLUE-BW - ip-space assigned to Botswana (http://www.cluecentral.net/rbl/)
+CLUE-BW bw.rbl.cluecentral.net 0 False 
+# CLUE-BY - ip-space assigned to Belarus (http://www.cluecentral.net/rbl/)
+CLUE-BY by.rbl.cluecentral.net 0 False 
+# CLUE-BZ - ip-space assigned to Belize (http://www.cluecentral.net/rbl/)
+CLUE-BZ bz.rbl.cluecentral.net 0 False 
+# CLUE-CA - ip-space assigned to Canada (http://www.cluecentral.net/rbl/)
+CLUE-CA ca.rbl.cluecentral.net 0 False 
+# CLUE-CH - ip-space assigned to Switzerland (http://www.cluecentral.net/rbl/)
+CLUE-CH ch.rbl.cluecentral.net 0 False 
+# CLUE-CK - ip-space assigned to Cook Islands (http://www.cluecentral.net/rbl/)
+CLUE-CK ck.rbl.cluecentral.net 0 False 
+# CLUE-CL - ip-space assigned to Chile (http://www.cluecentral.net/rbl/)
+CLUE-CL cl.rbl.cluecentral.net 0 False 
+# CLUE-CM - ip-space assigned to Cameroon (http://www.cluecentral.net/rbl/)
+CLUE-CM cm.rbl.cluecentral.net 0 False 
+# CLUE-CN - ip-space assigned to China (http://www.cluecentral.net/rbl/)
+CLUE-CN cn.rbl.cluecentral.net 0 False 
+# CLUE-CO - ip-space assigned to Colombia (http://www.cluecentral.net/rbl/)
+CLUE-CO co.rbl.cluecentral.net 0 False 
+# CLUE-CR - ip-space assigned to Costa Rica (http://www.cluecentral.net/rbl/)
+CLUE-CR cr.rbl.cluecentral.net 0 False 
+# CLUE-CU - ip-space assigned to Cuba (http://www.cluecentral.net/rbl/)
+CLUE-CU cu.rbl.cluecentral.net 0 False 
+# CLUE-CY - ip-space assigned to Cyprus (http://www.cluecentral.net/rbl/)
+CLUE-CY cy.rbl.cluecentral.net 0 False 
+# CLUE-CZ - ip-space assigned to Czech Republic (http://www.cluecentral.net/rbl/)
+CLUE-CZ cz.rbl.cluecentral.net 0 False 
+# CLUE-DE - ip-space assigned to Germany (http://www.cluecentral.net/rbl/)
+CLUE-DE de.rbl.cluecentral.net 0 False 
+# CLUE-DK - ip-space assigned to Denmark (http://www.cluecentral.net/rbl/)
+CLUE-DK dk.rbl.cluecentral.net 0 False 
+# CLUE-DM - ip-space assigned to Dominica (http://www.cluecentral.net/rbl/)
+CLUE-DM dm.rbl.cluecentral.net 0 False 
+# CLUE-DO - ip-space assigned to Dominican Republic (http://www.cluecentral.net/rbl/)
+CLUE-DO do.rbl.cluecentral.net 0 False 
+# CLUE-DZ - ip-space assigned to Algeria (http://www.cluecentral.net/rbl/)
+CLUE-DZ dz.rbl.cluecentral.net 0 False 
+# CLUE-EC - ip-space assigned to Ecuador (http://www.cluecentral.net/rbl/)
+CLUE-EC ec.rbl.cluecentral.net 0 False 
+# CLUE-EE - ip-space assigned to Estonia (http://www.cluecentral.net/rbl/)
+CLUE-EE ee.rbl.cluecentral.net 0 False 
+# CLUE-EG - ip-space assigned to Egypt (http://www.cluecentral.net/rbl/)
+CLUE-EG eg.rbl.cluecentral.net 0 False 
+# CLUE-ES - ip-space assigned to Spain (http://www.cluecentral.net/rbl/)
+CLUE-ES es.rbl.cluecentral.net 0 False 
+# CLUE-ET - ip-space assigned to Ethiopia (http://www.cluecentral.net/rbl/)
+CLUE-ET et.rbl.cluecentral.net 0 False 
+# CLUE-EU - ip-space assigned in Europa (http://www.cluecentral.net/rbl/)
+CLUE-EU eu.rbl.cluecentral.net 0 False 
+# CLUE-FI - ip-space assigned to Finland (http://www.cluecentral.net/rbl/)
+CLUE-FI fi.rbl.cluecentral.net 0 False 
+# CLUE-FJ - ip-space assigned to Fiji (http://www.cluecentral.net/rbl/)
+CLUE-FJ fj.rbl.cluecentral.net 0 False 
+# CLUE-FM - ip-space assigned to Micronesia, Federated States of (http://www.cluecentral.net/rbl/)
+CLUE-FM fm.rbl.cluecentral.net 0 False 
+# CLUE-FO - ip-space assigned to Faroe Islands (http://www.cluecentral.net/rbl/)
+CLUE-FO fo.rbl.cluecentral.net 0 False 
+# CLUE-FR - ip-space assigned to France (http://www.cluecentral.net/rbl/)
+CLUE-FR fr.rbl.cluecentral.net 0 False 
+# CLUE-GA - ip-space assigned to Gabon (http://www.cluecentral.net/rbl/)
+CLUE-GA ga.rbl.cluecentral.net 0 False 
+# CLUE-GD - ip-space assigned to Grenada (http://www.cluecentral.net/rbl/)
+CLUE-GD gd.rbl.cluecentral.net 0 False 
+# CLUE-GE - ip-space assigned to Georgia (http://www.cluecentral.net/rbl/)
+CLUE-GE ge.rbl.cluecentral.net 0 False 
+# CLUE-GH - ip-space assigned to Ghana (http://www.cluecentral.net/rbl/)
+CLUE-GH gh.rbl.cluecentral.net 0 False 
+# CLUE-GI - ip-space assigned to Gibraltar (http://www.cluecentral.net/rbl/)
+CLUE-GI gi.rbl.cluecentral.net 0 False 
+# CLUE-GL - ip-space assigned to Greenland (http://www.cluecentral.net/rbl/)
+CLUE-GL gl.rbl.cluecentral.net 0 False 
+# CLUE-GM - ip-space assigned to Gambia (http://www.cluecentral.net/rbl/)
+CLUE-GM gm.rbl.cluecentral.net 0 False 
+# CLUE-GP - ip-space assigned to Guadeloupe (http://www.cluecentral.net/rbl/)
+CLUE-GP gp.rbl.cluecentral.net 0 False 
+# CLUE-GR - ip-space assigned to Greece (http://www.cluecentral.net/rbl/)
+CLUE-GR gr.rbl.cluecentral.net 0 False 
+# CLUE-GT - ip-space assigned to Guatemala (http://www.cluecentral.net/rbl/)
+CLUE-GT gt.rbl.cluecentral.net 0 False 
+# CLUE-GU - ip-space assigned to Guam (http://www.cluecentral.net/rbl/)
+CLUE-GU gu.rbl.cluecentral.net 0 False 
+# CLUE-GY - ip-space assigned to Guyana (http://www.cluecentral.net/rbl/)
+CLUE-GY gy.rbl.cluecentral.net 0 False 
+# CLUE-HK - ip-space assigned to Hong Kong (http://www.cluecentral.net/rbl/)
+CLUE-HK hk.rbl.cluecentral.net 0 False 
+# CLUE-HN - ip-space assigned to Honduras (http://www.cluecentral.net/rbl/)
+CLUE-HN hn.rbl.cluecentral.net 0 False 
+# CLUE-HR - ip-space assigned to Croatia (http://www.cluecentral.net/rbl/)
+CLUE-HR hr.rbl.cluecentral.net 0 False 
+# CLUE-HT - ip-space assigned to Haiti (http://www.cluecentral.net/rbl/)
+CLUE-HT ht.rbl.cluecentral.net 0 False 
+# CLUE-HU - ip-space assigned to Hungary (http://www.cluecentral.net/rbl/)
+CLUE-HU hu.rbl.cluecentral.net 0 False 
+# CLUE-ID - ip-space assigned to Indonesia (http://www.cluecentral.net/rbl/)
+CLUE-ID id.rbl.cluecentral.net 0 False 
+# CLUE-IE - ip-space assigned to Ireland (http://www.cluecentral.net/rbl/)
+CLUE-IE ie.rbl.cluecentral.net 0 False 
+# CLUE-IL - ip-space assigned to Israel (http://www.cluecentral.net/rbl/)
+CLUE-IL il.rbl.cluecentral.net 0 False 
+# CLUE-IN - ip-space assigned to India (http://www.cluecentral.net/rbl/)
+CLUE-IN in.rbl.cluecentral.net 0 False 
+# CLUE-IO - ip-space assigned to British Indian Ocean Territory (http://www.cluecentral.net/rbl/)
+CLUE-IO io.rbl.cluecentral.net 0 False 
+# CLUE-IR - ip-space assigned to Iran, Islamic Republic of (http://www.cluecentral.net/rbl/)
+CLUE-IR ir.rbl.cluecentral.net 0 False 
+# CLUE-IS - ip-space assigned to Iceland (http://www.cluecentral.net/rbl/)
+CLUE-IS is.rbl.cluecentral.net 0 False 
+# CLUE-IT - ip-space assigned to Italy (http://www.cluecentral.net/rbl/)
+CLUE-IT it.rbl.cluecentral.net 0 False 
+# CLUE-JM - ip-space assigned to Jamaica (http://www.cluecentral.net/rbl/)
+CLUE-JM jm.rbl.cluecentral.net 0 False 
+# CLUE-JO - ip-space assigned to Jordan (http://www.cluecentral.net/rbl/)
+CLUE-JO jo.rbl.cluecentral.net 0 False 
+# CLUE-JP - ip-space assigned to Japan (http://www.cluecentral.net/rbl/)
+CLUE-JP jp.rbl.cluecentral.net 0 False 
+# CLUE-KE - ip-space assigned to Kenya (http://www.cluecentral.net/rbl/)
+CLUE-KE ke.rbl.cluecentral.net 0 False 
+# CLUE-KG - ip-space assigned to Kyrgyzstan (http://www.cluecentral.net/rbl/)
+CLUE-KG kg.rbl.cluecentral.net 0 False 
+# CLUE-KH - ip-space assigned to Cambodia (http://www.cluecentral.net/rbl/)
+CLUE-KH kh.rbl.cluecentral.net 0 False 
+# CLUE-KN - ip-space assigned to Saint Kitts and Nevis (http://www.cluecentral.net/rbl/)
+CLUE-KN kn.rbl.cluecentral.net 0 False 
+# CLUE-KR - ip-space assigned to Korea, Republic of (http://www.cluecentral.net/rbl/)
+CLUE-KR kr.rbl.cluecentral.net 0 False 
+# CLUE-KW - ip-space assigned to Kuwait (http://www.cluecentral.net/rbl/)
+CLUE-KW kw.rbl.cluecentral.net 0 False 
+# CLUE-KY - ip-space assigned to Cayman Islands (http://www.cluecentral.net/rbl/)
+CLUE-KY ky.rbl.cluecentral.net 0 False 
+# CLUE-KZ - ip-space assigned to Kazakhstan (http://www.cluecentral.net/rbl/)
+CLUE-KZ kz.rbl.cluecentral.net 0 False 
+# CLUE-LA - ip-space assigned to Lao People\'s Democratic Republic (http://www.cluecentral.net/rbl/)
+CLUE-LA la.rbl.cluecentral.net 0 False 
+# CLUE-LB - ip-space assigned to Lebanon (http://www.cluecentral.net/rbl/)
+CLUE-LB lb.rbl.cluecentral.net 0 False 
+# CLUE-LI - ip-space assigned to Liechtenstein (http://www.cluecentral.net/rbl/)
+CLUE-LI li.rbl.cluecentral.net 0 False 
+# CLUE-LK - ip-space assigned to Sri Lanka (http://www.cluecentral.net/rbl/)
+CLUE-LK lk.rbl.cluecentral.net 0 False 
+# CLUE-LS - ip-space assigned to Lesotho (http://www.cluecentral.net/rbl/)
+CLUE-LS ls.rbl.cluecentral.net 0 False 
+# CLUE-LT - ip-space assigned to Lithuania (http://www.cluecentral.net/rbl/)
+CLUE-LT lt.rbl.cluecentral.net 0 False 
+# CLUE-LU - ip-space assigned to Luxembourg (http://www.cluecentral.net/rbl/)
+CLUE-LU lu.rbl.cluecentral.net 0 False 
+# CLUE-LV - ip-space assigned to Latvia (http://www.cluecentral.net/rbl/)
+CLUE-LV lv.rbl.cluecentral.net 0 False 
+# CLUE-LY - ip-space assigned to Libyan Arab Jamahiriya (http://www.cluecentral.net/rbl/)
+CLUE-LY ly.rbl.cluecentral.net 0 False 
+# CLUE-MA - ip-space assigned to Morocco (http://www.cluecentral.net/rbl/)
+CLUE-MA ma.rbl.cluecentral.net 0 False 
+# CLUE-MD - ip-space assigned to Moldova, Republic of (http://www.cluecentral.net/rbl/)
+CLUE-MD md.rbl.cluecentral.net 0 False 
+# CLUE-MK - ip-space assigned to Macedonia, the Former Yugoslav Republic of (http://www.cluecentral.net/rbl/)
+CLUE-MK mk.rbl.cluecentral.net 0 False 
+# CLUE-ML - ip-space assigned to Mali (http://www.cluecentral.net/rbl/)
+CLUE-ML ml.rbl.cluecentral.net 0 False 
+# CLUE-MM - ip-space assigned to Myanmar (http://www.cluecentral.net/rbl/)
+CLUE-MM mm.rbl.cluecentral.net 0 False 
+# CLUE-MN - ip-space assigned to Mongolia (http://www.cluecentral.net/rbl/)
+CLUE-MN mn.rbl.cluecentral.net 0 False 
+# CLUE-MO - ip-space assigned to Macao (http://www.cluecentral.net/rbl/)
+CLUE-MO mo.rbl.cluecentral.net 0 False 
+# CLUE-MP - ip-space assigned to Northern Mariana Islands (http://www.cluecentral.net/rbl/)
+CLUE-MP mp.rbl.cluecentral.net 0 False 
+# CLUE-MT - ip-space assigned to Malta (http://www.cluecentral.net/rbl/)
+CLUE-MT mt.rbl.cluecentral.net 0 False 
+# CLUE-MU - ip-space assigned to Mauritius (http://www.cluecentral.net/rbl/)
+CLUE-MU mu.rbl.cluecentral.net 0 False 
+# CLUE-MV - ip-space assigned to Maldives (http://www.cluecentral.net/rbl/)
+CLUE-MV mv.rbl.cluecentral.net 0 False 
+# CLUE-MX - ip-space assigned to Mexico (http://www.cluecentral.net/rbl/)
+CLUE-MX mx.rbl.cluecentral.net 0 False 
+# CLUE-MY - ip-space assigned to Malaysia (http://www.cluecentral.net/rbl/)
+CLUE-MY my.rbl.cluecentral.net 0 False 
+# CLUE-NA - ip-space assigned to Namibia (http://www.cluecentral.net/rbl/)
+CLUE-NA na.rbl.cluecentral.net 0 False 
+# CLUE-NC - ip-space assigned to New Caledonia (http://www.cluecentral.net/rbl/)
+CLUE-NC nc.rbl.cluecentral.net 0 False 
+# CLUE-NG - ip-space assigned to Nigeria (http://www.cluecentral.net/rbl/)
+CLUE-NG ng.rbl.cluecentral.net 0 False 
+# CLUE-NI - ip-space assigned to Nicaragua (http://www.cluecentral.net/rbl/)
+CLUE-NI ni.rbl.cluecentral.net 0 False 
+# CLUE-NL - ip-space assigned to Netherlands (http://www.cluecentral.net/rbl/)
+CLUE-NL nl.rbl.cluecentral.net 0 False 
+# CLUE-NO - ip-space assigned to Norway (http://www.cluecentral.net/rbl/)
+CLUE-NO no.rbl.cluecentral.net 0 False 
+# CLUE-NP - ip-space assigned to Nepal (http://www.cluecentral.net/rbl/)
+CLUE-NP np.rbl.cluecentral.net 0 False 
+# CLUE-NU - ip-space assigned to Niue (http://www.cluecentral.net/rbl/)
+CLUE-NU nu.rbl.cluecentral.net 0 False 
+# CLUE-NZ - ip-space assigned to New Zealand (http://www.cluecentral.net/rbl/)
+CLUE-NZ nz.rbl.cluecentral.net 0 False 
+# CLUE-PA - ip-space assigned to Panama (http://www.cluecentral.net/rbl/)
+CLUE-PA pa.rbl.cluecentral.net 0 False 
+# CLUE-PE - ip-space assigned to Peru (http://www.cluecentral.net/rbl/)
+CLUE-PE pe.rbl.cluecentral.net 0 False 
+# CLUE-PF - ip-space assigned to French Polynesia (http://www.cluecentral.net/rbl/)
+CLUE-PF pf.rbl.cluecentral.net 0 False 
+# CLUE-PG - ip-space assigned to Papua New Guinea (http://www.cluecentral.net/rbl/)
+CLUE-PG pg.rbl.cluecentral.net 0 False 
+# CLUE-PH - ip-space assigned to Philippines (http://www.cluecentral.net/rbl/)
+CLUE-PH ph.rbl.cluecentral.net 0 False 
+# CLUE-PK - ip-space assigned to Pakistan (http://www.cluecentral.net/rbl/)
+CLUE-PK pk.rbl.cluecentral.net 0 False 
+# CLUE-PL - ip-space assigned to Poland (http://www.cluecentral.net/rbl/)
+CLUE-PL pl.rbl.cluecentral.net 0 False 
+# CLUE-PR - ip-space assigned to Puerto Rico (http://www.cluecentral.net/rbl/)
+CLUE-PR pr.rbl.cluecentral.net 0 False 
+# CLUE-PS - ip-space assigned to Palestinian Territory, Occupied (http://www.cluecentral.net/rbl/)
+CLUE-PS ps.rbl.cluecentral.net 0 False 
+# CLUE-PT - ip-space assigned to Portugal (http://www.cluecentral.net/rbl/)
+CLUE-PT pt.rbl.cluecentral.net 0 False 
+# CLUE-PW - ip-space assigned to Palau (http://www.cluecentral.net/rbl/)
+CLUE-PW pw.rbl.cluecentral.net 0 False 
+# CLUE-PY - ip-space assigned to Paraguay (http://www.cluecentral.net/rbl/)
+CLUE-PY py.rbl.cluecentral.net 0 False 
+# CLUE-RO - ip-space assigned to Romania (http://www.cluecentral.net/rbl/)
+CLUE-RO ro.rbl.cluecentral.net 0 False 
+# CLUE-RU - ip-space assigned to Russian Federation (http://www.cluecentral.net/rbl/)
+CLUE-RU ru.rbl.cluecentral.net 0 False 
+# CLUE-SA - ip-space assigned to Saudi Arabia (http://www.cluecentral.net/rbl/)
+CLUE-SA sa.rbl.cluecentral.net 0 False 
+# CLUE-SD - ip-space assigned to Sudan (http://www.cluecentral.net/rbl/)
+CLUE-SD sd.rbl.cluecentral.net 0 False 
+# CLUE-SE - ip-space assigned to Sweden (http://www.cluecentral.net/rbl/)
+CLUE-SE se.rbl.cluecentral.net 0 False 
+# CLUE-SG - ip-space assigned to Singapore (http://www.cluecentral.net/rbl/)
+CLUE-SG sg.rbl.cluecentral.net 0 False 
+# CLUE-SI - ip-space assigned to Slovenia (http://www.cluecentral.net/rbl/)
+CLUE-SI si.rbl.cluecentral.net 0 False 
+# CLUE-SK - ip-space assigned to Slovakia (http://www.cluecentral.net/rbl/)
+CLUE-SK sk.rbl.cluecentral.net 0 False 
+# CLUE-SM - ip-space assigned to San Marino (http://www.cluecentral.net/rbl/)
+CLUE-SM sm.rbl.cluecentral.net 0 False 
+# CLUE-SV - ip-space assigned to El Salvador (http://www.cluecentral.net/rbl/)
+CLUE-SV sv.rbl.cluecentral.net 0 False 
+# CLUE-SZ - ip-space assigned to Swaziland (http://www.cluecentral.net/rbl/)
+CLUE-SZ sz.rbl.cluecentral.net 0 False 
+# CLUE-TC - ip-space assigned to Turks and Caicos Islands (http://www.cluecentral.net/rbl/)
+CLUE-TC tc.rbl.cluecentral.net 0 False 
+# CLUE-TH - ip-space assigned to Thailand (http://www.cluecentral.net/rbl/)
+CLUE-TH th.rbl.cluecentral.net 0 False 
+# CLUE-TM - ip-space assigned to Turkmenistan (http://www.cluecentral.net/rbl/)
+CLUE-TM tm.rbl.cluecentral.net 0 False 
+# CLUE-TR - ip-space assigned to Turkey (http://www.cluecentral.net/rbl/)
+CLUE-TR tr.rbl.cluecentral.net 0 False 
+# CLUE-TT - ip-space assigned to Trinidad and Tobago (http://www.cluecentral.net/rbl/)
+CLUE-TT tt.rbl.cluecentral.net 0 False 
+# CLUE-TW - ip-space assigned to Taiwan, Province of China (http://www.cluecentral.net/rbl/)
+CLUE-TW tw.rbl.cluecentral.net 0 False 
+# CLUE-TZ - ip-space assigned to Tanzania, United Republic of (http://www.cluecentral.net/rbl/)
+CLUE-TZ tz.rbl.cluecentral.net 0 False 
+# CLUE-UA - ip-space assigned to Ukraine (http://www.cluecentral.net/rbl/)
+CLUE-UA ua.rbl.cluecentral.net 0 False 
+# CLUE-UK - ip-space assigned to United Kingdom (http://www.cluecentral.net/rbl/)
+CLUE-UK uk.rbl.cluecentral.net 0 False 
+# CLUE-US - ip-space assigned to United States (http://www.cluecentral.net/rbl/)
+CLUE-US us.rbl.cluecentral.net 0 False 
+# CLUE-UY - ip-space assigned to Uruguay (http://www.cluecentral.net/rbl/)
+CLUE-UY uy.rbl.cluecentral.net 0 False 
+# CLUE-UZ - ip-space assigned to Uzbekistan (http://www.cluecentral.net/rbl/)
+CLUE-UZ uz.rbl.cluecentral.net 0 False 
+# CLUE-VE - ip-space assigned to Venezuela (http://www.cluecentral.net/rbl/)
+CLUE-VE ve.rbl.cluecentral.net 0 False 
+# CLUE-VI - ip-space assigned to Virgin Islands, U.S. (http://www.cluecentral.net/rbl/)
+CLUE-VI vi.rbl.cluecentral.net 0 False 
+# CLUE-VN - ip-space assigned to Vietnam (http://www.cluecentral.net/rbl/)
+CLUE-VN vn.rbl.cluecentral.net 0 False 
+# CLUE-VU - ip-space assigned to Vanuatu (http://www.cluecentral.net/rbl/)
+CLUE-VU vu.rbl.cluecentral.net 0 False 
+# CLUE-WS - ip-space assigned to Samoa (http://www.cluecentral.net/rbl/)
+CLUE-WS ws.rbl.cluecentral.net 0 False 
+# CLUE-YE - ip-space assigned to Yemen (http://www.cluecentral.net/rbl/)
+CLUE-YE ye.rbl.cluecentral.net 0 False 
+# CLUE-YU - ip-space assigned to Yugoslavia (http://www.cluecentral.net/rbl/)
+CLUE-YU yu.rbl.cluecentral.net 0 False 
+# CLUE-ZA - ip-space assigned to South Africa (http://www.cluecentral.net/rbl/)
+CLUE-ZA za.rbl.cluecentral.net 0 False 
+# CLUE-ZM - ip-space assigned to Zambia (http://www.cluecentral.net/rbl/)
+CLUE-ZM zm.rbl.cluecentral.net 0 False 
+# CLUE-ZW - ip-space assigned to Zimbabwe (http://www.cluecentral.net/rbl/)
+CLUE-ZW zw.rbl.cluecentral.net 0 False 
+# CLUE-ASN - a listing by announcing ASN (http://www.cluecentral.net/rbl/)
+CLUE-ASN ASnumber.rbl.cluecentral.net 0 False 
 # NERD-AD - ip-space assigned to Andorra (http://countries.nerd.dk/)
 NERD-AD ad.countries.nerd.dk 0 False 
 # NERD-AE - ip-space assigned to United Arab Emirates (http://countries.nerd.dk/)

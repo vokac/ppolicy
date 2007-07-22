@@ -188,6 +188,7 @@ class ListDyn(Base):
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
             cursor.close()
+            conn.commit()
         except Exception, e:
             cursor.close()
             raise e
@@ -334,6 +335,7 @@ class ListDyn(Base):
                 retCode = 1
 
             cursor.close()
+            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

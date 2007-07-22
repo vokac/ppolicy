@@ -37,6 +37,7 @@ config = {
     'ppolicyPort'  : 10030,
     'commandPort'  : 10031,
     'cacheSize'    : 10000,
+    'connLimit'    : 100,
     'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
     'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
     'check'        : lambda x, y, z: ('dunno', ''),
@@ -52,7 +53,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.6.5-8")
+logging.getLogger().info("version: 2.6.6-6")
 
 # Import Psyco if available
 try:
@@ -90,6 +91,7 @@ def read_config(signum, frame):
 
 
     # get configuration from config file
+    logging.getLogger().info("reading configuration from %s" % config['configFile'])
     for key in dir(ppolicy_config):
         if key[:2] == '__': continue
         val = getattr(ppolicy_config, key)
@@ -100,7 +102,7 @@ def read_config(signum, frame):
             logging.getLogger().warn("Unknown configuration option: %s" % key)
 
     logging.getLogger().setLevel(config['logLevel'])
-    logging.getLogger().info("reading configuration from %s" % config['configFile'])
+    logging.getLogger().info("current configuration: %s" % config)
 
 
 # reload configuration on SIGHUP

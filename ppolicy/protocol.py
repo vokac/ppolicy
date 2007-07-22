@@ -13,7 +13,7 @@ import sys, time, string, gc, resource
 import logging
 import threading
 import traceback
-from twisted.internet import reactor, protocol, interfaces
+from twisted.internet import reactor, protocol, interfaces, threads
 from twisted.enterprise import adbapi
 from twisted.protocols.basic import LineReceiver
 
@@ -33,6 +33,7 @@ class CommandProtocol(LineReceiver):
     COMMANDS = [ "quit" ]
 
     def __init__(self):
+        self.factory = None # set by buildProtocol
         self.cmd = ''
         self.stdoutOrig = sys.stdout
         self.stdoutRedir = Redirect()
@@ -102,7 +103,7 @@ class CommandProtocol(LineReceiver):
         sys.stdout = self.stdoutOrig
 
 
-class CommandFactory(protocol.Factory):
+class CommandFactory(protocol.ServerFactory):
 
     protocol = CommandProtocol
 
@@ -116,7 +117,7 @@ class CommandFactory(protocol.Factory):
         pass
 
 
-class PPolicyFactory:
+class PPolicyFactory(protocol.ServerFactory):
 
     """This is a factory which produces protocols."""
 
@@ -130,9 +131,9 @@ class PPolicyFactory:
 
 
     def __initConfig(self, config):
-        self.numPorts = 0
         self.numProtocols = 0
-        self.dbConnPool = None
+        self.numProtocolsId = 0
+        self.dbPool = None
         self.config = config
         self.modules = {}
         self.__addChecks(self.getConfig('modules'))
@@ -143,23 +144,30 @@ class PPolicyFactory:
 
     def reload(self, config = None):
         # FIXME: Implement factrory reloading
-        self.doStop() # FIXME: stop all "check" before doing "__stopCheck"
+        self.stopFactory() # FIXME: stop all "check" before doing "__stopCheck"
         if config == None:
             config = self.config
         self.__initConfig(config)
-        self.doStart()
+        self.startFactory()
 
 
-    def getDbConnection(self):
+    def getDbPool(self):
         if self.config.get('databaseAPI') == None:
            raise Exception("undefined databaseAPI")
 
-        if self.dbConnPool == None:
-            self.dbConnPool = adbapi.ConnectionPool(self.config.get('databaseAPI'),
-                                                    **self.config.get('database'))
-            self.dbConnPool.start()
+        if self.dbPool == None:
+            self.dbPool = adbapi.ConnectionPool(self.config.get('databaseAPI'),
+                                                **self.config.get('database'))
+#            self.dbPool.start()
+        return self.dbPool
 
-        return self.dbConnPool.connect()
+
+    def getDbConnection(self):
+        return self.getDbPool().connect()
+
+
+    def releaseDbConnection(self, conn):
+        return self.getDbPool().disconnect(conn)
 
 
     def getConfig(self, key, default = None):
@@ -324,104 +332,76 @@ class PPolicyFactory:
         self.cacheLock.release()
 
 
-    def doStart(self):
-	"""Make sure startFactory is called."""
-	if not self.numPorts:
-            logging.getLogger().info("Starting factory %s" % self)
-	    self.startFactory()
-	self.numPorts = self.numPorts + 1
+    def startFactory(self):
+        """Called once."""
+        logging.getLogger().info("Starting factory %s" % self)
         self.__startChecks()
 
 
-    def doStop(self):
-        """Make sure stopFactory is called."""
-	assert self.numPorts > 0
-	self.numPorts = self.numPorts - 1
+    def stopFactory(self):
+        """Called once."""
+        logging.getLogger().info("Stopping factory %s" % self)
         self.__stopChecks()
-	if not self.numPorts:
-            logging.getLogger().info("Stopping factory %s" % self)
-	    self.stopFactory()
+        if self.dbPool != None and self.dbPool.running == 1:
+            self.dbPool.close()
         if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
             gc.collect()
             logging.getLogger().debug("gc: %s" % len(gc.get_objects()))
             logging.getLogger().debug("gc: %s" % gc.get_objects())
 
 
-    def startFactory(self):
-        """Called once."""
-        pass
-
-
-    def stopFactory(self):
-        """Called once."""
-        if self.dbConnPool != None and self.dbConnPool.running == 1:
-            self.dbConnPool.close()
-
-
-    def buildProtocol(self, addr):
-	return self.protocol(self)
-
-
 
 class PPolicyRequest(protocol.Protocol):
 
-    CONN_LIMIT = 100
+
+    def __init__(self):
+        logging.getLogger().debug("PPolicyRequest.__init__()")
+        self.factory = None
+        # self.factory = factory - this is set in protocol.Factory by buildProtocol
+        self.check = None
+        self.connOpen = False
+        self.connLimit = 100
+        self.returnOnFatalError = ('dunno', None)
+        self.returnOnConnLimit = ('dunno', None)
+        self.numProtocolsId = -1
 
 
-    def __init__(self, factory):
-        self.factory = factory
-        self.check = factory.getConfig('check')
-        self.returnOnFatalError = factory.getConfig('returnOnFatalError', ('dunno', None))
-        self.returnOnConnLimit = factory.getConfig('returnOnConnLimit', ('dunno', None))
-	self.finished = False
+    def __del__(self):
+        logging.getLogger().debug("PPolicyRequest.__del__()")
 
 
     def connectionMade(self):
         self.factory.numProtocols += 1
-        logging.getLogger().debug("connection #%s made" % self.factory.numProtocols)
-        if self.factory.numProtocols > self.CONN_LIMIT:
-            logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.CONN_LIMIT)
-            dataResponse(self.transport, self.returnOnConnLimit[0], self.returnOnConnLimit[1])
+        self.factory.numProtocolsId += 1
+        self.numProtocolsId = self.factory.numProtocolsId
+        logging.getLogger().debug("connection id %s" % self.numProtocolsId)
+        self.connOpen = True
+
+        self.check = self.factory.getConfig('check')
+        self.connLimit = self.factory.getConfig('connLimit', 100)
+        self.returnOnFatalError = self.factory.getConfig('returnOnFatalError', ('dunno', None))
+        self.returnOnConnLimit = self.factory.getConfig('returnOnConnLimit', ('dunno', None))
+
+        if self.factory.numProtocols > self.connLimit:
+            logging.getLogger().error("connection limit (%s) reached, returning dunno" % self.connLimit)
+            self.dataResponse(self.returnOnConnLimit[0], self.returnOnConnLimit[1])
             #self.transport.writeSomeData("Too many connections, try later") 
             self.transport.loseConnection()
 
 
     def connectionLost(self, reason):
-        logging.getLogger().debug("connection %s lost: %s" % (self.factory.numProtocols, reason))
+        logging.getLogger().debug("connection id %s lost: %s" % (self.numProtocolsId, reason))
+        self.connOpen = False
         self.factory.numProtocols -= 1
 
 
     def dataReceived(self, data):
-        """Receive data and process them in new thread"""
-        # XXXXX: callInThread doesn't release resources?!
-        #        or it is resouce leak when creating/releasing connection?
-        #reactor.callInThread(self.dataProcess, data)
-        # replaced with following Thread class - it is not so effective,
-        # because it doesn't use thread pool, but it doesn't leak resources
-        PPolicyRequestThread(self.factory, data, self.transport).start()
-
-
-
-class PPolicyRequestThread(threading.Thread):
-
-    def __init__ (self, factory, data, transport):
-        threading.Thread.__init__(self)
-        self.factory = factory
-        self.check = factory.getConfig('check')
-        self.returnOnFatalError = factory.getConfig('returnOnFatalError', ('dunno', None))
-        self.returnOnConnLimit = factory.getConfig('returnOnConnLimit', ('dunno', None))
-        self.data = data
-        self.transport = transport
-
-
-    #def dataProcess(self, data): # XXXXX: old usage in PPolicyRequest
-    def run(self):
         """Parse data, call check method from config file and return results."""
         startTime = time.time()
         reqid = "unknown%i" % startTime
-        try:
-            #parsedData = self.__parseData(data) # XXXXX: old usage in PPolicyRequest
-            parsedData = self.__parseData(self.data)
+
+        def checkDeferred(data):
+            parsedData = self.__parseData(data)
             if parsedData != None:
                 if not parsedData.has_key('resource_start_time'):
                     parsedData['resource_start_time'] = startTime
@@ -441,15 +421,23 @@ class PPolicyRequestThread(threading.Thread):
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
-                dataResponse(self.transport, action, actionEx)
+                return action, actionEx
             else:
                 # default return action for garbage?
-                dataResponse(self.transport)
-        except Exception, err:
-            logging.getLogger().error("%s uncatched exception: %s" % (reqid, str(err)))
-            exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
-            logging.getLogger().error("%s" % traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
-            dataResponse(self.transport, self.returnOnFatalError[0], self.returnOnFatalError[1])
+                return None, None
+
+        def checkDeferredCallback(data):
+            self.dataResponse(data[0], data[1])
+
+        def checkDeferredErrback(err):
+            logging.getLogger().error("%s uncatched exception for connection id %s: %s" % (reqid, self.numProtocolsId, err.getErrorMessage()))
+            logging.getLogger().error(str(err.getTraceback()))
+            self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
+
+        # handle data in new thread and return results using deferred
+        d = threads.deferToThread(checkDeferred, data)
+        d.addCallback(checkDeferredCallback)
+        d.addErrback(checkDeferredErrback)
 
 
     def __parseData(self, data):
@@ -481,17 +469,20 @@ class PPolicyRequestThread(threading.Thread):
             return None
 
 
-def dataResponse(transport, action=None, actionEx=None):
-    """Check response"""
-    if action == None:
-        logging.getLogger().debug("output: action=dunno")
-        transport.writeSomeData("action=dunno\n\n")
-    elif actionEx == None:
-        logging.getLogger().debug("output: action=%s" % action)
-        transport.writeSomeData("action=%s\n\n" % action)
-    else:
-        logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
-        transport.writeSomeData("action=%s %s\n\n" % (action, actionEx))
+    def dataResponse(self, action=None, actionEx=None):
+        """Check response"""
+        if not self.connOpen:
+            logging.getLogger().info("connection id %s lost before sending results" % self.numProtocolsId)
+            return
+        if action == None:
+            logging.getLogger().debug("output: action=dunno")
+            self.transport.writeSomeData("action=dunno\n\n")
+        elif actionEx == None:
+            logging.getLogger().debug("output: action=%s" % action)
+            self.transport.writeSomeData("action=%s\n\n" % action)
+        else:
+            logging.getLogger().debug("output: action=%s %s" % (action, actionEx))
+            self.transport.writeSomeData("action=%s %s\n\n" % (action, actionEx))
 
 
 

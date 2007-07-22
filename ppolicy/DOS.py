@@ -74,7 +74,7 @@ class DOS(Base):
 
 
     def stop(self):
-        del(self.cache)
+        self.cache = {}
 
 
     def hashArg(self, data, *args, **keywords):

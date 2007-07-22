@@ -73,7 +73,7 @@ class Country(Base):
 
     def stop(self):
         """Called when changing state to 'stopped'."""
-        del(self.gi)
+        # del(self.gi)
 
 
     def hashArg(self, data, *args, **keywords):

@@ -144,7 +144,7 @@ class dnsbl:
                 logging.getLogger().warn("check %s is not defined" % check)
                 continue
             if scoreOnly and self.config[check]['score'] == 0:
-                logging.getLogger().warn("score 0 for %s, skipping this check" % check)
+                logging.getLogger().info("score 0 for %s, skipping this check" % check)
                 continue
             bl = self.config[check]['dnsbl']
             envfrom = self.config[check]['envfrom']
@@ -438,8 +438,8 @@ if __name__ == "__main__":
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hvql:tic",
                                    ["help", "verbose", "quiet", "log-level",
-                                    "test", "list", "convert", "dnsbl-cf",
-                                    "score-cf", "drbsites" ])
+                                    "test", "list", "convert", "dnsbl-cf=",
+                                    "score-cf=", "drbsites=" ])
     except getopt.GetoptError:
         usage()
         sys.exit(2)

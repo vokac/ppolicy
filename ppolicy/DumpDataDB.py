@@ -72,6 +72,7 @@ class DumpDataDB(Base):
                     cursor.close()
                     raise e
                 cursor.close()
+                conn.commit()
             interval = self.getParam('interval')
             if interval == None:
                 raise Exception('unknown interval for number of records')
@@ -97,6 +98,7 @@ class DumpDataDB(Base):
                     cursor.close()
                     raise e
                 cursor.close()
+                conn.commit()
             newName = None
             curDate = time.localtime()
             interval = self.getParam('interval')
@@ -136,7 +138,8 @@ class DumpDataDB(Base):
             cursor.close()
             raise e
         cursor.close()
-            
+        conn.commit()
+
         
     def __renameTable(self, newName):
         table = self.getParam('table')
@@ -150,7 +153,8 @@ class DumpDataDB(Base):
             cursor.close()
             raise e
         cursor.close()
-            
+        conn.commit()
+
         
     def start(self):
         if self.factory == None:
@@ -195,6 +199,7 @@ class DumpDataDB(Base):
                 cursor.execute(sql)
 
                 cursor.close()
+                conn.commit()
             except Exception, e:
                 cursor.close()
                 raise e

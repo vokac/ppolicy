@@ -127,6 +127,7 @@ class ListBW(Base):
                     newCacheBlacklist[res[len(res)-1]] = res[:-1]
 
             cursor.close()
+            conn.commit()
 
             self.allDataCacheWhitelist = newCacheWhitelist
             self.allDataCacheBlacklist = newCacheBlacklist
@@ -190,6 +191,7 @@ class ListBW(Base):
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
             cursor.close()
+            conn.commit()
         except Exception, e:
             cursor.close()
             raise e
@@ -349,6 +351,7 @@ class ListBW(Base):
                 retEx = ()
 
             cursor.close()
+            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

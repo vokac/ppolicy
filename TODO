@@ -20,5 +20,5 @@ TODO list sorted by task importance
 * RFC 3463 - Enhanced Mail System Status Codes
 
 * automatic module tests
-* DOS, Trap are not fully tested
+* Trap module is not fully tested
 * DB synchronization
