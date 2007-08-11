@@ -5,13 +5,14 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.6.6
-Release: 6
+Release: 8
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
 Requires: python-twisted >= 1.3, dnspython >= 1.3.3, MySQL-python >= 1.0.0
+#Requires: python-zope-interface >= 3.0
 
 %description
 Modular Python Postfix Policy Server is tool for extending Postfix

@@ -29,14 +29,15 @@ previous.
 postfix           >= 2.1           - http://www.postfix.org
 python            >= 2.3           - http://www.python.org
 python-twisted    >= 1.3           - http://twistedmatrix.com
-MySQL         *   >= 3.23 (I hope) - http://www.mysql.com
+MySQL         *   >= 3.23          - http://www.mysql.com
 python-GeoIP  *   >= 1.2.1         - http://www.maxmind.com/app/python
 python-ldap   *   >= 2.0.x         - http://python-ldap.sourceforge.net
 dnspython     **  >= 1.3.3         - http://www.dnspython.org
 pyperl        *** >= 1.0.1         - http://ftp.activestate.com/Zope-Perl
 
-*   required by check modules (but not by application core)
-**  version >= 1.3.4 are much slower because of changes in resolver
+*   required by some check modules (but not by application core)
+**  version 1.3.5 is much slower then 1.3.4 because of changes in resolver
+    (may be that newer version is better but I did not check it)
 *** required by modules that directly call perl (none module now)
     you can use local patched copy (works with python 2.4 and perl 5.8.8)
     http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/pyperl

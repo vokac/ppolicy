@@ -1,9 +1,10 @@
-Changes in PPolicy 2.6.6 (Jul 17 2007)
+Changes in PPolicy 2.6.6 (Aut 10 2007)
 ======================================
 - cleanup in connection threading using deferred
-- switched to python twisted 2.4 (1.3 should work but I don't guarantee)
+- switched to python twisted 2.4 (1.3 should still work)
 - better handling of clients that don't wait for results
 - commit database transactions
+- support for twisted 2.5 (twisted Interface replaced with ZopeInterface)
 
 
 Changes in PPolicy 2.6.5 (Jan 14 2007)

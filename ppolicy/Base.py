@@ -10,7 +10,13 @@
 # $Id$
 #
 import logging
-from twisted.python import components
+try:
+    from zope.interface import Interface
+except:
+    # twisted <= 2.5, be nice to 1.x user and don't force them to install
+    # ZopeInterface package from http://zope.org/Products/ZopeInterface
+    logging.getLogger().warn("can't find zope.interface, trying to use old twisted interface (it is OK twisted 1.3)")
+    from twisted.python.components import Interface
 
 
 __version__ = "$Revision$"
@@ -37,7 +43,7 @@ class ParamError(CheckError):
 
 
 
-class IPPolicyCheck(components.Interface):
+class IPPolicyCheck(Interface):
     """Abstract interface for postfix policy check modules."""
 
     def getName(self):
