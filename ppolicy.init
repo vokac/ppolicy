@@ -53,13 +53,15 @@ fi
 start() {
     # Start daemon
     echo -n "Starting $prog (twistd):"
-    daemon --user "$PPOLICY_ACCOUNT" $twistd  \
-	--pidfile=$pidfile \
-	--rundir=$rundir \
-	--file=$file \
-	--python=$file \
-	--no_save \
-	--logfile=$logfile
+    daemon \
+	--user "$PPOLICY_ACCOUNT" \
+	$twistd  \
+		--pidfile=$pidfile \
+		--rundir=$rundir \
+		--file=$file \
+		--python=$file \
+		--no_save \
+		--logfile=$logfile
     retval=$?
     echo
     # [ $retval -eq 0 ] && touch $lockfile

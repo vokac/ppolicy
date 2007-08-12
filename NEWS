@@ -5,6 +5,8 @@ Changes in PPolicy 2.6.6 (Aut 10 2007)
 - better handling of clients that don't wait for results
 - commit database transactions
 - support for twisted 2.5 (twisted Interface replaced with ZopeInterface)
+- support for building RPM packages on Mandriva
+- get rid of dependencies in RPM that are required only by some modules
 
 
 Changes in PPolicy 2.6.5 (Jan 14 2007)

@@ -48,7 +48,7 @@ RCVD_IN_SBL zen.spamhaus.org 2.81 False 127.0.0.2
 # RCVD_IN_MAPS_RSS[rss] - Relay in RSS, http://www.mail-abuse.org/rss/
 RCVD_IN_MAPS_RSS relays.mail-abuse.org 0.0 False 
 # RCVD_IN_WHOIS_BOGONS[whois] - CompleteWhois: sender on bogons IP block
-RCVD_IN_WHOIS_BOGONS combined-HIB.dnsiplists.completewhois.com 0.01 False 127.0.0.2
+RCVD_IN_WHOIS_BOGONS combined-HIB.dnsiplists.completewhois.com 0.0 False 127.0.0.2
 # RCVD_IN_PBL[zen-lastexternal] - Received via a relay in Spamhaus PBL
 RCVD_IN_PBL zen.spamhaus.org 0.509 False 
 # RCVD_IN_SORBS_HTTP[sorbs] - SORBS: sender is open HTTP proxy server
@@ -80,7 +80,7 @@ RCVD_IN_SORBS_DUL dnsbl.sorbs.net 1.615 False
 # RCVD_IN_NJABL_PROXY[njabl] - NJABL: sender is an open proxy
 RCVD_IN_NJABL_PROXY combined.njabl.org 1.693 False 127.0.0.9
 # RCVD_IN_SORBS_ZOMBIE[sorbs] - SORBS: sender is on a hijacked network
-RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.01 False 127.0.0.9
+RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.0 False 127.0.0.9
 # RCVD_IN_MAPS_DUL[dialup-lastexternal] - Relay in DUL, http://www.mail-abuse.org/dul/
 RCVD_IN_MAPS_DUL dialups.mail-abuse.org 0.0 False 
 # RCVD_IN_MAPS_RBL[rbl] - Relay in RBL, http://www.mail-abuse.org/rbl/
