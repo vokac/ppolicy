@@ -82,8 +82,8 @@ class Greylist(Base):
         expiration = self.getParam('expiration')
 
         conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `date` DATETIME, `state` TINYINT DEFAULT 0, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
             if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                 logging.getLogger().debug("SQL: %s" % sql)
@@ -99,6 +99,7 @@ class Greylist(Base):
         except Exception, e:
             cursor.close()
             raise e
+        #self.factory.releaseDbConnection(conn)
 
 
     def hashArg(self, data, *args, **keywords):
@@ -146,8 +147,8 @@ class Greylist(Base):
         retInfo = "undefined result (%s module error)" % self.getId()
         retTime = 0
         conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             table = self.getParam('table')
 
             sql = "SELECT UNIX_TIMESTAMP() - UNIX_TIMESTAMP(`date`) AS `delta`, `state` FROM `%s` WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
@@ -216,5 +217,6 @@ class Greylist(Base):
             expl = "%s: database error" % self.getId()
             logging.getLogger().error("%s: %s" % (expl, e))
             return 0, (expl, 0)
+        #self.factory.releaseDbConnection(conn)
 
         return retCode, (retInfo, retTime)

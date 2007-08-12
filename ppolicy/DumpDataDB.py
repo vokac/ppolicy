@@ -73,6 +73,7 @@ class DumpDataDB(Base):
                     raise e
                 cursor.close()
                 conn.commit()
+                #self.factory.releaseDbConnection(conn)
             interval = self.getParam('interval')
             if interval == None:
                 raise Exception('unknown interval for number of records')
@@ -99,6 +100,7 @@ class DumpDataDB(Base):
                     raise e
                 cursor.close()
                 conn.commit()
+                #self.factory.releaseDbConnection(conn)
             newName = None
             curDate = time.localtime()
             interval = self.getParam('interval')
@@ -139,6 +141,7 @@ class DumpDataDB(Base):
             raise e
         cursor.close()
         conn.commit()
+        #self.factory.releaseDbConnection(conn)
 
         
     def __renameTable(self, newName):
@@ -154,6 +157,7 @@ class DumpDataDB(Base):
             raise e
         cursor.close()
         conn.commit()
+        #self.factory.releaseDbConnection(conn)
 
         
     def start(self):
@@ -175,9 +179,9 @@ class DumpDataDB(Base):
         newId = 0
         try:
             conn = self.factory.getDbConnection()
+            cursor = conn.cursor()
             try:
                 table = self.getParam('table')
-                cursor = conn.cursor()
 
                 # XXX: object.lock.acquire()
                 newId = self.newId
@@ -203,6 +207,7 @@ class DumpDataDB(Base):
             except Exception, e:
                 cursor.close()
                 raise e
+            #self.factory.releaseDbConnection(conn)
         except Exception, e:
             logging.getLogger().error("can't write into database: %s" % e)
             return -1, None

@@ -167,7 +167,10 @@ class PPolicyFactory(protocol.ServerFactory):
 
 
     def releaseDbConnection(self, conn):
-        return self.getDbPool().disconnect(conn)
+#        return self.getDbPool().disconnect(conn)
+        # FIXME: I'm not sure if I have to release each used DB connection
+        # according to the sources of DB pool I think it is not required
+        pass
 
 
     def getConfig(self, key, default = None):

@@ -177,8 +177,8 @@ class ListDyn(Base):
 
         # create database table if not exist
         conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (table, ",".join(cols+idx), ListDyn.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
@@ -192,6 +192,7 @@ class ListDyn(Base):
         except Exception, e:
             cursor.close()
             raise e
+        #self.factory.releaseDbConnection(conn)
 
 
     def check(self, data, *args, **keywords):
@@ -252,9 +253,10 @@ class ListDyn(Base):
         # add/remove/check data in database
         retCode = -1
         retVal = []
+
+        conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            conn = self.factory.getDbConnection()
-            cursor = conn.cursor()
 
             for val in valX:
                 colNV = {}
@@ -344,6 +346,7 @@ class ListDyn(Base):
             expl = "%s: database error" % self.getId()
             logging.getLogger().error("%s: %s" % (expl, e))
             return 0, expl
+        #self.factory.releaseDbConnection(conn)
 
         if operation == 'add':
             return 1, '%s: add operation successfull' % self.getId()

@@ -99,10 +99,10 @@ class ListBW(Base):
         tableBlacklist = self.getParam('tableBlacklist')
 
         conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
             newCacheWhitelist = {}
             newCacheBlacklist = {}
-            cursor = conn.cursor()
 
             if tableWhitelist != None:
                 sql = self.selectAllSQLWhitelist
@@ -138,6 +138,7 @@ class ListBW(Base):
             self.allDataCacheReady = False
             self.allDataCacheRefresh = time.time() + 60
             logging.getLogger().error("caching all records failed: %s" % e)
+        #self.factory.releaseDbConnection(conn)
 
 
     def getId(self):
@@ -180,8 +181,8 @@ class ListBW(Base):
         self.retcolSQLBlacklist = self.__retcolSQL(retcolBlacklist)
 
         conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             if tableWhitelist != None:
                 sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (tableWhitelist, columnWhitelist, columnWhitelist, ListBW.DB_ENGINE)
                 logging.getLogger().debug("SQL: %s" % sql)
@@ -195,6 +196,7 @@ class ListBW(Base):
         except Exception, e:
             cursor.close()
             raise e
+        #self.factory.releaseDbConnection(conn)
 
         if not self.getParam('cacheAll', False):
             self.lock = threading.Lock()
@@ -290,9 +292,9 @@ class ListBW(Base):
         memCacheSize = self.getParam('memCacheSize')
         useMemCache = type(data.get(param, '')) != str and memCacheExpire != None and memCacheSize != None and memCacheSize > 0
 
+        conn = self.factory.getDbConnection()
+        cursor = conn.cursor()
         try:
-            conn = self.factory.getDbConnection()
-            cursor = conn.cursor()
 
             for paramVal in paramValue:
 
@@ -359,6 +361,7 @@ class ListBW(Base):
                 pass
             logging.getLogger().error("%s: database error %s" % (self.getId(), e))
             return 0, None
+        #self.factory.releaseDbConnection(conn)
 
         return ret, retEx
 

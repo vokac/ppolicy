@@ -31,6 +31,9 @@ class FakeFactory:
 
         return conn
 
+    def releaseDbConnection(self, conn):
+        conn.close()
+
 
 modules = {}
 
