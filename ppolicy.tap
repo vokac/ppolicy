@@ -53,7 +53,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.6.6-10")
+logging.getLogger().info("version: 2.6.6-11")
 
 # Import Psyco if available
 try:

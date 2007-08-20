@@ -403,7 +403,7 @@ class PPolicyRequest(protocol.Protocol):
         startTime = time.time()
         reqid = "unknown%i" % startTime
 
-        def checkDeferred(data):
+        def checkDeferred(data, _host):
             parsedData = self.__parseData(data)
             if parsedData != None:
                 if not parsedData.has_key('resource_start_time'):
@@ -415,7 +415,7 @@ class PPolicyRequest(protocol.Protocol):
                     rusageStr = "[ %.3f, %.3f, %s ]" % (rusage[0], rusage[1], str(rusage[2:])[1:-1])
                     logging.getLogger().debug("%s gc(%s, %s), rs%s" % (reqid, len(gc.get_objects()), len(gc.garbage), rusageStr))
 
-                action, actionEx = self.check(self.factory, parsedData, self.transport.getHost())
+                action, actionEx = self.check(self.factory, parsedData, _host)
 
                 runTime = int((time.time() - startTime) * 1000)
                 logging.getLogger().info("%s finish[%i]: %s (%s)" % (reqid, runTime, action, actionEx))
@@ -438,7 +438,7 @@ class PPolicyRequest(protocol.Protocol):
             self.dataResponse(self.returnOnFatalError[0], self.returnOnFatalError[1])
 
         # handle data in new thread and return results using deferred
-        d = threads.deferToThread(checkDeferred, data)
+        d = threads.deferToThread(checkDeferred, data, self.transport.getHost())
         d.addCallback(checkDeferredCallback)
         d.addErrback(checkDeferredErrback)
 

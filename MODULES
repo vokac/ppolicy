@@ -47,7 +47,7 @@ Examples:
 Module Dnsbl
 ------------
 
-12 Aug 16:20:34 [INFO](dnsbl:24) using dnspython library
+20 Aug 14:53:27 [INFO](dnsbl:24) using dnspython library
 Check if client address is listed in specified DNS blacklist.
 see tools/dnsbl.txt for list of valid blacklist names - original
 file can be downloaded from http://moensted.dk/spam/drbsites.txt
