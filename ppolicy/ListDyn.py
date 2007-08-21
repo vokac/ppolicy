@@ -158,13 +158,16 @@ class ListDyn(Base):
         # hash to table columns mapping
         cols = []
         idx = []
+        idxNames = []
         for dictName in criteria:
             colName, colType, colEsc, colLower = self.__mapping(dictName)
             cols.append("`%s` %s" % (colName, colType))
+            idxNames.append(colName)
+        if len(idxNames) > 0:
+            idx.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(idxNames))
         for dictName in value:
             colName, colType, colEsc, colLower = self.__mapping(dictName)
             cols.append("`%s` %s" % (colName, colType))
-            idx.append("INDEX `autoindex_%s` (`%s`)" % (colName, colName))
         if softExpire > 0:
             dictName = 'soft_expire'
             colName, colType, colEsc, colLower = self.__mapping(dictName, 'DATETIME NOT NULL', False)
