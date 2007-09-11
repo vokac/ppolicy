@@ -51,7 +51,7 @@ class List(Base):
                'table': ('name of database table where to search parameter', None),
                'column': ('name of database column or array of columns according "param"', None),
                'retcol': ('name of column returned by check method', None),
-               'cacheCaseSensitive': ('case-sensitive cache (set to False in case you are using DB table with case-insensitive text comparator', True),
+               'cacheCaseSensitive': ('case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column', False),
                'memCacheExpire': ('memory cache expiration - used only if param value is array', 15*60),
                'memCacheSize': ('memory cache max size - used only if param value is array', 1000),
                'cacheAll': ('cache all records in memory', False),

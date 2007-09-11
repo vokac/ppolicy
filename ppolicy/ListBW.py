@@ -60,7 +60,7 @@ class ListBW(Base):
                'retcol': ('name of column returned by check method', None),
                'retcolBlacklist': ('name of blacklist column returned by check method', None),
                'retcolWhitelist': ('name of whitelist column returned by check method', None),
-               'cacheCaseSensitive': ('cache case-sensitive search', True),
+               'cacheCaseSensitive': ('case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column', False),
                'memCacheExpire': ('memory cache expiration - used only if param value is array', 15*60),
                'memCacheSize': ('memory cache max size - used only if param value is array', 1000),
                'cacheAll': ('cache all records in memory', False),
