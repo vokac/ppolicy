@@ -13,20 +13,11 @@ import sys, time, string, gc, resource
 import logging
 import threading
 import traceback
+import StringIO
 from twisted.internet import reactor, protocol, interfaces, threads
 from twisted.enterprise import adbapi
 from twisted.protocols.basic import LineReceiver
 
-
-class Redirect:
-    def __init__(self):
-        self.buf = ''
-    def write(self, buf):
-        self.buf += buf
-    def getBuffer(self):
-        buf = self.buf
-        self.buf = ''
-        return buf
 
 class CommandProtocol(LineReceiver):
 
@@ -35,8 +26,6 @@ class CommandProtocol(LineReceiver):
     def __init__(self):
         self.factory = None # set by buildProtocol
         self.cmd = ''
-        self.stdoutOrig = sys.stdout
-        self.stdoutRedir = Redirect()
 
     def __printPrefix(self, prefix):
         delimiter = self.delimiter
@@ -54,6 +43,7 @@ class CommandProtocol(LineReceiver):
 
     def lineReceived(self, line):
         logging.getLogger().debug(line)
+        stdoutOrig = sys.stdout
         ppolicyFactory = self.factory.factory
         if line.lower() == 'quit':
             self.sendLine('bye')
@@ -64,20 +54,20 @@ class CommandProtocol(LineReceiver):
             buf = ''
             if self.cmd == '':
                 if line != '':
-                    sys.stdout = self.stdoutRedir
+                    sys.stdout = StringIO.StringIO()
                     eval(compile(line, '<prompt>', 'single'), globals(), locals())
-                    sys.stdout = self.stdoutOrig
-                    buf = self.stdoutRedir.getBuffer()
+                    buf = sys.stdout.getvalue()
+                    sys.stdout = stdoutOrig
             else:
                 if line != '':
                     prefix = '... '
                     self.cmd = "%s\n%s" % (self.cmd, line)
                 else:
-                    sys.stdout = self.stdoutRedir
+                    sys.stdout = StringIO.StringIO()
                     eval(compile(self.cmd, '<prompt>', 'exec'), globals(), locals())
-                    sys.stdout = self.stdoutOrig
+                    buf = sys.stdout.getvalue()
+                    sys.stdout = stdoutOrig
                     self.cmd = ''
-                    buf = self.stdoutRedir.getBuffer()
             if buf != '':
                 if buf[len(buf)-1] == "\n": buf = buf[:-1]
                 logging.getLogger().debug(buf)
@@ -99,8 +89,7 @@ class CommandProtocol(LineReceiver):
         except Exception, e:
             self.sendLine(str(e))
             self.__printPrefix('>>> ')
-        self.stdoutRedir.getBuffer()
-        sys.stdout = self.stdoutOrig
+        sys.stdout = stdoutOrig
 
 
 class CommandFactory(protocol.ServerFactory):
