@@ -66,8 +66,8 @@ class DumpDataDB(Base):
                 try:
                     sql = "SELECT COUNT(*) FROM `%s`" % table
                     logging.getLogger().debug("SQL: %s" % sql)
-                    res = cursor.execute(sql)
-                    self.rowCount = res.fetchone()[0]
+                    cursor.execute(sql)
+                    (self.rowCount, ) = cursor.fetchone()
                 except Exception, e:
                     cursor.close()
                     raise e
@@ -90,16 +90,15 @@ class DumpDataDB(Base):
                 try:
                     sql = "SELECT `value` FROM `%s` WHERE `key` = 'date' ORDER BY `id` LIMIT 1" % table
                     logging.getLogger().debug("SQL: %s" % sql)
-                    res = cursor.execute(sql)
+                    cursor.execute(sql)
                     if cursor.rowcount == 0:
                         self.rowDate = time.localtime()
                     else:
-                        self.rowDate = time.strptime(res.fetchone()[0], "%Y-%m-%d %H:%M:%S")
+                        self.rowDate = time.strptime(cursor.fetchone()[0], "%Y-%m-%d %H:%M:%S")
                 except Exception, e:
                     cursor.close()
                     raise e
                 cursor.close()
-                conn.commit()
                 #self.factory.releaseDbConnection(conn)
             newName = None
             curDate = time.localtime()

@@ -110,8 +110,15 @@ class Dummy(Base):
         ##
         # conn = dbPool.connect()
         # cursor = conn.cursor()
-        # cursor.execute()
+        # cursor.execute("SELECT `value` FROM `table` WHERE `key` = %s", (key, ))
         # cursor.close()
-        # dbPool.disconnect(conn)
+        # #dbPool.disconnect(conn)
+        ##
+        # conn = dbPool.connect()
+        # cursor = conn.cursor()
+        # cursor.execute("INSERT INTO `table` (`key`, `value`) VALUES ('key', 'value')")
+        # cursor.close()
+        # conn.commit()
+        # #dbPool.disconnect(conn)
 
         return 0, 'dummy'

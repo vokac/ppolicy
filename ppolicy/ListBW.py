@@ -24,9 +24,8 @@ class ListBW(Base):
 
     Module arguments (see output of getParams method):
     param, tableBlacklist, tableWhitelist, column, columnBlacklist,
-    columnWhitelist, caseSensitive, caseSensitiveParam,
-    caseSensitiveDB, retcol, retcolWhitelist, retcolBlacklist,
-    memCacheExpire, memCacheSize, cacheAll, cacheAllRefresh
+    columnWhitelist, cacheCaseSensitive, retcol, retcolWhitelist,
+    retcolBlacklist, memCacheExpire, memCacheSize, cacheAll, cacheAllRefresh
 
     Check arguments:
         data ... all input data in dict
@@ -48,8 +47,7 @@ class ListBW(Base):
                                          tableBlacklist="my_blacklist",
                                          tableWhitelist="my_whitelist",
                                          column="my_column",
-                                         caseSensitive=False,
-                                         caseSensitiveDB=True,
+                                         cacheCaseSensitive=False,
                                          retcol="*" } )
     """
 
@@ -62,9 +60,7 @@ class ListBW(Base):
                'retcol': ('name of column returned by check method', None),
                'retcolBlacklist': ('name of blacklist column returned by check method', None),
                'retcolWhitelist': ('name of whitelist column returned by check method', None),
-               'caseSensitive': ('case-sensitive search', True),
-               'caseSensitiveParam': ('case-sensitive search - convert param to lowercase', None),
-               'caseSensitiveDB': ('case-sensitive search - use SQL function LOWER', None),
+               'cacheCaseSensitive': ('cache case-sensitive search', True),
                'memCacheExpire': ('memory cache expiration - used only if param value is array', 15*60),
                'memCacheSize': ('memory cache max size - used only if param value is array', 1000),
                'cacheAll': ('cache all records in memory', False),
@@ -97,6 +93,7 @@ class ListBW(Base):
 
         tableWhitelist = self.getParam('tableWhitelist')
         tableBlacklist = self.getParam('tableBlacklist')
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
 
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
@@ -113,7 +110,10 @@ class ListBW(Base):
                     res = cursor.fetchone()
                     if res == None:
                         break
-                    newCacheWhitelist[res[len(res)-1]] = res[:-1]
+                    cKey = res[len(res)-1]
+                    if not cacheCaseSensitive:
+                        cKey = cKey.lower()
+                    newCacheWhitelist[cKey] = res[:-1]
 
             if tableBlacklist != None:
                 sql = self.selectAllSQLBlacklist
@@ -124,10 +124,12 @@ class ListBW(Base):
                     res = cursor.fetchone()
                     if res == None:
                         break
-                    newCacheBlacklist[res[len(res)-1]] = res[:-1]
+                    cKey = res[len(res)-1]
+                    if not cacheCaseSensitive:
+                        cKey = cKey.lower()
+                    newCacheWhitelist[cKey] = res[:-1]
 
             cursor.close()
-            conn.commit()
 
             self.allDataCacheWhitelist = newCacheWhitelist
             self.allDataCacheBlacklist = newCacheBlacklist
@@ -147,11 +149,10 @@ class ListBW(Base):
 
     def hashArg(self, data, *args, **keywords):
         param = self.getParam('param')
-        caseSensitive = self.getParam('caseSensitive', True)
-        caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
 
         paramValue = str(data.get(param, ''))
-        if not caseSensitiveParam:
+        if not cacheCaseSensitiveParam:
             paramValue = paramValue.lower()
 
         return hash("%s=%s" % (param, paramValue))
@@ -173,9 +174,7 @@ class ListBW(Base):
         retcol = self.getParam('retcol')
         retcolWhitelist = self.getParam('retcolWhitelist', retcol)
         retcolBlacklist = self.getParam('retcolBlacklist', retcol)
-        caseSensitive = self.getParam('caseSensitive', True)
-        #caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
-        caseSensitiveDB = self.getParam('caseSensitiveDB', caseSensitive)
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
 
         self.retcolSQLWhitelist = self.__retcolSQL(retcolWhitelist)
         self.retcolSQLBlacklist = self.__retcolSQL(retcolBlacklist)
@@ -212,16 +211,10 @@ class ListBW(Base):
             self.setParam('cacheUnknown', 0)  # cache when all records
             self.setParam('cacheNegative', 0) # are cached by this module
 
-            if not caseSensitiveDB:
-                columnSQLWhitelist = 'LOWER(`%s`)' % columnWhitelist
-                columnSQLBlacklist = 'LOWER(`%s`)' % columnBlacklist
-                groupBySQLWhitelist = " GROUP BY LOWER(`%s`)" % columnWhitelist
-                groupBySQLBlacklist = " GROUP BY LOWER(`%s`)" % columnBlacklist
-            else:
-                columnSQLWhitelist = '`%s`' % columnWhitelist
-                columnSQLBlacklist = '`%s`' % columnBlacklist
-                groupBySQLWhitelist = " GROUP BY `%s`" % columnWhitelist
-                groupBySQLBlacklist = " GROUP BY `%s`" % columnBlacklist
+            columnSQLWhitelist = '`%s`' % columnWhitelist
+            columnSQLBlacklist = '`%s`' % columnBlacklist
+            groupBySQLWhitelist = " GROUP BY `%s`" % columnWhitelist
+            groupBySQLBlacklist = " GROUP BY `%s`" % columnBlacklist
             if self.retcolSQLWhitelist.find('(') == -1:
                 groupBySQLWhitelist = ''
             if self.retcolSQLBlacklist.find('(') == -1:
@@ -244,11 +237,8 @@ class ListBW(Base):
         if type(paramValue) == str:
             paramValue = [ paramValue ]
 
-        caseSensitive = self.getParam('caseSensitive', True)
-        caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
-        caseSensitiveDB = self.getParam('caseSensitiveDB', caseSensitive)
-
-        if not caseSensitiveParam:
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
+        if not cacheCaseSensitiveParam:
             paramValue = [ x.lower() for x in paramValue ]
 
         ret = 0
@@ -307,14 +297,10 @@ class ListBW(Base):
                         ret = 0
 
                 if tableWhitelist != None:
-                    if not caseSensitiveDB:
-                        sqlWhere = "WHERE LOWER(`%s`) = LOWER('%s')" % (columnWhitelist, paramVal)
-                    else:
-                        sqlWhere = "WHERE `%s` = '%s'" % (columnWhitelist, paramVal)
-                    sql = "SELECT %s FROM `%s` %s" % (self.retcolSQLWhitelist, tableWhitelist, sqlWhere)
+                    sqlWhere = "SELECT %s FROM `%s` WHERE `%s` = %%s" % (self.retcolSQLWhitelist, tableWhitelist, columnWhitelist)
 
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str((paramVal, ))))
+                    cursor.execute(sql, (paramVal, ))
 
                     if int(cursor.rowcount) > 0:
                         retEx = cursor.fetchone()
@@ -327,14 +313,10 @@ class ListBW(Base):
                             retEx = None
 
                 if tableBlacklist != None:
-                    if not caseSensitiveDB:
-                        sqlWhere = "WHERE LOWER(`%s`) = LOWER('%s')" % (columnBlacklist, paramVal)
-                    else:
-                        sqlWhere = "WHERE `%s` = '%s'" % (columnBlacklist, paramVal)
-                    sql = "SELECT %s FROM `%s` %s" % (self.retcolSQLBlacklist, tableBlacklist, sqlWhere)
+                    sqlWhere = "SELECT %s FROM `%s` WHERE LOWER(`%s`) = LOWER('%s')" % (self.retcolSQLBlacklist, tableBlacklist, columnBlacklist)
 
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str((paramVal, ))))
+                    cursor.execute(sql, (paramVal, ))
                     
                     if int(cursor.rowcount) > 0:
                         retEx = cursor.fetchone()
@@ -353,7 +335,6 @@ class ListBW(Base):
                 retEx = ()
 
             cursor.close()
-            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

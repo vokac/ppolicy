@@ -10,6 +10,7 @@
 # $Id$
 #
 import logging
+import _mysql
 from Base import Base, ParamError
 
 
@@ -24,14 +25,12 @@ class ListDyn(Base):
 
     One of the most important parameter is "mapping". It is used to
     map request parameters database columns. Its syntax is [
-    'dictName': ('columnName', 'columnType', escape, lower), ...],
+    'dictName': ('columnName', 'columnType'), ...],
     where dictName is attribude name comming in check method in data
     dictionary, columnName is database column name, column type is
-    database column type in SQL syntax, escape is boolean value that
-    identifies text columns that's text should be escaped and lower
-    sais that data will be comparet case-insensitive. If don't define
-    mapping for concrete column, than default is used 'dictName':
-    ('dictName', 'VARCHAR(255)', True, False)
+    database column type in SQL syntax. If don't define mapping for
+    concrete column, than default is used 'dictName':
+    ('dictName', 'VARCHAR(255)')
 
     Second very important parametr is "operation". With this parameter
     you specify what this module should do by default with passed request.
@@ -71,7 +70,7 @@ class ListDyn(Base):
                                           mapping={ "sender": "mail", } } )
         # module for checking/getting if sender row values in database table list2
         modules['list2'] = ( 'ListDyn', { table='list2',
-                                          mapping={ "sender": ("mail", "VARCHAR(50)", True, True), },
+                                          mapping={ "sender": ("mail", "VARCHAR(50)"), },
                                           value=["data1"] } )
         # module with soft/hard expiration and 'add' as default operation
         modules['list3'] = ( 'ListDyn', { table='list3', operation='add',
@@ -92,37 +91,6 @@ class ListDyn(Base):
                'cacheNegative': (None, 0), # needs some changes in current code
                }
     DB_ENGINE="ENGINE=InnoDB"
-
-
-    def __mapping(self, dictName, defType = 'VARCHAR(255)', defEsc = True, defLower = False):
-        mapping = self.getParam('mapping')
-        colDef = mapping.get(dictName)
-
-        if colDef == None:
-            mapping[dictName] = (dictName, defType, defEsc, defLower)
-        elif type(colDef) == str:
-            mapping[dictName] = (colDef, defType, defEsc, defLower)
-        elif type(colDef) != list and type(colDef) != tuple:
-            raise ParamError("invalid arguments for %s: %s" % (dictName, str(colDef)))
-        elif len(colDef) == 1:
-            mapping[dictName] = (colDef[0], defType, defEsc, defLower)
-        elif len(colDef) == 2:
-            mapping[dictName] = (colDef[0], colDef[1], defEsc, defLower)
-        elif len(colDef) == 3:
-            mapping[dictName] = (colDef[0], colDef[1], colDef[2], defLower)
-        elif len(colDef) >= 4:
-            if len(colDef) > 4:
-                logging.getLogger().warn("too many arguments for %s: %s" % (dictName, str(colDef)))
-            mapping[dictName] = (colDef[0], colDef[1], colDef[2], colDef[3])
-
-        colDef = list(mapping.get(dictName))
-        if colDef[0] == None: colDef[0] = dictName
-        if colDef[1] == None: colDef[1] = defType
-        if colDef[2] == None: colDef[2] = defEsc
-        if colDef[3] == None: colDef[3] = defEsc
-        mapping[dictName] = (colDef[0], colDef[1], colDef[2], colDef[3])
-        
-        return mapping.get(dictName)
 
 
     def getId(self):
@@ -146,6 +114,7 @@ class ListDyn(Base):
         criteria = self.getParam('criteria')
         value = self.getParam('value', [])
         operation = self.getParam('operation')
+        mapping = self.getParam('mapping')
         softExpire = int(self.getParam('softExpire'))
         hardExpire = int(self.getParam('hardExpire'))
 
@@ -156,27 +125,59 @@ class ListDyn(Base):
             raise ParamError("unknown operation %s" % operation)
 
         # hash to table columns mapping
+        self.mapping = {}
+        mappingType = {}
+        for dictName, colDef in mapping.items():
+            colName = dictName
+            colType = 'VARCHAR(255)'
+            if colDef == None or len(colDef) == 0:
+                pass
+            elif type(colDef) == str:
+                colName = colDef
+            elif type(colDef) != list and type(colDef) != tuple:
+                raise ParamError("invalid arguments for %s: %s" % (dictName, str(colDef)))
+            elif len(colDef) == 1:
+                colName = colDef[0]
+            else:
+                if len(colDef) > 2:
+                    logging.getLogger().warn("too many arguments for %s: %s" % (dictName, str(colDef)))
+                colName = colDef[0]
+                colType = colDef[1]
+            self.mapping[dictName] = colName
+            mappingType[dictName] = colType
+
         cols = []
         idx = []
         idxNames = []
         for dictName in criteria:
-            colName, colType, colEsc, colLower = self.__mapping(dictName)
+            if not self.mapping.has_key(dictName):
+                self.mapping[dictName] = dictName
+            colName = self.mapping[dictName]
+            colType = mappingType.get(dictName, 'VARCHAR(255)')
             cols.append("`%s` %s" % (colName, colType))
-            idxNames.append(colName)
-        if len(idxNames) > 0:
-            idx.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(idxNames))
-        for dictName in value:
-            colName, colType, colEsc, colLower = self.__mapping(dictName)
-            cols.append("`%s` %s" % (colName, colType))
+            idxNames.append(self.mapping[dictName])
         if softExpire > 0:
-            dictName = 'soft_expire'
-            colName, colType, colEsc, colLower = self.__mapping(dictName, 'DATETIME NOT NULL', False)
+            if not self.mapping.has_key('soft_expire'):
+                self.mapping['soft_expire'] = 'soft_expire'
+            colName = self.mapping[dictName]
+            colType = mappingType.get('soft_expire', 'VARCHAR(255)')
             cols.append("`%s` %s" % (colName, colType))
         if hardExpire > 0:
-            dictName = 'hard_expire'
-            colName, colType, colEsc, colLower = self.__mapping(dictName, 'DATETIME NOT NULL', False)
+            if not self.mapping.has_key('hard_expire'):
+                self.mapping['hard_expire'] = 'hard_expire'
+            colName = self.mapping[dictName]
+            colType = mappingType.get('hard_expire', 'VARCHAR(255)')
             cols.append("`%s` %s" % (colName, colType))
-        logging.getLogger().debug("mapping: %s" % self.getParam('mapping'))
+        for dictName in value:
+            if not self.mapping.has_key(dictName):
+                self.mapping[dictName] = dictName
+            colName = self.mapping[dictName]
+            colType = mappingType.get(dictName, 'VARCHAR(255)')
+            cols.append("`%s` %s" % (colName, colType))
+
+        if len(idxNames) > 0:
+            idx.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(idxNames))
+        logging.getLogger().debug("mapping: %s" % mapping)
 
         # create database table if not exist
         conn = self.factory.getDbConnection()
@@ -186,7 +187,7 @@ class ListDyn(Base):
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             if hardExpire > 0:
-                colName, colType, colEsc, colLower = self.__mapping(dictName)
+                colName = self.mapping['hard_expire']
                 sql = "DELETE FROM `%s` WHERE UNIX_TIMESTAMP(`%s`) < UNIX_TIMESTAMP()" % (table, colName)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
@@ -216,7 +217,7 @@ class ListDyn(Base):
         # create all parameter combinations (cartesian product)
         valX = []
         for dictName in criteria:
-            colName, colType, colEsc, colLower = self.__mapping(dictName)
+            colName = self.mapping[dictName]
             dictVal = data.get(dictName, '')
             if type(dictVal) == tuple:
                 dictVal = list(tuple)
@@ -226,31 +227,25 @@ class ListDyn(Base):
                 dictVal = [ '' ]
             if len(valX) == 0:
                 for val in dictVal:
-                    if colEsc: val = "'%s'" % val.replace("'", "\\'")
-                    if colLower: val = "LOWER(%s)" % val
                     valX.append([(dictName, colName, val)])
             else:
                 valXnew = []
                 for pX in valX:
                     for val in dictVal:
-                        if colEsc: val = "'%s'" % val.replace("'", "\\'")
-                        if colLower: val = "LOWER(%s)" % val
                         valXnew.append(pX + [(dictName, colName, val)])
                 valX = valXnew
 
         colNVadd = {}
         if operation == 'add':
             for dictName in valueCols:
-                colName, colType, colEsc, colLower = self.__mapping(dictName)
+                colName = self.mapping[dictName]
                 dictVal = value.get(dictName, '')
-                if colEsc: dictVal = "'%s'" % dictVal.replace("'", "\\'")
-                if colLower: dictVal = "LOWER(%s)" % dictVal
                 colNVadd[colName] = dictVal
         if softExpire != 0:
-            colName, colType, colEsc, colLower = self.__mapping('soft_expire')
+            colName = self.mapping['soft_expire']
             colNVadd[colName] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire
         if hardExpire != 0:
-            colName, colType, colEsc, colLower = self.__mapping('hard_expire')
+            colName = self.mapping['hard_expire']
             colNVadd[colName] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire
 
         # add/remove/check data in database
@@ -265,59 +260,68 @@ class ListDyn(Base):
                 colNV = {}
                 for dictName, colName, dictValue in val:
                     colNV[colName] = dictValue
-                where = " AND ".join([ "`%s`=%s" % (x,y) for x,y in colNV.items() ])
+                whereAnd = []
+                whereData = []
+                for cn, cv in colNV.items()
+                    whereAND.append("`%s`=%%s" % cn)
+                    whereData.append(cv)
+                where = " AND ".join(whereAND)
                 # add
                 if operation == 'add':
                     sql = "SELECT 1 FROM `%s` WHERE %s" % (table, where)
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(whereData))))
+                    cursor.execute(sql, list(whereData))
                     if int(cursor.rowcount) == 0:
-                        colNames = "`" + "`,`".join(colNV.keys() + colNVadd.keys()) + "`"
-                        colValues = ",".join([ str(x) for x in colNV.values() + colNVadd.values() ])
-                        sql = "INSERT INTO `%s` (%s) VALUES (%s)" % (table, colNames, colValues)
-                        logging.getLogger().debug("SQL: %s" % sql)
-                        cursor.execute(sql)
+                        colNames = colNVadd.keys()
+                        colValues = colNVadd.values()
+                        sql = "INSERT INTO `%s` (`%s`) VALUES (%s)" % (table, "`,`".join(colNames), "%s"*len(colNames))
+                        logging.getLogger().debug("SQL: %s %s" % (sql, str(list(colValues))))
+                        cursor.execute(sql, list(colValues))
                     else:
                         if len(valueCols) > 0 or softExpire != 0 or hardExpire != 0:
                             sfExp = []
+                            sfVal = []
                             if softExpire != 0:
-                                colName, colType, colEsc, colLower = self.__mapping('soft_expire')
-                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                                colName = self.mapping['soft_expire']
+                                sfExp.append("`%s`=%%s" % colName)
+                                sfVal.append(colNVadd[colName])
                             if hardExpire != 0:
-                                colName, colType, colEsc, colLower = self.__mapping('hard_expire')
-                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                                colName = self.mapping['hard_expire']
+                                sfExp.append("`%s`=%%s" % colName)
+                                sfVal.append(colNVadd[colName])
                             for dictName in valueCols:
-                                colName, colType, colEsc, colLower = self.__mapping(dictName)
-                                sfExp.append("`%s`=%s" % (colName, colNVadd[colName]))
+                                colName = self.mapping[dictName]
+                                sfExp.append("`%s`=%%s" % colName)
+                                sfVal.append(colNVadd[colName])
                             sql = "UPDATE `%s` SET %s WHERE %s" % (table, ",".join(sfExp), where)
-                            logging.getLogger().debug("SQL: %s" % sql)
-                            cursor.execute(sql)
+                            logging.getLogger().debug("SQL: %s %s" % (sql, str(list(sfVal+where))))
+                            cursor.execute(sql, list(sfVal+where))
                 # remove
                 elif operation == 'remove':
                     sql = "DELETE FROM `%s` WHERE %s" % (table, where)
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(where))))
+                    cursor.execute(sql, list(where))
                 # check
                 elif operation == 'check':
                     sfExp = []
                     if softExpire != 0:
-                        colName, colType, colEsc, colLower = self.__mapping('soft_expire')
+                        colName = self.mapping['soft_expire']
                         sfExp.append("UNIX_TIMESTAMP(`%s`) - UNIX_TIMESTAMP() AS `%s`" % (colName, colName))
                     else:
                         sfExp.append("1") # fake column
                     if hardExpire != 0:
-                        colName, colType, colEsc, colLower = self.__mapping('hard_expire')
+                        colName = self.mapping['hard_expire']
                         sfExp.append("UNIX_TIMESTAMP(`%s`) - UNIX_TIMESTAMP() AS `%s`" % (colName, colName))
                     else:
                         sfExp.append("1") # fake column
                     for dictName in valueCols:
-                        colName, colType, colEsc, colLower = self.__mapping(dictName)
+                        colName = self.mapping[dictName]
                         sfExp.append("`%s`" % colName)
                     if len(sfExp) == 0:
                         sfExp.append("1")
                     sql = "SELECT %s FROM `%s` WHERE %s" % (",".join(sfExp), table, where)
-                    logging.getLogger().debug("SQL: %s" % sql)
-                    cursor.execute(sql)
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(where))))
+                    cursor.execute(sql, list(where))
                     retCodeNew = -1
                     if int(cursor.rowcount) > 0:
                         retCodeNew = 1
