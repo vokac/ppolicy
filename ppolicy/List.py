@@ -33,7 +33,7 @@ class List(Base):
     array of incomming parameters.
 
     Module arguments (see output of getParams method):
-    param, table, column, retcol, cacheCaseSensitive, memCacheExpire,
+    param, table, column, retcols, cacheCaseSensitive, memCacheExpire,
     memCacheSize, cacheAll, cacheAllRefresh
 
     Check arguments:
@@ -55,13 +55,13 @@ class List(Base):
                 'table': "my_list",
                 'column': [ "my_column1", "my_column2" ],
                 'cacheCaseSensitive': False,
-                'retcol': "*" } )
+                'retcols': "*" } )
     """
 
     PARAMS = { 'param': ('name of parameter in data dictionary (value can be string or array)', None),
                'table': ('name of database table where to search parameter', None),
                'column': ('name of database column or array of columns according "param"', None),
-               'retcol': ('name of column returned by check method', None),
+               'retcols': ('name of column returned by check method', None),
                'cacheCaseSensitive': ('case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column', False),
                'memCacheExpire': ('memory cache expiration - used only if param value is array', 15*60),
                'memCacheSize': ('memory cache max size - used only if param value is array', 1000),
@@ -71,21 +71,27 @@ class List(Base):
     DB_ENGINE="ENGINE=InnoDB"
     
 
-    def __retcolSQL(self, retcol):
-        retcolSQL = ''
+    def __retcolsSQL(self, retcols):
+        retcolsSQL = ''
+        retcolsNew = []
 
-        if retcol == None:
-            retcolSQL = 'COUNT(*)'
-        elif type(retcol) == type([]):
-            retcolSQL = "`%s`" % "`,`".join(retcol)
-#        elif retcol.find(',') != -1:
-#            retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
-        elif retcol != '*' and retcol.find('(') == -1:
-            retcolSQL = "`%s`" % retcol
+        if retcols == None:
+            retcolsSQL = 'COUNT(*)'
+        elif type(retcols) == type([]):
+            retcolsNew = retcols
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+        elif retcols.find(',') != -1:
+            retcolsNew = retcols.split(',')
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+        elif retcols != '*' and retcols.find('(') == -1:
+            retcolsNew = [ retcols ]
+            retcolsSQL = "`%s`" % retcols
         else: # *, COUNT(*), AVG(column), ...
-            retcolSQL = retcol
+            retcolsSQL = retcols
 
-        return retcolSQL
+        logging.getLogger().debug("retcols: %s %s %s" % (retcols, retcolsNew, retcolsSQL))
+
+        return (retcolsSQL, retcolsNew)
 
 
     def __cacheAllRefresh(self):
@@ -167,14 +173,18 @@ class List(Base):
             raise ParamError("type of \"param\" (%s) doesn't match type of \"column\" (%s)" % (param, column))
         if type(column) == str:
             column = [ column ]
-        retcol = self.getParam('retcol')
+        retcols = self.getParam('retcols')
 
-        self.retcolSQL = self.__retcolSQL(retcol)
+        (self.retcolsSQL, retcols) = self.__retcolsSQL(retcols)
+        self.setParam('retcols', retcols)
+
+        if type(retcols) != type([]):
+            retcols = []
 
         conn = self.factory.getDbConnection()
         try:
             cursor = conn.cursor()
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (table, "` VARCHAR(100) NOT NULL, `".join(column), "`, `".join(column), List.DB_ENGINE)
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`%s` VARCHAR(100) NOT NULL, PRIMARY KEY (`%s`)) %s" % (table, "` VARCHAR(100) NOT NULL, `".join(column+retcols), "`, `".join(column), List.DB_ENGINE)
             logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
             cursor.close()
@@ -198,9 +208,9 @@ class List(Base):
 
             columnSQL = '`%s`' % "`, `".join(column)
             groupBySQL = " GROUP BY `%s`" % "`, `".join(column)
-            if self.retcolSQL.find('(') == -1:
+            if self.retcolsSQL.find('(') == -1:
                 groupBySQL = ''
-            self.selectAllSQL = "SELECT %s, %s FROM `%s`%s" % (self.retcolSQL, columnSQL, table, groupBySQL)
+            self.selectAllSQL = "SELECT %s, %s FROM `%s`%s" % (self.retcolsSQL, columnSQL, table, groupBySQL)
 
             self.allDataCacheLock.acquire()
             try:
@@ -262,7 +272,7 @@ class List(Base):
 
         table = self.getParam('table')
         column = self.getParam('column')
-        retcol = self.getParam('retcol')
+        retcols = self.getParam('retcols')
         memCacheExpire = self.getParam('memCacheExpire')
         memCacheSize = self.getParam('memCacheSize')
         useMemCache = len(paramValue) > 1 and memCacheExpire != None and memCacheSize != None and memCacheSize > 0
@@ -283,26 +293,23 @@ class List(Base):
                         break
 
                 sqlWhere = ''
-                sqlWhereData = []
                 if type(column) == str:
                     sqlWhere = "WHERE `%s` = %%s" % column
-                    sqlWhereData.append(paramVal)
                 else:
                     sqlWhereAnd = []
                     for i in range(0, len(column)):
                         sqlWhereAnd.append("`%s` = %%s" % column[i])
-                        sqlWhereData.append(paramVal[i])
                     sqlWhere = "WHERE %s" % " AND ".join(sqlWhereAnd)
 
-                sql = "SELECT %s FROM `%s` %s" % (self.retcolSQL, table, sqlWhere)
+                sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQL, table, sqlWhere)
 
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-                    logging.getLogger().debug("SQL: %s %s" % sql, str(list(sqlWhereData)))
-                cursor.execute(sql, list(sqlWhereData))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(paramVal)))
+                cursor.execute(sql, paramVal)
 
                 if int(cursor.rowcount) > 0:
                     retEx = cursor.fetchone()
-                    if retcol != None or (retcol == None and retEx[0] > 0):
+                    if retcols != None or (retcols == None and retEx[0] > 0):
                         ret = 1
                         if useMemCache:
                             self.__setCache(paramVal, retEx)

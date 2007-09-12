@@ -151,7 +151,7 @@ class ListDyn(Base):
         table = self.getParam('table')
         retcols = self.getParam('retcols', [])
         operation = self.getParam('operation')
-        mapping = self.getParam('mapping')
+        mapping = self.getParam('mapping', {})
         softExpire = int(self.getParam('softExpire'))
         hardExpire = int(self.getParam('hardExpire'))
 

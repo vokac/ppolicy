@@ -101,19 +101,25 @@ class LookupDB(Base):
 
     def __retcolsSQL(self, retcols):
         retcolsSQL = ''
+        retcolsNew = []
 
         if retcols == None:
             retcolsSQL = 'COUNT(*)'
         elif type(retcols) == type([]):
-            retcolsSQL = "`%s`" % "`,`".join(retcols)
-#        elif retcols.find(',') != -1:
-#            retcolsSQL = "`%s`" % "`,`".join(retcols.split(','))
+            retcolsNew = retcols
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+        elif retcols.find(',') != -1:
+            retcolsNew = retcols.split(',')
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
         elif retcols != '*' and retcols.find('(') == -1:
+            retcolsNew = [ retcols ]
             retcolsSQL = "`%s`" % retcols
         else: # *, COUNT(*), AVG(column), ...
             retcolsSQL = retcols
 
-        return retcolsSQL
+        logging.getLogger().debug("retcols: %s %s %s" % (retcols, retcolsNew, retcolsSQL))
+
+        return (retcolsSQL, retcolsNew)
 
 
     def __cacheAllRefresh(self):
@@ -192,10 +198,12 @@ class LookupDB(Base):
         table = self.getParam('table')
         retcols = self.getParam('retcols')
         mapping = self.getParam('mapping', {})
-        softExpire = int(self.getParam('softExpire'))
-        hardExpire = int(self.getParam('hardExpire'))
 
-        self.retcolsSQL = self.__retcolsSQL(retcols)
+        if type(param) == str:
+            param = [ param ]
+
+        (self.retcolsSQL, retcols) = self.__retcolsSQL(retcols)
+        self.setParam('retcols', retcols)
 
         # hash to table columns mapping
         (self.mapping, mappingType) = self.__defaultMapping(mapping)
@@ -205,10 +213,6 @@ class LookupDB(Base):
         idxNames = []
         for dictName in param:
             self.__addCol(self.mapping, dictName, mappingType.get(dictName), cols, colsCreate, idxNames)
-        if softExpire > 0:
-            self.__addCol(self.mapping, 'soft_expire', 'DATETIME NOT NULL', cols, colsCreate)
-        if hardExpire > 0:
-            self.__addCol(self.mapping, 'hard_expire', 'DATETIME NOT NULL', cols, colsCreate)
         if type(retcols) == type([]):
             for dictName in retcols:
                 self.__addCol(self.mapping, dictName, mappingType.get(dictName), cols, colsCreate)

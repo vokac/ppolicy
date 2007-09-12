@@ -102,21 +102,27 @@ class ListBW(Base):
             idxNames.append(mapping[dictName])
 
 
-    def __retcolSQL(self, retcol):
-        retcolSQL = ''
+    def __retcolsSQL(self, retcols):
+        retcolsSQL = ''
+        retcolsNew = []
 
-        if retcol == None:
-            retcolSQL = 'COUNT(*)'
-        elif type(retcol) == type([]):
-            retcolSQL = "`%s`" % "`,`".join(retcol)
-#        elif retcol.find(',') != -1:
-#            retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
-        elif retcol != '*' and retcol.find('(') == -1:
-            retcolSQL = "`%s`" % retcol
+        if retcols == None:
+            retcolsSQL = 'COUNT(*)'
+        elif type(retcols) == type([]):
+            retcolsNew = retcols
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+        elif retcols.find(',') != -1:
+            retcolsNew = retcols.split(',')
+            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+        elif retcols != '*' and retcols.find('(') == -1:
+            retcolsNew = [ retcols ]
+            retcolsSQL = "`%s`" % retcols
         else: # *, COUNT(*), AVG(column), ...
-            retcolSQL = retcol
+            retcolsSQL = retcols
 
-        return retcolSQL
+        logging.getLogger().debug("retcols: %s %s %s" % (retcols, retcolsNew, retcolsSQL))
+
+        return (retcolsSQL, retcolsNew)
 
 
     def __cacheAllRefresh(self):
@@ -223,16 +229,18 @@ class ListBW(Base):
         param = self.getParam('param')
         tableWhitelist = self.getParam('tableWhitelist')
         tableBlacklist = self.getParam('tableBlacklist')
-        mappingWhitelist = self.getParam('mappingWhitelist')
-        mappingBlacklist = self.getParam('mappingBlacklist')
+        mappingWhitelist = self.getParam('mappingWhitelist', {})
+        mappingBlacklist = self.getParam('mappingBlacklist', {})
         retcolsWhitelist = self.getParam('retcolsWhitelist')
         retcolsBlacklist = self.getParam('retcolsBlacklist')
 
         if type(param) == str:
             param = [ param ]
 
-        self.retcolsSQLWhitelist = self.__retcolSQL(retcolsWhitelist)
-        self.retcolsSQLBlacklist = self.__retcolSQL(retcolsBlacklist)
+        (self.retcolsSQLWhitelist, retcolsWhitelist) = self.__retcolsSQL(retcolsWhitelist)
+        self.setParam('retcolsWhitelist', retcolsWhitelist)
+        (self.retcolsSQLBlacklist, retcolsBlacklist) = self.__retcolsSQL(retcolsBlacklist)
+        self.setParam('retcolsBlacklist', retcolsBlacklist)
 
         # hash to table columns mapping
         (self.mappingWhitelist, mappingTypeWhitelist) = self.__defaultMapping(mappingWhitelist)
@@ -343,10 +351,10 @@ class ListBW(Base):
             if not self.allDataCacheReady:
                 ret = 0
             else:
-                retEx = self.allDataCacheWhitelist.get(paramVal)
+                retEx = self.allDataCacheWhitelist.get(paramValue)
                 if retEx != None:
                     ret = 1
-                retEx = self.allDataCacheBlacklist.get(paramVal)
+                retEx = self.allDataCacheBlacklist.get(paramValue)
                 if retEx != None:
                     ret = -1
 
@@ -357,8 +365,8 @@ class ListBW(Base):
 
         tableWhitelist = self.getParam('tableWhitelist')
         tableBlacklist = self.getParam('tableBlacklist')
-        retcolsWhitelist = self.getParam('retcolsWhitelist', retcol)
-        retcolsBlacklist = self.getParam('retcolsBlacklist', retcol)
+        retcolsWhitelist = self.getParam('retcolsWhitelist')
+        retcolsBlacklist = self.getParam('retcolsBlacklist')
 
         try:
             conn = self.factory.getDbConnection()
@@ -376,7 +384,7 @@ class ListBW(Base):
                 sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLWhitelist, tableWhitelist, sqlWhere)
 
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-                    logging.getLogger().debug("SQL: %s %s" % sql, str(paramValue))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(paramValue)))
                 cursor.execute(sql, paramValue)
 
                 if int(cursor.rowcount) > 0:
@@ -396,7 +404,7 @@ class ListBW(Base):
                 sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLBlacklist, tableBlacklist, sqlWhere)
 
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-                    logging.getLogger().debug("SQL: %s %s" % sql, str(paramValue))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(paramValue)))
                 cursor.execute(sql, paramValue)
 
                 if int(cursor.rowcount) > 0:
