@@ -107,7 +107,7 @@ if __name__ == "__main__":
     streamHandler = logging.StreamHandler(sys.stdout)
     streamHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
     logging.getLogger().addHandler(streamHandler)
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.WARN)
 
     data = { 'request': 'smtpd_access_policy',
              'protocol_state': 'RCPT',
@@ -129,7 +129,7 @@ if __name__ == "__main__":
              'size': '12345' }
     if len(sys.argv) > 1:
         if sys.argv[1] == '--doc':
-            for module in [ 'Country', 'Dnsbl', 'DnsblScore', 'DnsblDynamic', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'ListBW', 'ListDyn', 'ListMailDomain', 'LookupLDAP', 'P0f', 'Resolve', 'SPF', 'Sleep', 'Trap', 'Verification', 'Whois' ]:
+            for module in [ 'Country', 'Dnsbl', 'DnsblScore', 'DnsblDynamic', 'DOS', 'Dummy', 'DumpDataDB', 'DumpDataFile', 'Greylist', 'List', 'ListBW', 'ListDyn', 'ListMailDomain', 'LookupDB', 'LookupLDAP', 'P0f', 'Resolve', 'SPF', 'Sleep', 'Trap', 'Verification', 'Whois' ]:
                 doc(module)
             sys.exit()
         moduleName = sys.argv[1]

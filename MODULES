@@ -47,7 +47,6 @@ Examples:
 Module Dnsbl
 ------------
 
-20 Aug 14:53:27 [INFO](dnsbl:24) using dnspython library
 Check if client address is listed in specified DNS blacklist.
 see tools/dnsbl.txt for list of valid blacklist names - original
 file can be downloaded from http://moensted.dk/spam/drbsites.txt
@@ -420,26 +419,32 @@ Examples:
 Module List
 -----------
 
-Check if parameter is in specified database. Can be used for
-black/white listing any of parameter comming with ppolicy requests.
+Check if parameter value (or array of parameter values) is in
+database table. If you don't need complex cartesian product searches
+then it can be more efficient to use simple LookupDB module.
+
+If data type of input value is array, it is created cartesian product
+of all input values. E.g. if input is { 'param1': [ 'a', 'b' ],
+'param2': [ 'c', 'd' ] } then it tries to search following pairs
+in the database: [ ('a', 'c'), ('a', 'd'), ('b', 'c'), ('b', 'd') ]
+
+This module use additional internal result cache for each db query.
+It is more efficient for further queries with similar values in the
+array of incomming parameters.
 
 Parameters:
     cacheAll (False)
         cache all records in memory
     cacheAllRefresh (900)
         refresh time in case of caching all records
+    cacheCaseSensitive (False)
+        case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column
     cacheNegative (900)
         maximum time for caching negative result
     cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
-    caseSensitive (True)
-        case-sensitive search
-    caseSensitiveDB (None)
-        case-sensitive search - use SQL function LOWER
-    caseSensitiveParam (None)
-        case-sensitive search - convert param to lowercase
     column (None)
         name of database column or array of columns according "param"
     factory (None)
@@ -470,14 +475,15 @@ Check returns:
 
 Examples:
     # module for checking if sender is in database table list
-    modules['list1'] = ( 'List', { param="sender" } )
+    modules['list1'] = ( 'List', { 'param="sender" } )
     # check if sender domain is in database table my_list
     # compare case-insensitive and return whole selected row
-    modules['list2'] = ( 'List', { param=[ "sender", "recipient" ],
-                                   table="my_list",
-                                   column=[ "my_column1", "my_column2" ],
-                                   caseSensitive=False,
-                                   retcol="*" } )
+    modules['list2'] = ( 'List', {
+            'param': [ "sender", "recipient" ],
+            'table': "my_list",
+            'column': [ "my_column1", "my_column2" ],
+            'cacheCaseSensitive': False,
+            'retcol': "*" } )
 
 
 
@@ -493,38 +499,26 @@ Parameters:
         cache all records in memory
     cacheAllRefresh (900)
         refresh time in case of caching all records
+    cacheCaseSensitive (False)
+        case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column
     cacheNegative (900)
         maximum time for caching negative result
     cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
-    caseSensitive (True)
-        case-sensitive search
-    caseSensitiveDB (None)
-        case-sensitive search - use SQL function LOWER
-    caseSensitiveParam (None)
-        case-sensitive search - convert param to lowercase
-    column (None)
-        name of database column
-    columnBlacklist (None)
-        name of blacklist database column
-    columnWhitelist (None)
-        name of whitelist database column
     factory (None)
         reference to factory instance
-    memCacheExpire (900)
-        memory cache expiration - used only if param value is array
-    memCacheSize (1000)
-        memory cache max size - used only if param value is array
+    mappingBlacklist ({})
+        mapping between params and database columns for blacklist
+    mappingWhitelist ({})
+        mapping between params and database columns for whitelist
     param (None)
         name of parameter in data dictionary (value can be string or array)
-    retcol (None)
-        name of column returned by check method
-    retcolBlacklist (None)
-        name of blacklist column returned by check method
-    retcolWhitelist (None)
-        name of whitelist column returned by check method
+    retcolsBlacklist (None)
+        name of blacklist columns returned by check method
+    retcolsWhitelist (None)
+        name of whitelist columns returned by check method
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
@@ -547,16 +541,17 @@ Check returns:
 
 Examples:
     # module for checking if sender is in blacklist/whitelist
-    modules['list1'] = ( 'ListBW', { param="sender_splitted" } )
+    modules['list1'] = ( 'ListBW', { 'param': "sender_splitted" } )
     # check if sender in blacklist/whitelist
     # compare case-insensitive and return whole selected row
-    modules['list2'] = ( 'ListBW', { param="sender_splitted",
-                                     tableBlacklist="my_blacklist",
-                                     tableWhitelist="my_whitelist",
-                                     column="my_column",
-                                     caseSensitive=False,
-                                     caseSensitiveDB=True,
-                                     retcol="*" } )
+    modules['list2'] = ( 'ListBW', {
+            'param': "sender_splitted",
+            'tableBlacklist': "my_blacklist",
+            'tableWhitelist': "my_whitelist",
+            'mappingBlacklist': { "my_param": ("my_column", "VARCHAR(50)") },
+            'mappingWhitelist': {"my_param": ("my_column", "VARCHAR(50)") },
+            'cacheCaseSensitive': False,
+            'retcol': "*" } )
 
 
 
@@ -571,14 +566,12 @@ modules, ...
 
 One of the most important parameter is "mapping". It is used to
 map request parameters database columns. Its syntax is [
-'dictName': ('columnName', 'columnType', escape, lower), ...],
+'dictName': ('columnName', 'columnType'), ...],
 where dictName is attribude name comming in check method in data
 dictionary, columnName is database column name, column type is
-database column type in SQL syntax, escape is boolean value that
-identifies text columns that's text should be escaped and lower
-sais that data will be comparet case-insensitive. If don't define
-mapping for concrete column, than default is used 'dictName':
-('dictName', 'VARCHAR(255)', True, False)
+database column type in SQL syntax. If don't define mapping for
+concrete column, than default is used 'dictName':
+('dictName', 'VARCHAR(255)')
 
 Second very important parametr is "operation". With this parameter
 you specify what this module should do by default with passed request.
@@ -602,8 +595,6 @@ Parameters:
         maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
-    criteria (None)
-        names of input data keys used to identify data row(s)
     factory (None)
         reference to factory instance
     hardExpire (None)
@@ -612,6 +603,10 @@ Parameters:
         mapping between params and database columns
     operation (check)
         list operation (add/remove/check)
+    param (None)
+        names of input data keys used to identify data row(s)
+    retcols (None)
+        names of columns to be returned (None mean no related data)
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
@@ -620,8 +615,6 @@ Parameters:
         information that record will be soon expired (0 == never))
     table (list)
         name of database table where to search parameter
-    value (None)
-        names of value columns (None mean no related data)
 
 Check arguments:
     data ... all input data in dict
@@ -639,15 +632,17 @@ Check returns:
 
 Examples:
     # module for checking if sender is in database table list1
-    modules['list1'] = ( 'ListDyn', { table='list1',
-                                      mapping={ "sender": "mail", } } )
+    modules['list1'] = ( 'ListDyn', { 'table': 'list1',
+            'mapping': { "sender": "mail", } } )
     # module for checking/getting if sender row values in database table list2
-    modules['list2'] = ( 'ListDyn', { table='list2',
-                                      mapping={ "sender": ("mail", "VARCHAR(50)", True, True), },
-                                      value=["data1"] } )
+    modules['list2'] = ( 'ListDyn', { 'table': 'list2',
+            'param': 'sender', 'retcols': [ "recip" ],
+            'mapping': { "sender": ("mail", "VARCHAR(50)"),
+                         "recip": ("rmail", "VARCHAR(50)") },
+             } )
     # module with soft/hard expiration and 'add' as default operation
-    modules['list3'] = ( 'ListDyn', { table='list3', operation='add',
-                                      softExpire=60*10, hardExpire=60*30 } )
+    modules['list3'] = ( 'ListDyn', { 'table': 'list3', 'operation': 'add',
+            'softExpire': 60*10, 'hardExpire': 60*30 } )
 
 
 
@@ -663,38 +658,26 @@ Parameters:
         cache all records in memory
     cacheAllRefresh (900)
         refresh time in case of caching all records
+    cacheCaseSensitive (False)
+        case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column
     cacheNegative (900)
         maximum time for caching negative result
     cachePositive (900)
         maximum time for caching positive result
     cacheUnknown (900)
         maximum time for caching unknown result
-    caseSensitive (False)
-        case-sensitive search
-    caseSensitiveDB (True)
-        case-sensitive search - use SQL function LOWER
-    caseSensitiveParam (None)
-        case-sensitive search - convert param to lowercase
-    column (key)
-        name of database column
-    columnBlacklist (None)
-        name of blacklist database column
-    columnWhitelist (None)
-        name of whitelist database column
     factory (None)
         reference to factory instance
-    memCacheExpire (900)
-        memory cache expiration - used only if param value is array
-    memCacheSize (1000)
-        memory cache max size - used only if param value is array
+    mappingBlacklist ({})
+        mapping between params and database columns for blacklist
+    mappingWhitelist ({})
+        mapping between params and database columns for whitelist
     param (None)
         name of parameter in data dictionary (value can be string or array)
-    retcol (None)
-        name of column returned by check method
-    retcolBlacklist (None)
-        name of blacklist column returned by check method
-    retcolWhitelist (None)
-        name of whitelist column returned by check method
+    retcolsBlacklist (None)
+        name of blacklist columns returned by check method
+    retcolsWhitelist (None)
+        name of whitelist columns returned by check method
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
@@ -724,6 +707,70 @@ Examples:
                                              tableWhitelist="my_whitelist",
                                              column="my_column",
                                              retcol="*" } )
+
+
+
+
+Module LookupDB
+---------------
+
+LookupDB module for searching records in DB.
+
+You can map incomming data to database columns using "mapping"
+parameter. Its syntax is [ 'dictName': ('columnName',
+'columnType'), ...], where dictName is attribude name comming in
+check method in data dictionary, columnName is database column
+name, column type is database column type in SQL syntax. If don't
+define mapping for concrete column, than default is used
+'dictName': ('dictName', 'VARCHAR(255)')
+
+Parameters:
+    cacheAll (False)
+        cache all records in memory
+    cacheAllRefresh (900)
+        refresh time in case of caching all records
+    cacheCaseSensitive (False)
+        case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column
+    cacheNegative (900)
+        maximum time for caching negative result
+    cachePositive (900)
+        maximum time for caching positive result
+    cacheUnknown (900)
+        maximum time for caching unknown result
+    factory (None)
+        reference to factory instance
+    mapping ({})
+        mapping between params and database columns
+    param (None)
+        name of parameter in data dictionary (value can be string or array)
+    retcols (None)
+        name of column returned by check method
+    saveResult (True)
+        save returned value in data hash for further modules
+    saveResultPrefix (result_)
+        prefix for saved data
+    table (None)
+        name of database table where to search parameter
+
+Check arguments:
+    data ... all input data in dict
+
+Check returns:
+    1 .... parameter was found in db, second parameter include selected row
+    0 .... failed to check (request doesn't include required param,
+           database error, ...)
+    -1 ... parameter was not found in db
+
+Examples:
+    # module for checking if sender is in database table
+    modules['lookup1'] = ( 'LookupDB', { 'param': "sender" } )
+    # check if sender domain is in database table my_list
+    # compare case-insensitive and return whole selected row
+    modules['lookup2'] = ( 'LookupDB', {
+            'param': [ "sender", "recipient" ],
+            'table': "my_list",
+            'mapping': { "sender": ("mail", "VARCHAR(50)"), },
+            'retcols': "*" } )
 
 
 

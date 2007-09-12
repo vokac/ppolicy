@@ -19,12 +19,22 @@ __version__ = "$Revision$"
 
 
 class List(Base):
-    """Check if parameter is in specified database. Can be used for
-    black/white listing any of parameter comming with ppolicy requests.
+    """Check if parameter value (or array of parameter values) is in
+    database table. If you don't need complex cartesian product searches
+    then it can be more efficient to use simple LookupDB module.
+
+    If data type of input value is array, it is created cartesian product
+    of all input values. E.g. if input is { 'param1': [ 'a', 'b' ],
+    'param2': [ 'c', 'd' ] } then it tries to search following pairs
+    in the database: [ ('a', 'c'), ('a', 'd'), ('b', 'c'), ('b', 'd') ]
+
+    This module use additional internal result cache for each db query.
+    It is more efficient for further queries with similar values in the
+    array of incomming parameters.
 
     Module arguments (see output of getParams method):
-    param, table, column, retcol, cacheCaseSensitive
-    memCacheExpire, memCacheSize, cacheAll, cacheAllRefresh
+    param, table, column, retcol, cacheCaseSensitive, memCacheExpire,
+    memCacheSize, cacheAll, cacheAllRefresh
 
     Check arguments:
         data ... all input data in dict
@@ -37,14 +47,15 @@ class List(Base):
 
     Examples:
         # module for checking if sender is in database table list
-        modules['list1'] = ( 'List', { param="sender" } )
+        modules['list1'] = ( 'List', { 'param="sender" } )
         # check if sender domain is in database table my_list
         # compare case-insensitive and return whole selected row
-        modules['list2'] = ( 'List', { param=[ "sender", "recipient" ],
-                                       table="my_list",
-                                       column=[ "my_column1", "my_column2" ],
-                                       cacheCaseSensitive=False,
-                                       retcol="*" } )
+        modules['list2'] = ( 'List', {
+                'param': [ "sender", "recipient" ],
+                'table': "my_list",
+                'column': [ "my_column1", "my_column2" ],
+                'cacheCaseSensitive': False,
+                'retcol': "*" } )
     """
 
     PARAMS = { 'param': ('name of parameter in data dictionary (value can be string or array)', None),
@@ -67,8 +78,8 @@ class List(Base):
             retcolSQL = 'COUNT(*)'
         elif type(retcol) == type([]):
             retcolSQL = "`%s`" % "`,`".join(retcol)
-        elif retcol.find(',') != -1:
-            retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
+#        elif retcol.find(',') != -1:
+#            retcolSQL = "`%s`" % "`,`".join(retcol.split(','))
         elif retcol != '*' and retcol.find('(') == -1:
             retcolSQL = "`%s`" % retcol
         else: # *, COUNT(*), AVG(column), ...
@@ -83,7 +94,7 @@ class List(Base):
             return
 
         column = self.getParam('column')
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
 
         conn = self.factory.getDbConnection()
         try:
@@ -125,7 +136,7 @@ class List(Base):
 
 
     def hashArg(self, data, *args, **keywords):
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
         param = self.getParam('param')
         if type(param) == str:
             param = [ param ]
@@ -149,15 +160,14 @@ class List(Base):
             if self.getParam(attr) == None:
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
-        table = self.getParam('table')
         param = self.getParam('param')
+        table = self.getParam('table')
         column = self.getParam('column')
         if type(param) != type(column):
             raise ParamError("type of \"param\" (%s) doesn't match type of \"column\" (%s)" % (param, column))
         if type(column) == str:
             column = [ column ]
         retcol = self.getParam('retcol')
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
 
         self.retcolSQL = self.__retcolSQL(retcol)
 
@@ -200,14 +210,14 @@ class List(Base):
 
 
     def check(self, data, *args, **keywords):
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive', True)
-
+        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
         param = self.getParam('param')
+
         if type(param) == str:
             paramValue = data.get(param, [ '' ])
             if type(paramValue) == str:
                 paramValue = [ paramValue ]
-            if not cacheCaseSensitiveParam:
+            if not cacheCaseSensitive:
                 paramValue = [ x.lower() for x in paramValue ]
         else:
             paramVal = []
@@ -216,7 +226,7 @@ class List(Base):
                 paramV = data.get(par, [ '' ])
                 if type(paramV) == str:
                     paramV = [ paramV ]
-                if not cacheCaseSensitiveParam:
+                if not cacheCaseSensitive:
                     paramV = [ x.lower() for x in paramV ]
                 if paramValLen == -1:
                     paramValLen = len(paramV)
@@ -302,7 +312,6 @@ class List(Base):
                     self.__setCache(paramVal, ())
 
             cursor.close()
-            conn.commit()
         except Exception, e:
             try:
                 cursor.close()

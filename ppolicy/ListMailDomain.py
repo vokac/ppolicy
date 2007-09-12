@@ -10,7 +10,6 @@
 # $Id: ListMailDomain.py 38 2006-05-01 17:51:37Z vokac $
 #
 import logging
-import threading
 import time
 from ListBW import ListBW
 
@@ -47,10 +46,7 @@ class ListMailDomain(ListBW):
                                                  retcol="*" } )
     """
 
-    PARAMS = { 'column': (None, 'key'),
-               'caseSensitive': (None, False),  # don't use LOWER(`key`),
-               'caseSensitiveDB': (None, True), # because of index performance
-               'cacheAll': (None, True),
+    PARAMS = { 'cacheAll': (None, True),
                'cacheAllRefresh': (None, 15*60),
                }
 
@@ -92,12 +88,8 @@ class ListMailDomain(ListBW):
 
     def check(self, data, *args, **keywords):
         param = self.getParam('param')
-        caseSensitive = self.getParam('caseSensitive', True)
-        caseSensitiveParam = self.getParam('caseSensitiveParam', caseSensitive)
 
-        paramValue = str(data.get(param, ''))
-        if not caseSensitiveParam:
-            paramValue = paramValue.lower()
+        paramValue = str(data.get(param, '')).lower()
 
         for checkValue in self.__searchList(paramValue):
             ret, retEx = ListBW.check(self, { param: checkValue }, *args, **keywords)
@@ -105,3 +97,4 @@ class ListMailDomain(ListBW):
                 return ret, retEx
 
         return 0, None
+
