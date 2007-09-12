@@ -7,14 +7,14 @@
 #
 # Author: Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
 #
-# $Id: ListBW.py 46 2006-05-09 21:20:49Z vokac $
+# $Id$
 #
 import logging
 import time
 from Base import Base, ParamError
 
 
-__version__ = "$Revision: 46 $"
+__version__ = "$Revision$"
 
 
 class ListBW(Base):

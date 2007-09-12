@@ -7,14 +7,14 @@
 #
 # Author: Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
 #
-# $Id: ListMailDomain.py 38 2006-05-01 17:51:37Z vokac $
+# $Id$
 #
 import logging
 import time
 from ListBW import ListBW
 
 
-__version__ = "$Revision: 38 $"
+__version__ = "$Revision$"
 
 
 class ListMailDomain(ListBW):

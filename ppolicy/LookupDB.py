@@ -7,14 +7,14 @@
 #
 # Author: Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
 #
-# $Id: List.py 66 2007-09-11 12:00:26Z vokac $
+# $Id$
 #
 import logging
 import time
 from Base import Base, ParamError
 
 
-__version__ = "$Revision: 66 $"
+__version__ = "$Revision$"
 
 
 class LookupDB(Base):
@@ -303,7 +303,7 @@ class LookupDB(Base):
             sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQL, table, sqlWhere)
 
             if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
-                logging.getLogger().debug("SQL: %s %s" % sql, str(paramValue))
+                logging.getLogger().debug("SQL: %s %s" % (sql, str(paramValue)))
             cursor.execute(sql, paramValue)
 
             if int(cursor.rowcount) > 0:

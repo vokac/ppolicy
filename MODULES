@@ -455,7 +455,7 @@ Parameters:
         memory cache max size - used only if param value is array
     param (None)
         name of parameter in data dictionary (value can be string or array)
-    retcol (None)
+    retcols (None)
         name of column returned by check method
     saveResult (True)
         save returned value in data hash for further modules
@@ -483,7 +483,7 @@ Examples:
             'table': "my_list",
             'column': [ "my_column1", "my_column2" ],
             'cacheCaseSensitive': False,
-            'retcol': "*" } )
+            'retcols': "*" } )
 
 
 
