@@ -78,8 +78,11 @@ class List(Base):
         if retcols == None:
             retcolsSQL = 'COUNT(*)'
         elif type(retcols) == type([]):
-            retcolsNew = retcols
-            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+            if len(retcols) == 0:
+                retcolsSQL = 'COUNT(*)'
+            else:
+                retcolsNew = retcols
+                retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
         elif retcols.find(',') != -1:
             retcolsNew = retcols.split(',')
             retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
@@ -117,13 +120,17 @@ class List(Base):
                     break
                 if type(column) == str:
                     cKey = res[len(res)-1]
-                    if not cacheCaseSensitive:
+                    if not cacheCaseSensitive and type(cKey) == str:
                         cKey = cKey.lower()
                     newCache[cKey] = res[:-1]
                 else:
                     cKey = res[-len(column):]
                     if not cacheCaseSensitive:
-                        cKey = [ x.lower() for x in cKey ]
+                        x = []
+                        for y in cKey:
+                            if type(y) == str: x.append(y.lower())
+                            else: x.append(y)
+                        cKey = x
                     newCache[cKey] = res[:-len(column)]
             cursor.close()
 
@@ -150,7 +157,7 @@ class List(Base):
         paramValue = []
         for par in param:
             parVal = str(data.get(par, ''))
-            if cacheCaseSensitive:
+            if cacheCaseSensitive or type(parVal) != str:
                 paramValue.append("%s=%s" % (par, parVal))
             else:
                 paramValue.append("%s=%s" % (par, parVal.lower()))
@@ -228,7 +235,11 @@ class List(Base):
             if type(paramValue) == str:
                 paramValue = [ paramValue ]
             if not cacheCaseSensitive:
-                paramValue = [ x.lower() for x in paramValue ]
+                x = []
+                for y in paramValue:
+                    if type(y) == str: x.append(y.lower())
+                    else: x.append(y)
+                paramValue = x
         else:
             paramVal = []
             paramValLen = -1
@@ -237,7 +248,11 @@ class List(Base):
                 if type(paramV) == str:
                     paramV = [ paramV ]
                 if not cacheCaseSensitive:
-                    paramV = [ x.lower() for x in paramV ]
+                    x = []
+                    for y in paramV:
+                        if type(y) == str: x.append(y.lower())
+                        else: x.append(y)
+                    paramV = x
                 if paramValLen == -1:
                     paramValLen = len(paramV)
                 elif paramValLen != len(paramV):

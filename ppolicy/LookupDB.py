@@ -106,8 +106,11 @@ class LookupDB(Base):
         if retcols == None:
             retcolsSQL = 'COUNT(*)'
         elif type(retcols) == type([]):
-            retcolsNew = retcols
-            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+            if len(retcols) == 0:
+                retcolsSQL = 'COUNT(*)'
+            else:
+                retcolsNew = retcols
+                retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
         elif retcols.find(',') != -1:
             retcolsNew = retcols.split(',')
             retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
@@ -145,13 +148,17 @@ class LookupDB(Base):
                     break
                 if type(retcols) == str:
                     cKey = res[-1]
-                    if not cacheCaseSensitive:
+                    if not cacheCaseSensitive and type(cKey) == str:
                         cKey = cKey.lower()
                     newCache[cKey] = res[:-1]
                 else:
                     cKey = res[-len(retcols):]
                     if not cacheCaseSensitive:
-                        cKey = [ x.lower() for x in cKey ]
+                        x = []
+                        for y in cKey:
+                            if type(y) == str: x.append(y.lower())
+                            else: x.append(y)
+                        cKey = x
                     newCache[cKey] = res[:-len(retcols)]
             cursor.close()
 
@@ -257,18 +264,20 @@ class LookupDB(Base):
         param = self.getParam('param')
 
         if type(param) == str:
-            if not cacheCaseSensitive:
-                paramValue = (data.get(param, '').lower(), )
+            p = data.get(param, '')
+            if not cacheCaseSensitive and type(p) == str:
+                paramValue = (p.lower(), )
             else:
-                paramValue = (data.get(param, ''), )
+                paramValue = (p, )
         else:
             paramVal = []
             for par in param:
-                if not cacheCaseSensitive:
-                    paramVal.append(data.get(par, '').lower())
+                p = data.get(par, '')
+                if not cacheCaseSensitive and type(p) == str:
+                    paramVal.append(p.lower())
                 else:
-                    paramVal.append(data.get(par, ''))
-            paramValue = list(paramVal)
+                    paramVal.append(p)
+            paramValue = tuple(paramVal)
 
         ret = -1
         retEx = None
@@ -310,7 +319,6 @@ class LookupDB(Base):
                 retEx = cursor.fetchone()
                 if retcols != None or (retcols == None and retEx[0] > 0):
                     ret = 1
-                    break
 
             cursor.close()
         except Exception, e:

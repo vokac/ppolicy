@@ -217,6 +217,9 @@ class ListDyn(Base):
         if softExpire == None: softExpire = int(self.getParam('softExpire'))
         if hardExpire == None: hardExpire = int(self.getParam('hardExpire'))
 
+        if type(param) == str:
+            param = [ param ]
+
         logging.getLogger().debug("%s; %s; %s; %s; %s; %s; %s; %s" % (data, operation, value, softExpire, hardExpire, table, param, retcols))
 
         # create all parameter combinations (cartesian product)
@@ -273,14 +276,14 @@ class ListDyn(Base):
                 # add
                 if operation == 'add':
                     sql = "SELECT 1 FROM `%s` WHERE %s" % (table, where)
-                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(whereData))))
-                    cursor.execute(sql, list(whereData))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(whereData))))
+                    cursor.execute(sql, tuple(whereData))
                     if int(cursor.rowcount) == 0:
                         colNames = colNVadd.keys()
                         colValues = colNVadd.values()
-                        sql = "INSERT INTO `%s` (`%s`) VALUES (%s)" % (table, "`,`".join(colNames), "%s"*len(colNames))
-                        logging.getLogger().debug("SQL: %s %s" % (sql, str(list(colValues))))
-                        cursor.execute(sql, list(colValues))
+                        sql = "INSERT INTO `%s` (`%s`) VALUES (%%s%s)" % (table, "`,`".join(colNames), ",%s"*(len(colNames)-1))
+                        logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(colValues))))
+                        cursor.execute(sql, tuple(colValues))
                     else:
                         if len(retcols) > 0 or softExpire != 0 or hardExpire != 0:
                             sfExp = []
@@ -298,13 +301,13 @@ class ListDyn(Base):
                                 sfExp.append("`%s`=%%s" % colName)
                                 sfVal.append(colNVadd[colName])
                             sql = "UPDATE `%s` SET %s WHERE %s" % (table, ",".join(sfExp), where)
-                            logging.getLogger().debug("SQL: %s %s" % (sql, str(list(sfVal+where))))
-                            cursor.execute(sql, list(sfVal+where))
+                            logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(sfVal+whereData))))
+                            cursor.execute(sql, tuple(sfVal+whereData))
                 # remove
                 elif operation == 'remove':
                     sql = "DELETE FROM `%s` WHERE %s" % (table, where)
-                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(where))))
-                    cursor.execute(sql, list(where))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(whereData))))
+                    cursor.execute(sql, tuple(whereData))
                 # check
                 elif operation == 'check':
                     sfExp = []
@@ -324,8 +327,8 @@ class ListDyn(Base):
                     if len(sfExp) == 0:
                         sfExp.append("1")
                     sql = "SELECT %s FROM `%s` WHERE %s" % (",".join(sfExp), table, where)
-                    logging.getLogger().debug("SQL: %s %s" % (sql, str(list(where))))
-                    cursor.execute(sql, list(where))
+                    logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(whereData))))
+                    cursor.execute(sql, tuple(whereData))
                     retCodeNew = -1
                     if int(cursor.rowcount) > 0:
                         retCodeNew = 1

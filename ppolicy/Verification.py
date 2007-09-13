@@ -119,7 +119,7 @@ class Verification(Base):
         if vtype not in [ 'mx', 'connection', 'domain', 'user' ]:
             raise ParamError("vtype can be only domain or user")
 
-        self.cacheDB = ListDyn("%s_persistent_cache" % (self.getName()), self.factory, table=table, param=["param"], retcols=["code", "codeEx"], mapping={ 'code': ('code', 'TINYINT', False) }, softExpire=dbExpireNegative*3/4, hardExpire=dbExpireNegative)
+        self.cacheDB = ListDyn("%s_persistent_cache" % (self.getName()), self.factory, table=table, param=["param"], retcols=["code", "codeEx"], mapping={ 'code': ('code', 'TINYINT') }, softExpire=dbExpireNegative*3/4, hardExpire=dbExpireNegative)
         self.cacheDB.start()
 
 

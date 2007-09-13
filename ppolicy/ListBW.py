@@ -109,8 +109,11 @@ class ListBW(Base):
         if retcols == None:
             retcolsSQL = 'COUNT(*)'
         elif type(retcols) == type([]):
-            retcolsNew = retcols
-            retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
+            if len(retcols) == 0:
+                retcolsSQL = 'COUNT(*)'
+            else:
+                retcolsNew = retcols
+                retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
         elif retcols.find(',') != -1:
             retcolsNew = retcols.split(',')
             retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
@@ -154,14 +157,18 @@ class ListBW(Base):
                         break
                     if type(retcolsWhitelist) == str:
                         cKey = res[-1]
-                        if not cacheCaseSensitive:
+                        if not cacheCaseSensitive and type(cKey) == str:
                             cKey = cKey.lower()
                         newCacheWhitelist[cKey] = res[:-1]
                     else:
                         cKey = res[-len(retcolsWhitelist):]
                         if not cacheCaseSensitive:
-                            cKey = [ x.lower() for x in cKey ]
-                        newCacheWhitelist[cKey] = res[:-len(retcolsWhitelist)]
+                            x = []
+                            for y in cKey:
+                                if type(y) == str: x.append(y.lower())
+                                else: x.append(y)
+                            cKey = x
+                        newCacheWhitelist[tuple(cKey)] = res[:-len(retcolsWhitelist)]
 
             if tableBlacklist != None:
                 sql = self.selectAllSQLBlacklist
@@ -174,14 +181,18 @@ class ListBW(Base):
                         break
                     if type(retcolsBlacklist) == str:
                         cKey = res[-1]
-                        if not cacheCaseSensitive:
+                        if not cacheCaseSensitive and type(cKey) == str:
                             cKey = cKey.lower()
                         newCacheBlacklist[cKey] = res[:-1]
                     else:
                         cKey = res[-len(retcolsBlacklist):]
                         if not cacheCaseSensitive:
-                            cKey = [ x.lower() for x in cKey ]
-                        newCacheBlacklist[cKey] = res[:-len(retcolsBlacklist)]
+                            x = []
+                            for y in cKey:
+                                if type(y) == str: x.append(y.lower())
+                                else: x.append(y)
+                            cKey = x
+                        newCacheBlacklist[tuple(cKey)] = res[:-len(retcolsBlacklist)]
 
             cursor.close()
 
@@ -210,7 +221,7 @@ class ListBW(Base):
         paramValue = []
         for par in param:
             parVal = str(data.get(par, ''))
-            if cacheCaseSensitive:
+            if cacheCaseSensitive and type(parVal) != str:
                 paramValue.append("%s=%s" % (par, parVal))
             else:
                 paramValue.append("%s=%s" % (par, parVal.lower()))
@@ -330,18 +341,20 @@ class ListBW(Base):
         param = self.getParam('param')
 
         if type(param) == str:
-            if not cacheCaseSensitive:
-                paramValue = (data.get(param, '').lower(), )
+            p = data.get(param, '')
+            if not cacheCaseSensitive and type(p) == str:
+                paramValue = (p.lower(), )
             else:
-                paramValue = (data.get(param, ''), )
+                paramValue = (p, )
         else:
             paramVal = []
             for par in param:
-                if not cacheCaseSensitive:
-                    paramVal.append(data.get(par, '').lower())
+                p = data.get(par, '')
+                if not cacheCaseSensitive and type(p) == str:
+                    paramVal.append(p.lower())
                 else:
-                    paramVal.append(data.get(par, ''))
-            paramValue = list(paramVal)
+                    paramVal.append(p)
+            paramValue = tuple(paramVal)
 
         ret = 0
         retEx = None
