@@ -248,12 +248,6 @@ class ListDyn(Base):
             for dictName in retcols:
                 colName = self.mapping[dictName]
                 colNVadd[colName] = value.get(dictName, '')
-        if softExpire != 0:
-            colName = self.mapping['soft_expire']
-            colNVadd[colName] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire
-        if hardExpire != 0:
-            colName = self.mapping['hard_expire']
-            colNVadd[colName] = "FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire
 
         # add/remove/check data in database
         retCode = -1
@@ -281,7 +275,14 @@ class ListDyn(Base):
                     if int(cursor.rowcount) == 0:
                         colNames = colNVadd.keys()
                         colValues = colNVadd.values()
-                        sql = "INSERT INTO `%s` (`%s`) VALUES (%%s%s)" % (table, "`,`".join(colNames), ",%s"*(len(colNames)-1))
+                        colExpire = []
+                        if softExpire != 0:
+                            colNames.append(self.mapping['soft_expire'])
+                            colExpire.append("FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % softExpire)
+                        if hardExpire != 0:
+                            colNames.append(self.mapping['hard_expire'])
+                            colExpire.append("FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire)
+                        sql = "INSERT INTO `%s` (`%s`) VALUES (%s)" % (table, "`,`".join(colNames), ",".join([ "%%s" for x in colValues ] + colExpire))
                         logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(colValues))))
                         cursor.execute(sql, tuple(colValues))
                     else:
@@ -290,12 +291,10 @@ class ListDyn(Base):
                             sfVal = []
                             if softExpire != 0:
                                 colName = self.mapping['soft_expire']
-                                sfExp.append("`%s`=%%s" % colName)
-                                sfVal.append(colNVadd[colName])
+                                sfExp.append("`%s`=FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % (colName, softExpire))
                             if hardExpire != 0:
                                 colName = self.mapping['hard_expire']
-                                sfExp.append("`%s`=%%s" % colName)
-                                sfVal.append(colNVadd[colName])
+                                sfExp.append("`%s`=FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % (colName, hardExpire))
                             for dictName in retcols:
                                 colName = self.mapping[dictName]
                                 sfExp.append("`%s`=%%s" % colName)
