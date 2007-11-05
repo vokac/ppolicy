@@ -282,7 +282,7 @@ class ListDyn(Base):
                         if hardExpire != 0:
                             colNames.append(self.mapping['hard_expire'])
                             colExpire.append("FROM_UNIXTIME(UNIX_TIMESTAMP()+%i)" % hardExpire)
-                        sql = "INSERT INTO `%s` (`%s`) VALUES (%s)" % (table, "`,`".join(colNames), ",".join([ "%%s" for x in colValues ] + colExpire))
+                        sql = "INSERT INTO `%s` (`%s`) VALUES (%s)" % (table, "`,`".join(colNames), ",".join([ "\%s" for x in colValues ] + colExpire))
                         logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(colValues))))
                         cursor.execute(sql, tuple(colValues))
                     else:
