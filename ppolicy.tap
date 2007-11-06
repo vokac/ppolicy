@@ -22,6 +22,7 @@ from twisted.internet import reactor, protocol
 config = {
     'configFile'   : '/etc/postfix/ppolicy.conf',
     'logLevel'     : logging.WARN,
+    'usePsyco'     : True,
     'admin'        : 'postmaster',
     'domain'       : socket.gethostname(),
     'databaseAPI'  : 'MySQLdb',
@@ -53,16 +54,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.7.0-0beta2")
-
-# Import Psyco if available
-try:
-    import psyco
-    psyco.full()
-    logging.getLogger().warn("Using Psyco to optimize python code")
-except ImportError:
-    logging.getLogger().warn("Psyco is not available")
-    pass
+logging.getLogger().info("version: 2.7.0-0beta3")
 
 # import configuration file
 if not os.path.isfile(config['configFile']):
@@ -115,6 +107,16 @@ signal.signal(signal.SIGHUP, read_config)
 
 # read initial configuration
 read_config(0, None)
+
+if config.get('usePsyco', True):
+    # Import Psyco if available
+    try:
+        import psyco
+        psyco.full()
+        logging.getLogger().warn("Using Psyco to optimize python code")
+    except ImportError:
+        logging.getLogger().warn("Psyco is not available")
+        pass
 
 # start twisted application
 reactor.suggestThreadPoolSize(40)

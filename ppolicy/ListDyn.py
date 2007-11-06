@@ -273,8 +273,8 @@ class ListDyn(Base):
                     logging.getLogger().debug("SQL: %s %s" % (sql, str(tuple(whereData))))
                     cursor.execute(sql, tuple(whereData))
                     if int(cursor.rowcount) == 0:
-                        colNames = colNVadd.keys()
-                        colValues = colNVadd.values()
+                        colNames = colNV.keys() + colNVadd.keys()
+                        colValues = colNV.values() + colNVadd.values()
                         colExpire = []
                         if softExpire != 0:
                             colNames.append(self.mapping['soft_expire'])
