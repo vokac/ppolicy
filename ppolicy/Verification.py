@@ -73,6 +73,7 @@ class Verification(Base):
     PARAMS = { 'param': ('string key for data item that should be verified (sender/recipient)', None),
                'timeout': ('set SMTP connection timeout', 20),
                'vtype': ('mx, connection, domain or user verification', 'mx'),
+               'cacheDB': ('cache results in database (almost useless for mx verification)', False),
                'table': ('database table with persistent cache', 'verification'),
                'dbExpirePositive': ('positive result expiration time in db', 28*24*60*60),
                'dbExpireNegative': ('negative result expiration time in db', 3*60*60),
@@ -119,8 +120,9 @@ class Verification(Base):
         if vtype not in [ 'mx', 'connection', 'domain', 'user' ]:
             raise ParamError("vtype can be only domain or user")
 
-        self.cacheDB = ListDyn("%s_persistent_cache" % (self.getName()), self.factory, table=table, param=["param"], retcols=["code", "codeEx"], mapping={ 'code': ('code', 'TINYINT') }, softExpire=dbExpireNegative*3/4, hardExpire=dbExpireNegative)
-        self.cacheDB.start()
+        if self.getParam('cacheDB'):
+            self.cacheDB = ListDyn("%s_persistent_cache" % (self.getName()), self.factory, table=table, param=["param"], retcols=["code", "codeEx"], mapping={ 'code': ('code', 'TINYINT') }, softExpire=dbExpireNegative*3/4, hardExpire=dbExpireNegative)
+            self.cacheDB.start()
 
 
     def hashArg(self, data, *args, **keywords):
@@ -164,7 +166,9 @@ class Verification(Base):
             paramValue = domain
 
         # look in pernament result cache
-        cacheCode, cacheVal = self.cacheDB.check({ 'param': paramValue }, operation="check")
+        cacheCode = 0
+        if self.getParam('cacheDB'):
+            cacheCode, cacheVal = self.cacheDB.check({ 'param': paramValue }, operation="check")
         if cacheCode > 0:
             cacheCode, cacheRes, cacheEx = cacheVal[0]
             if cacheRes > 0:
@@ -186,16 +190,18 @@ class Verification(Base):
             code = -Verification.CHECK_RESULT_MX
             codeEx = "%s: no mailhost for %s" % (self.getId(), domain)
             logging.getLogger().info(codeEx)
-            self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx })
+            if self.getParam('cacheDB'):
+                self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx })
             return code, codeEx
 
         if vtype == 'mx':
             code = Verification.CHECK_RESULT_MX
             codeEx = "%s: mailhost for %s exists" % (self.getId(), domain)
             logging.getLogger().info(codeEx)
-            self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx }, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
+            if self.getParam('cacheDB'):
+                self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx }, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
             return code, codeEx
-            
+
         # if site has only one IP for mailserver, try to connect
         # two times, because in case the server has hight load
         # it can refuse new connection - so be aggressive and try
@@ -229,10 +235,11 @@ class Verification(Base):
             return code, "%s didn't get any result" % self.getId()
 
         # add new informations to pernament cache
-        if code > 0:
-            self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx }, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
-        elif code < 0:
-            self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx })
+        if self.getParam('cacheDB'):
+            if code > 0:
+                self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx }, softExpire=dbExpirePositive*3/4, hardExpire=dbExpirePositive)
+            elif code < 0:
+                self.cacheDB.check({ 'param': paramValue }, operation="add", value={ 'code': code, 'codeEx': codeEx })
 
         return code, codeEx
 
@@ -283,7 +290,7 @@ class Verification(Base):
             return Verification.CHECK_UNKNOWN, "address verification failed: %s" % msg
         except socket.error, err:
             msg = "socket communication with %s (%s) failed: %s" % (mailhost, domain, err)
-            logging.getLogger().warn("%s: %s" % (self.getId(), msg))
+            logging.getLogger().info("%s: %s" % (self.getId(), msg))
             return Verification.CHECK_UNKNOWN, "address verification failed: %s" % msg
 
-        return Verification.CHECK_FAILED, "address verirication failed."
+        return Verification.CHECK_FAILED, "address verification failed."

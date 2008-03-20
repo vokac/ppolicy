@@ -193,7 +193,7 @@ class DumpDataDB(Base):
                     logging.getLogger().debug("%s" % sqlData[len(sqlData)-1])
 
                 for k,v in data.items():
-                    sqlData.append("(%i, '%s', '%s')" % (newId, k, str(v).replace("'", "\\'")))
+                    sqlData.append("(%i, '%s', '%s')" % (newId, k, str(v).replace('\\', '\\\\').replace(r"'",r"\'")))
                     if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                         logging.getLogger().debug("%s" % sqlData[len(sqlData)-1])
 
