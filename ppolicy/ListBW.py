@@ -90,27 +90,15 @@ class ListBW(Base):
         return mappingCols, mappingType
 
 
-    def __addCol(self, mapping, dictName, colType, cols, colsCreate, idxNames = None):
-        if not mapping.has_key(dictName):
-            mapping[dictName] = dictName
-        colName = mapping[dictName]
-        if colType == None or colType == '':
-            colType = 'VARCHAR(255)'
-        cols.append(colName)
-        colsCreate.append("`%s` %s" % (colName, colType))
-        if idxNames != None:
-            idxNames.append(mapping[dictName])
-
-
     def __retcolsSQL(self, retcols):
         retcolsSQL = ''
         retcolsNew = []
 
         if retcols == None:
-            retcolsSQL = 'COUNT(*)'
+            retcolsSQL = '1'
         elif type(retcols) == type([]):
             if len(retcols) == 0:
-                retcolsSQL = 'COUNT(*)'
+                retcolsSQL = '1'
             else:
                 retcolsNew = retcols
                 retcolsSQL = "`%s`" % "`,`".join(retcolsNew)
@@ -133,12 +121,6 @@ class ListBW(Base):
         if self.allDataCacheRefresh > time.time():
             return
 
-        tableBlacklist = self.getParam('tableBlacklist')
-        tableWhitelist = self.getParam('tableWhitelist')
-        retcolsBlacklist = self.getParam('retcolsBlacklist')
-        retcolsWhitelist = self.getParam('retcolsWhitelist')
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
-
         conn = self.factory.getDbConnection()
         try:
             newCacheWhitelist = {}
@@ -146,7 +128,7 @@ class ListBW(Base):
 
             cursor = conn.cursor()
 
-            if tableWhitelist != None:
+            if self.tableWhitelist != None:
                 sql = self.selectAllSQLWhitelist
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
@@ -155,22 +137,22 @@ class ListBW(Base):
                     res = cursor.fetchone()
                     if res == None:
                         break
-                    if type(retcolsWhitelist) == str:
-                        cKey = res[-1]
-                        if not cacheCaseSensitive and type(cKey) == str:
+                    if len(self.param) == 1:
+                        cKey = res[0]
+                        if not self.cacheCaseSensitive and type(cKey) == str:
                             cKey = cKey.lower()
-                        newCacheWhitelist[cKey] = res[:-1]
+                        newCacheWhitelist[cKey] = tuple(res[1:])
                     else:
-                        cKey = res[-len(retcolsWhitelist):]
-                        if not cacheCaseSensitive:
+                        cKey = res[:len(self.param)]
+                        if not self.cacheCaseSensitive:
                             x = []
                             for y in cKey:
                                 if type(y) == str: x.append(y.lower())
                                 else: x.append(y)
                             cKey = x
-                        newCacheWhitelist[tuple(cKey)] = res[:-len(retcolsWhitelist)]
+                        newCacheWhitelist[tuple(cKey)] = tuple(res[len(self.param):])
 
-            if tableBlacklist != None:
+            if self.tableBlacklist != None:
                 sql = self.selectAllSQLBlacklist
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
@@ -179,20 +161,20 @@ class ListBW(Base):
                     res = cursor.fetchone()
                     if res == None:
                         break
-                    if type(retcolsBlacklist) == str:
-                        cKey = res[-1]
-                        if not cacheCaseSensitive and type(cKey) == str:
+                    if len(self.param) == 1:
+                        cKey = res[0]
+                        if not self.cacheCaseSensitive and type(cKey) == str:
                             cKey = cKey.lower()
-                        newCacheBlacklist[cKey] = res[:-1]
+                        newCacheBlacklist[cKey] = tuple(res[1:])
                     else:
-                        cKey = res[-len(retcolsBlacklist):]
-                        if not cacheCaseSensitive:
+                        cKey = res[:len(self.param)]
+                        if not self.cacheCaseSensitive:
                             x = []
                             for y in cKey:
                                 if type(y) == str: x.append(y.lower())
                                 else: x.append(y)
                             cKey = x
-                        newCacheBlacklist[tuple(cKey)] = res[:-len(retcolsBlacklist)]
+                        newCacheBlacklist[tuple(cKey)] = tuple(res[len(self.param):])
 
             cursor.close()
 
@@ -213,15 +195,10 @@ class ListBW(Base):
 
 
     def hashArg(self, data, *args, **keywords):
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
-        param = self.getParam('param')
-        if type(param) == str:
-            param = [ param ]
-
         paramValue = []
-        for par in param:
+        for par in self.param:
             parVal = str(data.get(par, ''))
-            if cacheCaseSensitive and type(parVal) != str:
+            if self.cacheCaseSensitive and type(parVal) != str:
                 paramValue.append("%s=%s" % (par, parVal))
             else:
                 paramValue.append("%s=%s" % (par, parVal.lower()))
@@ -238,20 +215,24 @@ class ListBW(Base):
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
         param = self.getParam('param')
-        tableWhitelist = self.getParam('tableWhitelist')
-        tableBlacklist = self.getParam('tableBlacklist')
+        self.tableWhitelist = self.getParam('tableWhitelist')
+        self.tableBlacklist = self.getParam('tableBlacklist')
         mappingWhitelist = self.getParam('mappingWhitelist', {})
         mappingBlacklist = self.getParam('mappingBlacklist', {})
         retcolsWhitelist = self.getParam('retcolsWhitelist')
         retcolsBlacklist = self.getParam('retcolsBlacklist')
+        self.cacheCaseSensitive = self.getParam('cacheCaseSensitive')
+
+        self.wherecolsWhitelist = []
+        self.wherecolsBlacklist = []
 
         if type(param) == str:
-            param = [ param ]
+            self.param = [ param ]
+        else:
+            self.param = param[:]
 
-        (self.retcolsSQLWhitelist, retcolsWhitelist) = self.__retcolsSQL(retcolsWhitelist)
-        self.setParam('retcolsWhitelist', retcolsWhitelist)
-        (self.retcolsSQLBlacklist, retcolsBlacklist) = self.__retcolsSQL(retcolsBlacklist)
-        self.setParam('retcolsBlacklist', retcolsBlacklist)
+        (self.retcolsSQLWhitelist, self.retcolsWhitelist) = self.__retcolsSQL(retcolsWhitelist)
+        (self.retcolsSQLBlacklist, self.retcolsBlacklist) = self.__retcolsSQL(retcolsBlacklist)
 
         # hash to table columns mapping
         (self.mappingWhitelist, mappingTypeWhitelist) = self.__defaultMapping(mappingWhitelist)
@@ -259,43 +240,67 @@ class ListBW(Base):
 
         colsWhitelist = []
         colsCreateWhitelist = []
-        idxNamesWhitelist = []
-        for dictName in param:
-            self.__addCol(self.mappingWhitelist, dictName, mappingTypeWhitelist.get(dictName), colsWhitelist, colsCreateWhitelist, idxNamesWhitelist)
-        if type(retcolsWhitelist) == type([]):
-            for dictName in retcolsWhitelist:
-                self.__addCol(self.mappingWhitelist, dictName, mappingTypeWhitelist.get(dictName), colsWhitelist, colsCreateWhitelist)
+        for dictName in self.param:
+            colName = self.mappingWhitelist.get(dictName, dictName)
+            self.wherecolsWhitelist.append(colName)
+            if colName in colsWhitelist: continue
+            colType = mappingTypeWhitelist.get(dictName)
+            if colType == None or colType == '':
+                colType = 'VARCHAR(255)'
+            colsWhitelist.append(colName)
+            colsCreateWhitelist.append("`%s` %s" % (colName, colType))
+        if type(self.retcolsWhitelist) == type([]):
+            for dictName in self.retcolsWhitelist:
+                colName = self.mappingWhitelist.get(dictName, dictName)
+                if colName in colsWhitelist: continue
+                colType = mappingTypeWhitelist.get(dictName)
+                if colType == None or colType == '':
+                    colType = 'VARCHAR(255)'
+                colsWhitelist.append(colName)
+                colsCreateWhitelist.append("`%s` %s" % (colName, colType))
 
         idxWhitelist = []
-        if len(idxNamesWhitelist) > 0:
-            idxWhitelist.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(idxNamesWhitelist))
+        if len(self.wherecolsWhitelist) > 0:
+            idxWhitelist.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(self.wherecolsWhitelist))
         logging.getLogger().debug("mapping: %s" % mappingWhitelist)
 
         colsBlacklist = []
         colsCreateBlacklist = []
-        idxNamesBlacklist = []
-        for dictName in param:
-            self.__addCol(self.mappingBlacklist, dictName, mappingTypeBlacklist.get(dictName), colsBlacklist, colsCreateBlacklist, idxNamesBlacklist)
-        if type(retcolsBlacklist) == type([]):
-            for dictName in retcolsBlacklist:
-                self.__addCol(self.mappingBlacklist, dictName, mappingTypeBlacklist.get(dictName), colsBlacklist, colsCreateBlacklist)
+        for dictName in self.param:
+            colName = self.mappingBlacklist.get(dictName, dictName)
+            self.wherecolsBlacklist.append(colName)
+            if colName in colsBlacklist: continue
+            colType = mappingTypeBlacklist.get(dictName)
+            if colType == None or colType == '':
+                colType = 'VARCHAR(255)'
+            colsBlacklist.append(colName)
+            colsCreateBlacklist.append("`%s` %s" % (colName, colType))
+        if type(self.retcolsBlacklist) == type([]):
+            for dictName in self.retcolsBlacklist:
+                colName = self.mappingBlacklist.get(dictName, dictName)
+                if colName in colsBlacklist: continue
+                colType = mappingTypeBlacklist.get(dictName)
+                if colType == None or colType == '':
+                    colType = 'VARCHAR(255)'
+                colsBlacklist.append(colName)
+                colsCreateBlacklist.append("`%s` %s" % (colName, colType))
 
         idxBlacklist = []
-        if len(idxNamesBlacklist) > 0:
-            idxBlacklist.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(idxNamesBlacklist))
+        if len(self.wherecolsBlacklist) > 0:
+            idxBlacklist.append("INDEX `autoindex_key` (`%s`)" % "`,`".join(self.wherecolsBlacklist))
         logging.getLogger().debug("mapping: %s" % mappingBlacklist)
 
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
         try:
-            if tableWhitelist != None:
+            if self.tableWhitelist != None:
                 cursor = conn.cursor()
-                sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (tableWhitelist, ",".join(colsCreateWhitelist+idxWhitelist), ListBW.DB_ENGINE)
+                sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (self.tableWhitelist, ",".join(colsCreateWhitelist+idxWhitelist), ListBW.DB_ENGINE)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
-            if tableBlacklist != None:
+            if self.tableBlacklist != None:
                 cursor = conn.cursor()
-                sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (tableBlacklist, ",".join(colsCreateBlacklist+idxBlacklist), ListBW.DB_ENGINE)
+                sql = "CREATE TABLE IF NOT EXISTS `%s` (%s) %s" % (self.tableBlacklist, ",".join(colsCreateBlacklist+idxBlacklist), ListBW.DB_ENGINE)
                 logging.getLogger().debug("SQL: %s" % sql)
                 cursor.execute(sql)
             cursor.close()
@@ -311,46 +316,39 @@ class ListBW(Base):
             self.allDataCacheReady = False
             self.allDataCacheRefresh = 0
 
-            if tableWhitelist != None:
-                columnSQLWhitelist = '`%s`' % "`, `".join(colsWhitelist)
+            if self.tableWhitelist != None:
                 groupBySQLWhitelist = ''
                 if self.retcolsSQLWhitelist == '*':
-                    columnSQLWhitelist = '*'
+                    columnSQLWhitelist = "`%s`, `%s`" % ("`, `".join(self.wherecolsWhitelist), "`, `".join(colsBlacklist))
                 else:
-                    columnSQLWhitelist = "%s, %s" % (self.retcolsSQLWhitelist, columnSQLWhitelist)
+                    columnSQLWhitelist = "`%s`, %s" % ("`, `".join(self.wherecolsWhitelist), self.retcolsSQLWhitelist)
                     if self.retcolsSQLWhitelist.find('(') != -1:
                         groupBySQLWhitelist = " GROUP BY `%s`" % "`, `".join(colsWhitelist)
-                self.selectAllSQLWhitelist = "SELECT %s FROM `%s`%s" % (columnSQLWhitelist, tableWhitelist, groupBySQLWhitelist)
+                self.selectAllSQLWhitelist = "SELECT %s FROM `%s`%s" % (columnSQLWhitelist, self.tableWhitelist, groupBySQLWhitelist)
 
-            if tableBlacklist != None:
-                columnSQLBlacklist = '`%s`' % "`, `".join(colsBlacklist)
+            if self.tableBlacklist != None:
                 groupBySQLBlacklist = ''
                 if self.retcolsSQLBlacklist == '*':
-                    columnSQLBlacklist = '*'
+                    columnSQLBlacklist = "`%s`, `%s`" % ("`, `".join(self.wherecolsBlacklist), "`, `".join(colsBlacklist))
                 else:
-                    columnSQLBlacklist = "%s, %s" % (self.retcolsSQLBlacklist, columnSQLBlacklist)
+                    columnSQLBlacklist = "`%s`, %s" % ("`, `".join(self.wherecolsBlacklist), self.retcolsSQLBlacklist)
                     if self.retcolsSQLBlacklist.find('(') != -1:
                         groupBySQLBlacklist = " GROUP BY `%s`" % "`, `".join(colsBlacklist)
-                self.selectAllSQLBlacklist = "SELECT %s FROM `%s`%s" % (columnSQLBlacklist, tableBlacklist, groupBySQLBlacklist)
+                self.selectAllSQLBlacklist = "SELECT %s FROM `%s`%s" % (columnSQLBlacklist, self.tableBlacklist, groupBySQLBlacklist)
 
             self.__cacheAllRefresh()
 
 
     def check(self, data, *args, **keywords):
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
-        param = self.getParam('param')
-
-        if type(param) == str:
-            p = data.get(param, '')
-            if not cacheCaseSensitive and type(p) == str:
-                paramValue = (p.lower(), )
-            else:
-                paramValue = (p, )
+        if len(self.param) == 1:
+            p = data.get(self.param[0], '')
+            if not self.cacheCaseSensitive and type(p) == str:
+                paramValue = p.lower()
         else:
             paramVal = []
-            for par in param:
+            for par in self.param:
                 p = data.get(par, '')
-                if not cacheCaseSensitive and type(p) == str:
+                if not self.cacheCaseSensitive and type(p) == str:
                     paramVal.append(p.lower())
                 else:
                     paramVal.append(p)
@@ -376,25 +374,24 @@ class ListBW(Base):
 
             return ret, retEx
 
-        tableWhitelist = self.getParam('tableWhitelist')
-        tableBlacklist = self.getParam('tableBlacklist')
-        retcolsWhitelist = self.getParam('retcolsWhitelist')
-        retcolsBlacklist = self.getParam('retcolsBlacklist')
+        # next code require param value as tuple
+        if len(self.param) == 1:
+            paramValue = tuple((paramValue, ))
 
         try:
             conn = self.factory.getDbConnection()
             cursor = conn.cursor()
 
-            if tableWhitelist != None:
-                if type(param) == str:
-                    sqlWhere = "WHERE `%s` = %%s" % self.mappingWhitelist[param]
+            if self.tableWhitelist != None:
+                if len(self.param) == 1:
+                    sqlWhere = "WHERE `%s` = %%s" % self.mappingWhitelist.get(self.param[0], self.param[0])
                 else:
                     sqlWhereAnd = []
-                    for par in param:
-                        sqlWhereAnd.append("`%s` = %%s" % self.mappingWhitelist[par])
+                    for par in self.param:
+                        sqlWhereAnd.append("`%s` = %%s" % self.mappingWhitelist.get(par, par))
                     sqlWhere = "WHERE %s" % " AND ".join(sqlWhereAnd)
 
-                sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLWhitelist, tableWhitelist, sqlWhere)
+                sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLWhitelist, self.tableWhitelist, sqlWhere)
 
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                     logging.getLogger().debug("SQL: %s %s" % (sql, str(paramValue)))
@@ -402,19 +399,19 @@ class ListBW(Base):
 
                 if int(cursor.rowcount) > 0:
                     retEx = cursor.fetchone()
-                    if retcolsWhitelist != None or (retcolsWhitelist == None and retEx[0] > 0):
+                    if self.retcolsWhitelist != None or (self.retcolsWhitelist == None and retEx[0] > 0):
                         ret = 1
 
-            if tableBlacklist != None:
-                if type(param) == str:
-                    sqlWhere = "WHERE `%s` = %%s" % self.mappingBlacklist[param]
+            if self.tableBlacklist != None:
+                if len(self.param) == 1:
+                    sqlWhere = "WHERE `%s` = %%s" % self.mappingBlacklist.get(self.param[0], self.param[0])
                 else:
                     sqlWhereAnd = []
-                    for par in param:
-                        sqlWhereAnd.append("`%s` = %%s" % self.mappingBlacklist[par])
+                    for par in self.param:
+                        sqlWhereAnd.append("`%s` = %%s" % self.mappingBlacklist.get(par, par))
                     sqlWhere = "WHERE %s" % " AND ".join(sqlWhereAnd)
 
-                sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLBlacklist, tableBlacklist, sqlWhere)
+                sql = "SELECT %s FROM `%s` %s" % (self.retcolsSQLBlacklist, self.tableBlacklist, sqlWhere)
 
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                     logging.getLogger().debug("SQL: %s %s" % (sql, str(paramValue)))
@@ -422,7 +419,7 @@ class ListBW(Base):
 
                 if int(cursor.rowcount) > 0:
                     retEx = cursor.fetchone()
-                    if retcolsBlacklist != None or (retcolsBlacklist == None and retEx[0] > 0):
+                    if self.retcolsBlacklist != None or (self.retcolsBlacklist == None and retEx[0] > 0):
                         ret = -1
 
             cursor.close()
@@ -432,7 +429,10 @@ class ListBW(Base):
             except:
                 pass
             logging.getLogger().error("%s: database error %s" % (self.getId(), e))
+            if logging.getLogger().getEffectiveLevel() <= logging.WARNING:
+                import sys, traceback
+                exc_info_type, exc_info_value, exc_info_traceback = sys.exc_info()
+                logging.getLogger().warn(traceback.format_exception(exc_info_type, exc_info_value, exc_info_traceback))
             return 0, None
 
         return ret, retEx
-
