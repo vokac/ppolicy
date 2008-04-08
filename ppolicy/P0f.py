@@ -21,9 +21,10 @@ __version__ = "$Revision$"
 
 
 class P0f(Base):
-    """P0f module detect sender OS using patched version p0f (that require
-    only sender IP address to detect OS) and its unix socket interface
-    to get data. It can be downloaded from
+    """P0f module detect sender OS using p0f and its unix socket interface.
+    You can use patched version of p0f that requires only sender IP to detect
+    OS - it is less reliable but easier to use, because you don't have to
+    specify "ip" and "port" parameters). It can be downloaded from
     http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/p0f
 
     This module returns tuple with information described in p0f-query.h
@@ -48,13 +49,14 @@ class P0f(Base):
         # make instance of p0f module
         modules['p0f1'] = ( 'P0f', {} )
         # make instance of p0f module with different socket path
-        modules['p0f2'] = ( 'P0f', { 'socket': '/tmp/p0f.socket' } )
+        modules['p0f2'] = ( 'P0f', { 'socket': '/tmp/p0f.socket'
+                                     'ip': '192.168.0.1', 'port': 1234 } )
     """
 
     PARAMS = { 'socket': ('p0f socket for sending requests', '/var/run/p0f.socket'),
                'version': ('p0f version', '2.0.8'),
-               'dst_ad': ('destination ip', ''),
-               'dst_port': ('destination port', 0),
+               'ip': ('IP address of destionation server', None),
+               'port': ('port address of destionation server', 25),
                'cachePositive': (None, 60*60),
                'cacheUnknown': (None, 60*15),
                'cacheNegative': (None, 60*60),
@@ -67,17 +69,10 @@ class P0f(Base):
             if self.getParam(attr) == None:
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
-        self.p0f_socket = None
+        self.p0f_socket = self.getParam('socket')
+        self.p0f_version = self.getParam('version')
 
         self.reIPv4 = re.compile('^(25[0-5]|2[0-4]\d|[01]?\d?\d)(\.(25[0-5]|2[0-4]\d|[01]?\d?\d)){3}$')
-        self.reIPv6 = re.compile('^((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)|((?:[0-9A-Fa-f]{1,4}:){6,6})(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}|((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}:)*)(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$')
-
-
-    def stop(self):
-        """Called when changing state to 'stopped'."""
-        if self.p0f_socket != None:
-            self.p0f_socket.close()
-            self.p0f_socket = None
 
 
     def hashArg(self, data, *args, **keywords):
@@ -91,31 +86,19 @@ class P0f(Base):
             logging.getLogger().info("client address %s doesn't looks like valid IPv4 address" % client_address)
             return -1, None
 
-        p0f_socket_path = self.getParam('socket')
-        if not os.path.exists(p0f_socket_path):
-            logging.getLogger().error("p0f socket %s doesn't exist" % p0f_socket_path)
+        if not os.path.exists(self.p0f_socket):
+            logging.getLogger().error("p0f socket %s doesn't exist" % self.p0f_socket)
             return -1, None
-        
+
         try:
-            client_address_int = struct.unpack('!L',socket.inet_aton(client_address))[0]
-            if self.getParam('dst_ad') != None:
-                destination_addresss = self.getParam('dst_ad')
-                if self.reIPv4.match(destination_addresss) != None:
-                    destination_addresss_int = struct.unpack('!L',socket.inet_aton(destination_addresss))[0]
-                else:
-                    destination_addresss_int = 0
+            destination_address = self.getParam('ip')
+            if self.getParam('ip') == None or self.reIPv4.match(destination_address) == None:
+                destination_address = '0.0.0.0'
+            destination_port_int = self.getParam('port', 0)
+            if self.p0f_version < '2.0.8':
+                query = struct.pack("II4s4sHH", 0x0defaced, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
             else:
-                destination_addresss_int = 0
-            if self.getParam('dst_port') != None:
-                destination_port_int = self.getParam('dst_port')
-            else:
-                destination_port_int = 0
-            if self.getParam('version') < '2.0.8':
-                query = struct.pack("I I", 0x0defaced, 0x12345678)
-            else:
-                query = struct.pack("I B I", 0x0defaced, 1, 0x12345678)
-            query += struct.pack(">I I", client_address_int, destination_addresss_int)
-            query += struct.pack("H H", 0, destination_port_int)
+                query = struct.pack("IBI4s4sHH", 0x0defaced, 1, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
         except struct.error, e:
             logging.getLogger().error("error packing query (%s): address %s" % (e, client_address))
             return -1, None
@@ -125,33 +108,15 @@ class P0f(Base):
         retry = 3
         while retry > 0:
             try:
-##                if self.p0f_socket == None:
-##                    logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
-##                    self.p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-##                    self.p0f_socket.connect(p0f_socket_path)
-##                self.p0f_socket.send(query)
-##                response = self.p0f_socket.recv(1024)
-                logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
+                logging.getLogger().debug("opening socket: %s" % self.p0f_socket)
                 p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                p0f_socket.connect(p0f_socket_path)
+                p0f_socket.connect(self.p0f_socket)
                 p0f_socket.send(query)
                 response = p0f_socket.recv(1024)
                 break
             except Exception, e:
                 logging.getLogger().warn("query error: %s" % e)
-##                if self.p0f_socket != None:
-##                    self.p0f_socket.close()
-##                self.p0f_socket = None
                 retry -= 1
-##         try:
-##             logging.getLogger().debug("opening socket: %s" % p0f_socket_path)
-##             p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-##             p0f_socket.connect(p0f_socket_path)
-##             p0f_socket.send(query)
-##             p0f_socket.close()
-##             response = p0f_socket.recv(1024)
-##         except Exception, e:
-##             logging.getLogger().warn("query error: %s" % e)
 
         if response == None:
             logging.getLogger().debug("no response for: %s" % client_address)
@@ -185,3 +150,39 @@ class P0f(Base):
                 return -1, None
 
         return 1, retEx
+
+
+
+
+if __name__ == "__main__":
+    import sys
+    import socket
+
+    streamHandler = logging.StreamHandler(sys.stderr)
+    streamHandler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s](%(module)s:%(lineno)d) %(message)s", "%d %b %H:%M:%S"))
+    logging.getLogger().addHandler(streamHandler)
+    logging.getLogger().setLevel(logging.DEBUG)
+
+    if len(sys.argv) <= 1:
+        print "usage: %s srcIP [dstIP] [dstPort] [socket] [version]" % sys.argv[0]
+        print "example:"
+        print "  p0f -0 -Q /tmp/p0f"
+        print "  python P0f.py 192.168.0.1 192.168.0.2 25 /tmp/p0f 2.0.8"
+        sys.exit(1)
+
+    obj = P0f('P0f')
+
+    client_address = sys.argv[1]
+    if len(sys.argv) > 2:
+        obj.setParam('ip', sys.argv[2])
+    if len(sys.argv) > 3:
+        obj.setParam('port', int(sys.argv[3]))
+    if len(sys.argv) > 4:
+        obj.setParam('socket', sys.argv[4])
+    if len(sys.argv) > 5:
+        obj.setParam('version', sys.argv[5])
+
+    obj.start()
+    print obj.check({ 'client_address': client_address })
+    print obj.check({ 'client_address': client_address })
+    obj.stop()
