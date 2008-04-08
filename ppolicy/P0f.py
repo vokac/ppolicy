@@ -52,6 +52,9 @@ class P0f(Base):
     """
 
     PARAMS = { 'socket': ('p0f socket for sending requests', '/var/run/p0f.socket'),
+               'version': ('p0f version', '2.0.8'),
+               'dst_ad': ('destination ip', ''),
+               'dst_port': ('destination port', 0),
                'cachePositive': (None, 60*60),
                'cacheUnknown': (None, 60*15),
                'cacheNegative': (None, 60*60),
@@ -60,14 +63,14 @@ class P0f(Base):
 
     def start(self):
         """Called when changing state to 'started'."""
-        for attr in [ 'socket' ]:
+        for attr in [ 'socket', 'version' ]:
             if self.getParam(attr) == None:
                 raise ParamError("parameter \"%s\" has to be specified for this module" % attr)
 
         self.p0f_socket = None
 
-        self.reIPv4 = re.compile("^([012]?\d{1,2}\.){3}[012]?\d{1,2}$")
-        self.reIPv6 = re.compile('^([0-9a-fA-F]{0,4}:){0,7}([0-9a-fA-F]{0,4}|([012]?\d{1,2}\.){3}[012]?\d{1,2})$')
+        self.reIPv4 = re.compile('^(25[0-5]|2[0-4]\d|[01]?\d?\d)(\.(25[0-5]|2[0-4]\d|[01]?\d?\d)){3}$')
+        self.reIPv6 = re.compile('^((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)|((?:[0-9A-Fa-f]{1,4}:){6,6})(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}|((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}:)*)(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})$')
 
 
     def stop(self):
@@ -95,9 +98,24 @@ class P0f(Base):
         
         try:
             client_address_int = struct.unpack('!L',socket.inet_aton(client_address))[0]
-            query = struct.pack("I I", 0x0defaced, 0x12345678)
-            query += struct.pack(">I I", client_address_int, 0)
-            query += struct.pack("H H", 0, 0)
+            if self.getParam('dst_ad') != None:
+                destination_addresss = self.getParam('dst_ad')
+                if self.reIPv4.match(destination_addresss) != None:
+                    destination_addresss_int = struct.unpack('!L',socket.inet_aton(destination_addresss))[0]
+                else:
+                    destination_addresss_int = 0
+            else:
+                destination_addresss_int = 0
+            if self.getParam('dst_port') != None:
+                destination_port_int = self.getParam('dst_port')
+            else:
+                destination_port_int = 0
+            if self.getParam('version') < '2.0.8':
+                query = struct.pack("I I", 0x0defaced, 0x12345678)
+            else:
+                query = struct.pack("I B I", 0x0defaced, 1, 0x12345678)
+            query += struct.pack(">I I", client_address_int, destination_addresss_int)
+            query += struct.pack("H H", 0, destination_port_int)
         except struct.error, e:
             logging.getLogger().error("error packing query (%s): address %s" % (e, client_address))
             return -1, None
@@ -117,7 +135,7 @@ class P0f(Base):
                 p0f_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 p0f_socket.connect(p0f_socket_path)
                 p0f_socket.send(query)
-                p0f_socket.recv(1024)
+                response = p0f_socket.recv(1024)
                 break
             except Exception, e:
                 logging.getLogger().warn("query error: %s" % e)
