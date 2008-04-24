@@ -24,8 +24,10 @@ class P0f(Base):
     """P0f module detect sender OS using p0f and its unix socket interface.
     You can use patched version of p0f that requires only sender IP to detect
     OS - it is less reliable but easier to use, because you don't have to
-    specify "ip" and "port" parameters). It can be downloaded from
+    specify "ip" and "port" parameters. It can be downloaded from
     http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/p0f
+    Start p0f with -0 parameter for releases >= 2.0.8, earlier releases
+    works only if you apply patch that can be downloaded on given URL.
 
     This module returns tuple with information described in p0f-query.h
     p0f_response structure. Most important for our purposes are
@@ -96,9 +98,9 @@ class P0f(Base):
                 destination_address = '0.0.0.0'
             destination_port_int = self.getParam('port', 0)
             if self.p0f_version < '2.0.8':
-                query = struct.pack("II4s4sHH", 0x0defaced, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
+                query = struct.pack("=II4s4sHH", 0x0defaced, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
             else:
-                query = struct.pack("IBI4s4sHH", 0x0defaced, 1, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
+                query = struct.pack("=III4s4sHH", 0x0defaced, 1, 0x12345678, socket.inet_aton(client_address), socket.inet_aton(destination_address), 0, destination_port_int)
         except struct.error, e:
             logging.getLogger().error("error packing query (%s): address %s" % (e, client_address))
             return -1, None
@@ -125,7 +127,7 @@ class P0f(Base):
         # (magic, id, type, genre, detail, dist, link, tos, fw, nat, real, score, mflags, uptime)
         try:
             retEx = []
-            for i in struct.unpack("I I B 20s 40s b 30s 30s B B B h H i", response):
+            for i in struct.unpack("=IIB20s40sb30s30sBBBhHi", response):
                 if type(i) == str and i.find('\x00') != -1:
                     retEx.append(i[:i.find('\x00')])
                 else:
