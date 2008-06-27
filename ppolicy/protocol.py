@@ -245,7 +245,7 @@ class PPolicyFactory(protocol.ServerFactory):
                 hitCache = ' cached'
 
             endTime = time.time()
-            if obj.getParam('saveResult', False):
+            if saveResult:
                 data["%s_code" % prefix] = code
                 data["%s_info" % prefix] = codeEx
                 data["%s_cache" % prefix] = not (hitCache == '')

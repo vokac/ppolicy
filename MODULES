@@ -841,10 +841,13 @@ Examples:
 Module P0f
 ----------
 
-P0f module detect sender OS using patched version p0f (that require
-only sender IP address to detect OS) and its unix socket interface
-to get data. It can be downloaded from
+P0f module detect sender OS using p0f and its unix socket interface.
+You can use patched version of p0f that requires only sender IP to detect
+OS - it is less reliable but easier to use, because you don't have to
+specify "ip" and "port" parameters. It can be downloaded from
 http://kmlinux.fjfi.cvut.cz/~vokac/activities/ppolicy/download/p0f
+Start p0f with -0 parameter for releases >= 2.0.8, earlier releases
+works only if you apply patch that can be downloaded on given URL.
 
 This module returns tuple with information described in p0f-query.h
 p0f_response structure. Most important for our purposes are
@@ -862,12 +865,18 @@ Parameters:
         maximum time for caching unknown result
     factory (None)
         reference to factory instance
+    ip (None)
+        IP address of destionation server
+    port (25)
+        port address of destionation server
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)
         prefix for saved data
     socket (/var/run/p0f.socket)
         p0f socket for sending requests
+    version (2.0.8)
+        p0f version
 
 Check arguments:
     data ... all input data in dict
@@ -881,7 +890,8 @@ Examples:
     # make instance of p0f module
     modules['p0f1'] = ( 'P0f', {} )
     # make instance of p0f module with different socket path
-    modules['p0f2'] = ( 'P0f', { 'socket': '/tmp/p0f.socket' } )
+    modules['p0f2'] = ( 'P0f', { 'socket': '/tmp/p0f.socket'
+                                 'ip': '192.168.0.1', 'port': 1234 } )
 
 
 
@@ -1073,6 +1083,8 @@ first read http://www.postfix.org/ADDRESS_VERIFICATION_README.html
 to see limitation and problem that can happen.
 
 Parameters:
+    cacheDB (False)
+        cache results in database (almost useless for mx verification)
     cacheNegative (3600)
         maximum time for caching negative result
     cachePositive (86400)

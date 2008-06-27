@@ -69,6 +69,12 @@ Rebuild SRPM package or install application directly from tgz package.
   cd ppolicy-2.x.x
   python setup.py install
 
+  # installing additional required files
+  cp ppolicy.tap /usr/sbin/ppolicy.tap
+  cp ppolicy.init /etc/init.d/ppolicy # this script was tested on RedHat
+  cp ppolicy.conf /etc/postfix
+  mkdir -p /var/log/ppolicy # this path is defined in /etc/init.d/ppolicy
+  mysql < ppolicy.sql       # if you want to use database 
 
 
 2. Configuration

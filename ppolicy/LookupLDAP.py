@@ -59,6 +59,15 @@ class LookupLDAP(Base):
                }
 
 
+    def __escape_filter_chars(self, value):
+        s = value.replace('\\', r'\5c')
+        s = s.replace(r'*', r'\2a')
+        s = s.replace(r'(', r'\28')
+        s = s.replace(r')', r'\29')
+        s = s.replace('\x00', r'\00')
+        return s
+
+
     def start(self):
         for attr in [ 'param', 'uri', 'base', 'scope', 'filter' ]:
             if self.getParam(attr) == None:
@@ -90,7 +99,7 @@ class LookupLDAP(Base):
         fltr = self.getParam('filter')
         attributes = self.getParam('attributes')
 
-        queryFilter = fltr.replace('%m', data.get(param, ''))
+        queryFilter = fltr.replace('%m', self.__escape_filter_chars(data.get(param, '')))
         if attributes == None:
             attributes = [ 'dn' ] # fake attribute
         elif type(attributes) == str:

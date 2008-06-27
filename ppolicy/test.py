@@ -148,7 +148,7 @@ if __name__ == "__main__":
 #    create('test1', 'Verification', param='sender', timeout=2)
 #    run('test1', data)
 #    clean('test1')
-    create('test1', 'Dnsbl', dnsbl='ORDB')
+    create('test1', 'Dnsbl', dnsbl='ZEN')
     run('test1', data)
     clean('test1')
 #    run('DumpDataDB', table='dump')
