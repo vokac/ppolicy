@@ -68,6 +68,9 @@ Rebuild SRPM package or install application directly from tgz package.
   tar xzf ppolicy-2.x.x.tar.gz
   cd ppolicy-2.x.x
   python setup.py install
+  # if you want to use different than default python installation directory
+  # than you should omit last step, but you have to set basePath
+  # in ppolicy.conf configuration file
 
   # installing additional required files
   cp ppolicy.tap /usr/sbin/ppolicy.tap
@@ -75,6 +78,18 @@ Rebuild SRPM package or install application directly from tgz package.
   cp ppolicy.conf /etc/postfix
   mkdir -p /var/log/ppolicy # this path is defined in /etc/init.d/ppolicy
   mysql < ppolicy.sql       # if you want to use database 
+
+1.3.2 Starting ppolicy
+
+* use startup script /etc/init.d/ppolicy
+* or start ppolicy daemon manually using command
+      /usr/bin/python /usr/bin/twistd \
+          --pidfile=/var/log/ppolicy/ppolicy.pid \
+          --rundir=/var/log/ppolicy \
+          --file=/usr/sbin/ppolicy.tap \
+          --python=/usr/sbin/ppolicy.tap \
+          --logfile=/var/log/ppolicy/ppolicy.log \
+          --no_save
 
 
 2. Configuration

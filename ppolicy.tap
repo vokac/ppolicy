@@ -20,6 +20,7 @@ from twisted.internet import reactor, protocol
 
 # default config
 config = {
+#    'basePath'     : '/path/to/root/of/ppolicy', # tar xcf ppolicy-2.x.tar.gz
     'configFile'   : '/etc/postfix/ppolicy.conf',
     'logLevel'     : logging.WARN,
     'usePsyco'     : True,
@@ -54,7 +55,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.7.0-0beta3")
+logging.getLogger().info("version: 2.7.0-0beta9")
 
 # import configuration file
 if not os.path.isfile(config['configFile']):
@@ -63,6 +64,13 @@ if not os.path.isfile(config['configFile']):
     sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
+if config.get('basePath') != None:
+    if not os.path.isdir(config['basePath']) or not os.path.isdir("%s/ppolicy" % config['basePath']):
+        msg = "Invalid base path %s (doesn't contain ppolicy modules)" % config['basePath']
+        logging.getLogger().error(msg)
+        sys.stderr.write("%s\n" % msg)
+        sys.exit(1)
+    sys.path.append(config['basePath'])
 
 def read_config(signum, frame):
     if signum != 0:
