@@ -115,7 +115,6 @@ class PPolicyFactory(protocol.ServerFactory):
 
     def __init__(self, config = {}):
         self.protocol = PPolicyRequest
-        self.cacheLock = threading.Lock()
         self.__initConfig(config)
 
 
@@ -126,9 +125,33 @@ class PPolicyFactory(protocol.ServerFactory):
         self.config = config
         self.modules = {}
         self.__addChecks(self.getConfig('modules'))
-        self.cacheSize = self.getConfig('cacheSize', 10000)
-        self.cacheValue = {}
-        self.cacheExpire = {}        
+        self.cacheValue = {}   # used by local cache engine
+        self.cacheExpire = {}  # used by local cache engine
+        self.cacheEngine = self.getConfig('cacheEngine', 'local')
+        if self.cacheEngine == 'local':
+            self.__cacheGet = self.__cacheGetLocal
+            self.__cacheSet = self.__cacheSetLocal
+            self.cacheSize = self.getConfig('cacheSize', 10000)
+            if not hasattr(self, 'cacheLock'):
+                self.cacheLock = threading.Lock()
+        elif self.cacheEngine == 'memcache':
+            import memcache
+            self.cacheServers = self.getConfig('cacheServers', [ '127.0.0.1:11211' ])
+            self.cacheMemcache = memcache.Client(self.cacheServers)
+            sver = sys.version_info
+            mver = tuple([ int(x) for x in memcache.__version__.split('.')[:2] ])
+            if sver[0] >= 2 and sver[1] >= 4 and mver[0] >= 1 and mver[1] >= 40:
+                # thread safe memcached
+                self.__cacheGet = self.__cacheGetMemcache
+                self.__cacheSet = self.__cacheSetMemcache
+            else:
+                # memcache requires locking
+                if not hasattr(self, 'cacheLock'):
+                    self.cacheLock = threading.Lock()
+                self.__cacheGet = self.__cacheGetMemcacheLocking
+                self.__cacheSet = self.__cacheSetMemcacheLocking
+        else:
+            raise Exception("Unknown cache engine %s" % self.cacheEngine)
 
 
     def reload(self, config = None):
@@ -185,7 +208,7 @@ class PPolicyFactory(protocol.ServerFactory):
     def __startChecks(self):
         """Start factory modules."""
         for modName, modVal in self.modules.items():
-	    logging.getLogger().info("Start module %s" % modVal[0].getId())
+            logging.getLogger().info("Start module %s" % modVal[0].getId())
             try:
                 modVal[0].start()
                 modVal[1] = True
@@ -196,7 +219,7 @@ class PPolicyFactory(protocol.ServerFactory):
     def __stopChecks(self):
         """Stop factory modules."""
         for modName, modVal in self.modules.items():
-	    logging.getLogger().info("Stop module %s" % modVal[0].getId())
+            logging.getLogger().info("Stop module %s" % modVal[0].getId())
             try:
                 modVal[0].stop()
                 modVal[1] = False
@@ -229,20 +252,21 @@ class PPolicyFactory(protocol.ServerFactory):
 
             if not running:
                 obj.start()
-            
+
             logging.getLogger().info("%s running %s[%i]" % (reqid, name, int((startTime - allStartTime) * 1000)))
             hashArg = obj.hashArg(data, *args, **keywords)
             if hashArg != 0:
                 hashArg = "%s%s" % (name, hashArg)
 
-            code, codeEx = self.__cacheGet(hashArg)
-            if code == None:
+            cacheData = self.__cacheGet(hashArg)
+            if cacheData == None:
                 hitCache = ''
                 #logging.getLogger().debug("%s: running %s.check(%s, %s, %s)" % (reqid, name, data, args, keywords))
                 code, codeEx = obj.check(data, *args, **keywords)
                 self.__cacheSet(hashArg, code, codeEx, obj.getParam('cachePositive'), obj.getParam('cacheUnknown'), obj.getParam('cacheNegative'))
             else:
                 hitCache = ' cached'
+                code, codeEx = cacheData
 
             endTime = time.time()
             if saveResult:
@@ -277,10 +301,18 @@ class PPolicyFactory(protocol.ServerFactory):
 
 
     def __cacheGet(self, key):
-        if key == 0: return None, None
-        retVal = None, None
+        raise Exception("cache get function was not defined")
+
+
+    def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+        raise Exception("cache set function was not defined")
+
+
+    def __cacheGetLocal(self, key):
+        if key == 0: return None
+        retVal = None
         self.cacheLock.acquire()
-        #logging.getLogger().debug("__cacheGet for %s" % key)
+        #logging.getLogger().debug("_cacheGet for %s" % key)
         try:
             if self.cacheExpire.has_key(key) and self.cacheExpire[key] >= time.time():
                 retVal = self.cacheValue[key]
@@ -291,7 +323,7 @@ class PPolicyFactory(protocol.ServerFactory):
         return retVal
 
 
-    def __cacheSet(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+    def __cacheSetLocal(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
         if key == 0: return
 
         cacheTime = 0
@@ -302,7 +334,7 @@ class PPolicyFactory(protocol.ServerFactory):
         if cacheTime <= 0: return
 
         self.cacheLock.acquire()
-        #logging.getLogger().debug("__cacheSet for %s (%s, %s)" % (key, code, codeEx))
+        #logging.getLogger().debug("_cacheSet for %s (%s, %s)" % (key, code, codeEx))
         try:
             # full cache 3/4 cleanup?
             if len(self.cacheExpire) > self.cacheSize:
@@ -318,6 +350,59 @@ class PPolicyFactory(protocol.ServerFactory):
                     del(self.cacheExpire[toDel])
             self.cacheValue[key] = (code, codeEx)
             self.cacheExpire[key] = time.time() + cacheTime
+        except Exception, e:
+            self.cacheLock.release()
+            raise e
+        self.cacheLock.release()
+
+
+    def __cacheGetMemcache(self, key):
+        if key == 0: return None
+        #logging.getLogger().debug("_cacheGet for %s" % key)
+        return self.cacheMemcache.get("ppolicy:%s" % key)
+
+
+    def __cacheSetMemcache(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+        if key == 0: return
+
+        cacheTime = 0
+        if code > 0: cacheTime = cachePositive
+        elif code < 0: cacheTime = cacheNegative
+        else: cacheTime = cacheUnknown
+
+        if cacheTime <= 0: return
+
+        #logging.getLogger().debug("_cacheSet for %s (%s, %s)" % (key, code, codeEx))
+        self.cacheMemcache.set("ppolicy:%s" % key, (code, codeEx), cacheTime)
+
+
+    def __cacheGetMemcacheLocking(self, key):
+        if key == 0: return None
+        self.cacheLock.acquire()
+        #logging.getLogger().debug("_cacheGet for %s" % key)
+        try:
+            retVal = self.cacheMemcache.get("ppolicy:%s" % key)
+        except Exception, e:
+            self.cacheLock.release()
+            raise e
+        self.cacheLock.release()
+        return retVal
+
+
+    def __cacheSetMemcacheLocking(self, key, code, codeEx, cachePositive, cacheUnknown, cacheNegative):
+        if key == 0: return
+
+        cacheTime = 0
+        if code > 0: cacheTime = cachePositive
+        elif code < 0: cacheTime = cacheNegative
+        else: cacheTime = cacheUnknown
+
+        if cacheTime <= 0: return
+
+        self.cacheLock.acquire()
+        #logging.getLogger().debug("_cacheSet for %s (%s, %s)" % (key, code, codeEx))
+        try:
+            self.cacheMemcache.set("ppolicy:%s" % key, (code, codeEx), cacheTime)
         except Exception, e:
             self.cacheLock.release()
             raise e

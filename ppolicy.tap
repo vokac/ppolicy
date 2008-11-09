@@ -38,7 +38,9 @@ config = {
                        },
     'ppolicyPort'  : 10030,
     'commandPort'  : 10031,
+    'cacheEngine'  : 'local',
     'cacheSize'    : 10000,
+    'cacheServers' : [ '127.0.0.1:11211' ],
     'connLimit'    : 100,
     'returnOnConnLimit': ('450', 'reached connection limit to ppolicy, retry later'),
     'returnOnFatalError': ('450', 'fatal error when checking SMTP data, retry later'),
@@ -55,7 +57,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.7.0-0beta9")
+logging.getLogger().info("version: 2.7.0-0beta10")
 
 # import configuration file
 if not os.path.isfile(config['configFile']):
