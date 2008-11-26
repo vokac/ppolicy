@@ -160,49 +160,42 @@ class Greylist(Base):
             greylistExpire = self.getParam('expiration')
             if int(cursor.rowcount) > 0:
                 # triplet already exist in database
+                sql = None
                 row = cursor.fetchone()
-                delta = row[0]
-                state = row[1]
+                delta = int(row[0])
+                state = int(row[1])
+                greylistDelay -= delta
                 greylistExpire -= delta
-                if state <= 0:
-                    greylistDelay -= delta
-                if (state <= 0 and greylistDelay <= 0) or greylistExpire > 0:
+                if greylistExpire > 0 and (state > 0 or (state < 0 and greylistDelay <= 0)):
                     # and initial delay period was finished
                     retCode = 1
                     retInfo = 'greylisting was already done'
                     retTime = greylistExpire
+                    sql = "UPDATE `%s` SET `date` = NOW(), `state` = 1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
                 else:
-                    # but we are in initial delay period
+                    # but we are in initial delay period or record expired
+                    if greylistExpire <= 0:
+                        # update expired record -> set state to initial
+                        # greylisting period
+                        greylistDelay = self.getParam('delay')
+                        sql = "UPDATE `%s` SET `date` = NOW(), `state` = -1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
                     retCode = -1
-                    retInfo = 'greylisting in progress: %ss (%s)' % (greylistDelay, greylistExpire)
+                    retInfo = 'greylisting in progress: %ss' % greylistDelay
                     retTime = greylistDelay
-                try:
-                    # this is not critical so do it in separate try section
-                    sql = None
-                    if retCode == 1:
-                        if state == 1:
-                            sql = "UPDATE `%s` SET `date` = NOW() WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
-                        else:
-                            sql = "UPDATE `%s` SET `date` = NOW(), `state` = 1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
-                    else:
-                        if state == 0:
-                            sql = "UPDATE `%s` SET `state` = -1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
-                        elif state > 0:
-                            # update expired record -> set state to initial
-                            # greylisting period
-                            sql = "UPDATE `%s` SET `date` = NOW(), `state` = -1 WHERE `sender` = %%s AND `recipient` = %%s AND `client_address` = %%s" % table
-                    if sql != None:
+                if sql != None:
+                    try:
+                        # this is not critical so do it in separate try section
                         if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                             logging.getLogger().debug("SQL: %s %s" % (sql, str((sender, recipient, greysubj))))
                         cursor.execute(sql, (sender, recipient, greysubj))
-                except Exception, e:
-                    logging.getLogger().error("updating expiration time failed: %s" % e)
+                    except Exception, e:
+                        logging.getLogger().error("updating expiration time failed: %s" % e)
             else:
                 # insert new
                 retCode = -1
                 retInfo = 'greylisting in progress: %ss' % greylistDelay
                 retTime = greylistDelay
-                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `date`, `state`) VALUES (%%s, %%s, %%s, NOW(), 0)" % table
+                sql = "INSERT INTO `%s` (`sender`, `recipient`, `client_address`, `date`, `state`) VALUES (%%s, %%s, %%s, NOW(), -1)" % table
                 if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                     logging.getLogger().debug("SQL: %s %s" % (sql, str((sender, recipient, greysubj))))
                 cursor.execute(sql, (sender, recipient, greysubj))
