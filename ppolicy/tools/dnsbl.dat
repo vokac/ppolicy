@@ -19,36 +19,30 @@ RCVD_IN_BL_SPAMCOP_NET bl.spamcop.net 2.188 False
 RCVD_IN_SORBS_MISC dnsbl.sorbs.net 0.001 False 127.0.0.4
 # __RCVD_IN_IADB[iadb-firsttrusted] - 
 __RCVD_IN_IADB iadb.isipp.com 0 False 
-# RCVD_IN_BSP_TRUSTED[bsp-firsttrusted] - Sender is in Bonded Sender Program (trusted relay)
+# RCVD_IN_BSP_TRUSTED[bsp-firsttrusted] - Sender is in Sender Score Certified (trusted relay)
 RCVD_IN_BSP_TRUSTED sa-trusted.bondedsender.org 0 False 
 # DNS_FROM_AHBL_RHSBL[ahbl] - Envelope sender listed in dnsbl.ahbl.org
 DNS_FROM_AHBL_RHSBL rhsbl.ahbl.org 2.025 True 
 # __RCVD_IN_SORBS[sorbs] - SORBS: sender is listed in SORBS
 __RCVD_IN_SORBS dnsbl.sorbs.net 0 False 
-# RCVD_IN_WHOIS_HIJACKED[whois] - CompleteWhois: sender on hijacked IP block
-RCVD_IN_WHOIS_HIJACKED combined-HIB.dnsiplists.completewhois.com 1.0 False 127.0.0.3
 # RCVD_IN_SORBS_WEB[sorbs] - SORBS: sender is a abuseable web server
 RCVD_IN_SORBS_WEB dnsbl.sorbs.net 1.117 False 127.0.0.7
-# __RCVD_IN_WHOIS[whois] - 
-__RCVD_IN_WHOIS combined-HIB.dnsiplists.completewhois.com 0 False 
 # HABEAS_CHECKED[habeas-firsttrusted] - Habeas Checked
 HABEAS_CHECKED sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[6789]\d
 # RCVD_IN_NJABL_SPAM[njabl] - NJABL: sender is confirmed spam source
 RCVD_IN_NJABL_SPAM combined.njabl.org 3.096 False 127.0.0.4
-# RCVD_IN_DSBL[dsbl-lastexternal] - Received via a relay in list.dsbl.org
-RCVD_IN_DSBL list.dsbl.org 0.753 False 
 # DNS_FROM_RFC_DSN[rfci_envfrom] - Envelope sender in dsn.rfc-ignorant.org
 DNS_FROM_RFC_DSN fulldom.rfc-ignorant.org 2.527 True 127.0.0.2
+# RCVD_IN_SSC_TRUSTED_COI[ssc-firsttrusted] - Sender is in Sender Score Certified (confirmed opt-in)
+RCVD_IN_SSC_TRUSTED_COI plus.bondedsender.org 0 False 
 # RCVD_IN_SORBS_SOCKS[sorbs] - SORBS: sender is open SOCKS proxy server
 RCVD_IN_SORBS_SOCKS dnsbl.sorbs.net 0.182 False 127.0.0.3
 # __RCVD_IN_NJABL[njabl] - Received via a relay in combined.njabl.org
 __RCVD_IN_NJABL combined.njabl.org 0 False 
 # RCVD_IN_SBL[zen] - Received via a relay in Spamhaus SBL
 RCVD_IN_SBL zen.spamhaus.org 2.81 False 127.0.0.2
-# RCVD_IN_MAPS_RSS[rss] - Relay in RSS, http://www.mail-abuse.org/rss/
-RCVD_IN_MAPS_RSS relays.mail-abuse.org 0.0 False 
-# RCVD_IN_WHOIS_BOGONS[whois] - CompleteWhois: sender on bogons IP block
-RCVD_IN_WHOIS_BOGONS combined-HIB.dnsiplists.completewhois.com 0.0 False 127.0.0.2
+# RCVD_IN_MAPS_RSS[rblplus] - Relay in RSS, http://www.mail-abuse.com/enduserinfo_rss.html
+RCVD_IN_MAPS_RSS activationcode.r.mail-abuse.com 0.0 False 4
 # RCVD_IN_PBL[zen-lastexternal] - Received via a relay in Spamhaus PBL
 RCVD_IN_PBL zen.spamhaus.org 0.509 False 
 # RCVD_IN_SORBS_HTTP[sorbs] - SORBS: sender is open HTTP proxy server
@@ -57,40 +51,38 @@ RCVD_IN_SORBS_HTTP dnsbl.sorbs.net 0.001 False 127.0.0.2
 RCVD_IN_NJABL_CGI combined.njabl.org 0.0 False 127.0.0.8
 # HABEAS_ACCREDITED_COI[habeas-firsttrusted] - Habeas Accredited Confirmed Opt-In or Better
 HABEAS_ACCREDITED_COI sa-accredit.habeas.com 0 False 
-# RCVD_IN_BSP_OTHER[bsp-untrusted] - Sender is in Bonded Sender Program (other relay)
+# RCVD_IN_BSP_OTHER[bsp-untrusted] - Sender is in Sender Score Certified (other relay)
 RCVD_IN_BSP_OTHER sa-other.bondedsender.org 0 False 
 # __RCVD_IN_ZEN[zen] - Received via a relay in Spamhaus Zen
 __RCVD_IN_ZEN zen.spamhaus.org 0 False 
-# RCVD_IN_MAPS_NML[nml] - Relay in NML, http://www.mail-abuse.org/nml/
-RCVD_IN_MAPS_NML nonconfirm.mail-abuse.org 0.0 False 
+# RCVD_IN_MAPS_NML[nml] - Relay in NML, http://www.mail-abuse.com/enduserinfo_nml.html
+RCVD_IN_MAPS_NML nonconfirm.mail-abuse.com 0.0 False 
 # DNS_FROM_RFC_BOGUSMX[rfci_envfrom] - Envelope sender in bogusmx.rfc-ignorant.org
 DNS_FROM_RFC_BOGUSMX fulldom.rfc-ignorant.org 2.125 True 127.0.0.8
 # __RFC_IGNORANT_ENVFROM[rfci_envfrom] - 
 __RFC_IGNORANT_ENVFROM fulldom.rfc-ignorant.org 0 True 
-# RCVD_IN_WHOIS_INVALID[whois-lastexternal] - CompleteWhois: sender on invalid IP block
-RCVD_IN_WHOIS_INVALID combined-HIB.dnsiplists.completewhois.com 1.199 False 
 # RCVD_IN_NJABL_MULTI[njabl] - NJABL: sent through multi-stage open relay
 RCVD_IN_NJABL_MULTI combined.njabl.org 0.0 False 127.0.0.5
 # HABEAS_ACCREDITED_SOI[habeas-firsttrusted] - Habeas Accredited Opt-In or Better
 HABEAS_ACCREDITED_SOI sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[45]\d
 # RCVD_IN_SORBS_SMTP[sorbs] - SORBS: sender is open SMTP relay
 RCVD_IN_SORBS_SMTP dnsbl.sorbs.net 0.0 False 127.0.0.5
+# RCVD_IN_MAPS_OPS[rblplus] - Relay in OPS, http://www.mail-abuse.com/enduserinfo_ops.html
+RCVD_IN_MAPS_OPS activationcode.r.mail-abuse.com 0.0 False 8
 # RCVD_IN_SORBS_DUL[sorbs-lastexternal] - SORBS: sent directly from dynamic IP address
 RCVD_IN_SORBS_DUL dnsbl.sorbs.net 1.615 False 
 # RCVD_IN_NJABL_PROXY[njabl] - NJABL: sender is an open proxy
 RCVD_IN_NJABL_PROXY combined.njabl.org 1.693 False 127.0.0.9
 # RCVD_IN_SORBS_ZOMBIE[sorbs] - SORBS: sender is on a hijacked network
 RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.0 False 127.0.0.9
-# RCVD_IN_MAPS_DUL[dialup-lastexternal] - Relay in DUL, http://www.mail-abuse.org/dul/
-RCVD_IN_MAPS_DUL dialups.mail-abuse.org 0.0 False 
-# RCVD_IN_MAPS_RBL[rbl] - Relay in RBL, http://www.mail-abuse.org/rbl/
-RCVD_IN_MAPS_RBL blackholes.mail-abuse.org 0.0 False 
+# RCVD_IN_MAPS_DUL[rblplus-lastexternal] - Relay in DUL, http://www.mail-abuse.com/enduserinfo_dul.html
+RCVD_IN_MAPS_DUL activationcode.r.mail-abuse.com 0.0 False 
+# RCVD_IN_MAPS_RBL[rblplus] - Relay in RBL, http://www.mail-abuse.com/enduserinfo_rbl.html
+RCVD_IN_MAPS_RBL activationcode.r.mail-abuse.com 0.0 False 
 # __DNS_FROM_RFC_WHOIS[rfci_envfrom] - 
 __DNS_FROM_RFC_WHOIS fulldom.rfc-ignorant.org 0 True 127.0.0.5
 # RCVD_IN_IADB_VOUCHED[iadb-firsttrusted] - ISIPP IADB lists as vouched-for sender
 RCVD_IN_IADB_VOUCHED iadb.isipp.com 0 False ^127.0.1.255$
-# DNS_FROM_SECURITYSAGE[securitysage] - Envelope sender in blackholes.securitysage.com
-DNS_FROM_SECURITYSAGE blackhole.securitysage.com 0.127 True 
 # RCVD_IN_SORBS_BLOCK[sorbs] - SORBS: sender demands to never be tested
 RCVD_IN_SORBS_BLOCK dnsbl.sorbs.net 0.0 False 127.0.0.8
 # __DNS_FROM_RFC_ABUSE[rfci_envfrom] - 
@@ -113,8 +105,6 @@ ZEN zen.spamhaus.org 0 False
 CBL cbl.abuseat.org 0 False 
 # NJABL - Not Just Another Blacklist. (http://njabl.org/)
 NJABL dnsbl.njabl.org 0 False 
-# NJABLDYNA - NJABL list of dynamic ip spaces (http://njabl.org/dynablock.html)
-NJABLDYNA dynablock.njabl.org 0 False 
 # NJABLCOMBINED - NJABL & NJABLDYNA combined (http://njabl.org/)
 NJABLCOMBINED combined.njabl.org 0 False 
 # NJABLBHNC - NJABL Bad host, no cookie (http://njabl.org/)
@@ -133,8 +123,6 @@ PSS pss.spambusters.org.ar 0 False
 SSFABEL spamsources.fabel.dk 0 False 
 # WSFF - open relays and more (http://www.rfc1149.net/wsff.phtml)
 WSFF will-spam-for-food.eu.org 0 False 
-# OPM - Open Proxy Monitor List (http://www.blitzed.org/opm/)
-OPM opm.blitzed.org 0 False 
 # VBL - MessageLabs VBL (http://vbl.messagelabs.com/)
 VBL vbl.messagelabs.com 0 False 
 # FLOWGO - ip-space assigned to FloNetwork systems ()
@@ -151,8 +139,6 @@ JIPPG-ABUSE mail-abuse.blacklist.jippg.org 0 False
 FIVETEN blackholes.five-ten-sg.com 0 False 
 # TUBERLIN - local bl at Technische UniversitŠt Berlin (http://groups.google.com/groups?q=rblmap.tu-berlin.de&hl=en&lr=&ie=UTF-8&sa=G&scoring=d)
 TUBERLIN rblmap.tu-berlin.de 0 False 
-# SPAMBAG - Spambags (http://www.spambag.org)
-SPAMBAG blacklist.spambag.org 0 False 
 # TRIUMF - open relays, open formmail.pl and open proxy (http://andrew.triumf.ca/relaytest.html)
 TRIUMF rbl.triumf.ca 0 False 
 # NOMOREFUNN - local bl at moensted.dk (http://moensted.dk/spam/no-more-funn/)
@@ -161,8 +147,6 @@ NOMOREFUNN no-more-funn.moensted.dk 0 False
 LTAMS n/a 0 False 
 # KUNDENSE - local bl of kundenserver.de (http://relaytest.kundenserver.de/)
 KUNDENSE relays.bl.kundenserver.de 0 False 
-# PDL - Pan-Am Dynamic List (http://www.pan-am.ca/pdl/)
-PDL pdl.pan-am.ca 0 False 
 # PDLVISI - Pan-Am Dynamic List (mirror) ()
 PDLVISI dialups.visi.com 0 False 
 # BRAINERD - Brainerd.net Blackhole List (http://blackholes.brainerd.net/)
@@ -279,8 +263,6 @@ WPBL db.wpbl.info 0 False
 WOODYBL blacklist.woody.ch 0 False 
 # ZEBL - ZoneEdit Combined Zone level 1 ()
 ZEBL zebl.zoneedit.com 0 False 
-# REGIT64 - Regedit64.net Public DNSBL Service (http://www.regedit64.net/dnsbl/home.aspx)
-REGIT64 dnsbl.regedit64.net 0 False 
 # RBLJPVIRUS - Anti-virus RBL (http://www.rbl.jp/)
 RBLJPVIRUS virus.rbl.jp 0 False 
 # RBLJPSHORT - reject spam sent from ADSL or PPP connections which have dynamic IP addresses (http://www.rbl.jp/)
@@ -653,8 +635,6 @@ BSPSA sa.bondedsender.org 0 False
 BSPSENDMAIL sendmail.bondedsender.org 0 False 
 # BSPQMAIL - Bonded Senderª Program: qmail (http://bondedsender.org/)
 BSPQMAIL qmail.bondedsender.org 0 False 
-# YBL - ip-space assigned to Yahoo (http://groups.google.com/groups?q=ybl.megacity.org&hl=en&sa=N&tab=wg)
-YBL ybl.megacity.org 0 False 
 # BUS-COUNTRIES - ip-space assigned to a country (http://www.blackholes.us/)
 BUS-COUNTRIES countries.blackholes.us 0 False 
 # BUS-AD - ip-space assigned to Andorra (http://www.blackholes.us/)
