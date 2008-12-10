@@ -124,11 +124,10 @@ class Greylist(Base):
 
         greysubj = client_address
         if sender != '':
-            try:
-                user, domain = sender.rsplit("@", 1)
-            except ValueError:
-                logging.getLogger().warn("%s: sender address in unknown format: %s" %
-                                         (self.getId(), sender))
+            if sender.rfind("@") != -1:
+                user = sender[:sender.rfind('@')]
+                domain = sender[sender.rfind('@')+1:]
+            else:
                 return -2, ("sender address format icorrect %s" % sender, 0)
 
             # list of mailservers
