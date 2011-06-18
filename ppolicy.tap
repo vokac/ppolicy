@@ -22,6 +22,7 @@ from twisted.internet import reactor, protocol
 config = {
 #    'basePath'     : '/path/to/root/of/ppolicy', # tar xcf ppolicy-2.x.tar.gz
     'configFile'   : '/etc/postfix/ppolicy.conf',
+    'stateFile'    : '/etc/postfix/ppolicy.state',
     'logLevel'     : logging.WARN,
     'usePsyco'     : True,
     'admin'        : 'postmaster',
@@ -36,8 +37,8 @@ config = {
                        'cp_max' : 5,    # connection pool max conns
                        'cp_noisy': 0,   # noisy connection pool logging
                        },
-    'ppolicyPort'  : 10030,
-    'commandPort'  : 10031,
+    'commandPort'  : 10030,
+    'ppolicyPort'  : 10031,
     'cacheEngine'  : 'local',
     'cacheSize'    : 10000,
     'cacheServers' : [ '127.0.0.1:11211' ],
@@ -57,7 +58,7 @@ logging.getLogger().addHandler(twistedHandler)
 logging.getLogger().setLevel(config['logLevel'])
 
 logging.getLogger().info("command: %s" % " ".join(sys.argv))
-logging.getLogger().info("version: 2.7.0-0beta10")
+logging.getLogger().info("version: 2.7.0-0beta18")
 
 # import configuration file
 if not os.path.isfile(config['configFile']):

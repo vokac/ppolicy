@@ -19,21 +19,19 @@ RCVD_IN_BL_SPAMCOP_NET bl.spamcop.net 2.188 False
 RCVD_IN_SORBS_MISC dnsbl.sorbs.net 0.001 False 127.0.0.4
 # __RCVD_IN_IADB[iadb-firsttrusted] - 
 __RCVD_IN_IADB iadb.isipp.com 0 False 
-# RCVD_IN_BSP_TRUSTED[bsp-firsttrusted] - Sender is in Sender Score Certified (trusted relay)
+# RCVD_IN_BSP_TRUSTED[bsp-firsttrusted] - Sender is accredited by Return Path's Sender Score Certified program; report issues to senderscorecertified.com@abuse.net
 RCVD_IN_BSP_TRUSTED sa-trusted.bondedsender.org 0 False 
 # DNS_FROM_AHBL_RHSBL[ahbl] - Envelope sender listed in dnsbl.ahbl.org
 DNS_FROM_AHBL_RHSBL rhsbl.ahbl.org 2.025 True 
 # __RCVD_IN_SORBS[sorbs] - SORBS: sender is listed in SORBS
 __RCVD_IN_SORBS dnsbl.sorbs.net 0 False 
-# RCVD_IN_SORBS_WEB[sorbs] - SORBS: sender is a abuseable web server
+# RCVD_IN_SORBS_WEB[sorbs] - SORBS: sender is an abusable web server
 RCVD_IN_SORBS_WEB dnsbl.sorbs.net 1.117 False 127.0.0.7
-# HABEAS_CHECKED[habeas-firsttrusted] - Habeas Checked
-HABEAS_CHECKED sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[6789]\d
 # RCVD_IN_NJABL_SPAM[njabl] - NJABL: sender is confirmed spam source
 RCVD_IN_NJABL_SPAM combined.njabl.org 3.096 False 127.0.0.4
 # DNS_FROM_RFC_DSN[rfci_envfrom] - Envelope sender in dsn.rfc-ignorant.org
 DNS_FROM_RFC_DSN fulldom.rfc-ignorant.org 2.527 True 127.0.0.2
-# RCVD_IN_SSC_TRUSTED_COI[ssc-firsttrusted] - Sender is in Sender Score Certified (confirmed opt-in)
+# RCVD_IN_SSC_TRUSTED_COI[ssc-firsttrusted] - Sender is accredited by Return Path's Sender Score Certified (confirmed opt-in)
 RCVD_IN_SSC_TRUSTED_COI plus.bondedsender.org 0 False 
 # RCVD_IN_SORBS_SOCKS[sorbs] - SORBS: sender is open SOCKS proxy server
 RCVD_IN_SORBS_SOCKS dnsbl.sorbs.net 0.182 False 127.0.0.3
@@ -48,11 +46,9 @@ RCVD_IN_PBL zen.spamhaus.org 0.509 False
 # RCVD_IN_SORBS_HTTP[sorbs] - SORBS: sender is open HTTP proxy server
 RCVD_IN_SORBS_HTTP dnsbl.sorbs.net 0.001 False 127.0.0.2
 # RCVD_IN_NJABL_CGI[njabl] - NJABL: sender is an open formmail
-RCVD_IN_NJABL_CGI combined.njabl.org 0.0 False 127.0.0.8
-# HABEAS_ACCREDITED_COI[habeas-firsttrusted] - Habeas Accredited Confirmed Opt-In or Better
+RCVD_IN_NJABL_CGI combined.njabl.org 0.0001 False 127.0.0.8
+# HABEAS_ACCREDITED_COI[habeas-firsttrusted] - Sender is accredited by Return Path's Sender Score Safelist program, and uses Confirmed Opt-In; report issues to habeas.com@abuse.net
 HABEAS_ACCREDITED_COI sa-accredit.habeas.com 0 False 
-# RCVD_IN_BSP_OTHER[bsp-untrusted] - Sender is in Sender Score Certified (other relay)
-RCVD_IN_BSP_OTHER sa-other.bondedsender.org 0 False 
 # __RCVD_IN_ZEN[zen] - Received via a relay in Spamhaus Zen
 __RCVD_IN_ZEN zen.spamhaus.org 0 False 
 # RCVD_IN_MAPS_NML[nml] - Relay in NML, http://www.mail-abuse.com/enduserinfo_nml.html
@@ -62,11 +58,11 @@ DNS_FROM_RFC_BOGUSMX fulldom.rfc-ignorant.org 2.125 True 127.0.0.8
 # __RFC_IGNORANT_ENVFROM[rfci_envfrom] - 
 __RFC_IGNORANT_ENVFROM fulldom.rfc-ignorant.org 0 True 
 # RCVD_IN_NJABL_MULTI[njabl] - NJABL: sent through multi-stage open relay
-RCVD_IN_NJABL_MULTI combined.njabl.org 0.0 False 127.0.0.5
-# HABEAS_ACCREDITED_SOI[habeas-firsttrusted] - Habeas Accredited Opt-In or Better
+RCVD_IN_NJABL_MULTI combined.njabl.org 0.0001 False 127.0.0.5
+# HABEAS_ACCREDITED_SOI[habeas-firsttrusted] - Sender is accredited by Return Path's Sender Score Safelist program, and uses Opt-In or better; report issues to habeas.com@abuse.net
 HABEAS_ACCREDITED_SOI sa-accredit.habeas.com 0 False 127\.\d+\.\d+\.[45]\d
 # RCVD_IN_SORBS_SMTP[sorbs] - SORBS: sender is open SMTP relay
-RCVD_IN_SORBS_SMTP dnsbl.sorbs.net 0.0 False 127.0.0.5
+RCVD_IN_SORBS_SMTP dnsbl.sorbs.net 0.0001 False 127.0.0.5
 # RCVD_IN_MAPS_OPS[rblplus] - Relay in OPS, http://www.mail-abuse.com/enduserinfo_ops.html
 RCVD_IN_MAPS_OPS activationcode.r.mail-abuse.com 0.0 False 8
 # RCVD_IN_SORBS_DUL[sorbs-lastexternal] - SORBS: sent directly from dynamic IP address
@@ -74,7 +70,7 @@ RCVD_IN_SORBS_DUL dnsbl.sorbs.net 1.615 False
 # RCVD_IN_NJABL_PROXY[njabl] - NJABL: sender is an open proxy
 RCVD_IN_NJABL_PROXY combined.njabl.org 1.693 False 127.0.0.9
 # RCVD_IN_SORBS_ZOMBIE[sorbs] - SORBS: sender is on a hijacked network
-RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.0 False 127.0.0.9
+RCVD_IN_SORBS_ZOMBIE dnsbl.sorbs.net 0.0001 False 127.0.0.9
 # RCVD_IN_MAPS_DUL[rblplus-lastexternal] - Relay in DUL, http://www.mail-abuse.com/enduserinfo_dul.html
 RCVD_IN_MAPS_DUL activationcode.r.mail-abuse.com 0.0 False 
 # RCVD_IN_MAPS_RBL[rblplus] - Relay in RBL, http://www.mail-abuse.com/enduserinfo_rbl.html
@@ -82,7 +78,7 @@ RCVD_IN_MAPS_RBL activationcode.r.mail-abuse.com 0.0 False
 # __DNS_FROM_RFC_WHOIS[rfci_envfrom] - 
 __DNS_FROM_RFC_WHOIS fulldom.rfc-ignorant.org 0 True 127.0.0.5
 # RCVD_IN_IADB_VOUCHED[iadb-firsttrusted] - ISIPP IADB lists as vouched-for sender
-RCVD_IN_IADB_VOUCHED iadb.isipp.com 0 False ^127.0.1.255$
+RCVD_IN_IADB_VOUCHED iadb.isipp.com 0 False 127.0.1.255
 # RCVD_IN_SORBS_BLOCK[sorbs] - SORBS: sender demands to never be tested
 RCVD_IN_SORBS_BLOCK dnsbl.sorbs.net 0.0 False 127.0.0.8
 # __DNS_FROM_RFC_ABUSE[rfci_envfrom] - 

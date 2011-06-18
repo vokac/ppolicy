@@ -1,3 +1,19 @@
+Changes in PPolicy 2.7.0-beta10 (Jun 13 2011)
+=============================================
+- perRecipient/perMessage DOS checking
+- added simple mechanism for loading/saving module state
+
+Changes in PPolicy 2.7.0-beta9 (Nov 2 2008)
+===========================================
+- allow installation to custom directory
+- correct ldap filter escaping
+- fixed p0f data packing/unpacking (allow different versions)
+- fixed IPv4 and IPv6 regex
+- fixed caching all records from DB table
+- fixed DB data escaping
+- config file option to disable psyco
+
+
 Changes in PPolicy 2.7.0-beta1 (Sep 12 2007)
 ============================================
 - added LookupDB module

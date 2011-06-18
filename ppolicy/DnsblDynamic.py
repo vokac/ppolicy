@@ -84,7 +84,12 @@ class DnsblDynamic(Base):
             # match domain name looking like dlp-14.as2.tz-1.bih.net.ba
             # at least six parts and on of them end with -123 or 123
             self.patternInclude.append(re.compile('.+-?\d+(\..+){5,}|(\..+){1,}.+-?\d+(\..+){4}|(\..+){2,}.+-?\d+(\..+){3}|(\..+){3,}.+-?\d+(\..+){2}'))
-
+            #
+            # Exclude
+            # match domain name looking like mail-iw0-f181.google.com
+            self.patternExclude.append(re.compile('[.-]((smtp|mail)\d*)(|-[^.]+)\.[^.]+\.[^.]+'))
+            # match domain name looking like mm-retail-out-13101.amazon.com
+            self.patternExclude.append(re.compile('[.-](out)(|-[^.]+)\.[^.]+\.[^.]+'))
 
     def hashArg(self, data, *args, **keywords):
         return hash(data.get('client_address'))

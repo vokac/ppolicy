@@ -132,12 +132,12 @@ class Greylist(Base):
 
             # list of mailservers
             try:
-                mailhosts = dnscache.getDomainMailhosts(domain)
-                if client_address in mailhosts:
+                spfres, spfstat, spfexpl = spf.check(i=client_address, s=sender, h=client_name)
+                if spfres == 'pass':
                     greysubj = domain
-                else:
-                    spfres, spfstat, spfexpl = spf.check(i=client_address, s=sender, h=client_name)
-                    if spfres == 'pass':
+                if greysubj != domain:
+                    mailhosts = dnscache.getDomainMailhosts(domain)
+                    if client_address in mailhosts:
                         greysubj = domain
             except Exception, e:
                 return 0, ("%s DNS failure: %s" % (self.getId(), e), 0)

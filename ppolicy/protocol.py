@@ -3,13 +3,13 @@
 #
 # Twisted protocol factory and request
 #
-# Copyright (c) 2005 JAS
+# Copyright (c) 2005,2011 JAS
 #
 # Author: Petr Vokac <vokac@kmlinux.fjfi.cvut.cz>
 #
 # $Id$
 #
-import sys, time, string, gc, resource
+import sys, time, string, gc, resource, pickle
 import logging
 import threading
 import traceback
@@ -189,7 +189,43 @@ class PPolicyFactory(protocol.ServerFactory):
         return self.config.get(key, default)
 
 
+    def __loadState(self):
+        try:
+            logging.getLogger().info("loading ppolicy state from %s" % self.config.get('stateFile'))
+            inputStream = open(self.config['stateFile'])
+            data = pickle.Unpickler(inputStream).load()
+            inputStream.close()
+            return data
+        except IOError, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+        except pickle.PicklingError, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+        except Exception, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+        return None
+
+
+    def __saveState(self, data):
+        try:
+            logging.getLogger().info("saving ppolicy state to %s" % self.config.get('stateFile'))
+            if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+                logging.getLogger().debug("store: %s" % data)
+            outputStream = open(self.config['stateFile'], "w")
+            if pickle.format_version >= '2.0':
+                pickle.Pickler(outputStream, protocol=-1).dump(data)
+            else:
+                pickle.Pickler(outputStream).dump(data)
+            outputStream.close()
+        except IOError, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+        except pickle.PicklingError, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+        except Exception, e:
+            logging.getLogger().error("unable to save state: %s" % e)
+
+
     def __addChecks(self, modules):
+        state = self.__loadState()
         for modName,v in modules.items():
             modType = v[0]
             modParams = v[1]
@@ -202,6 +238,8 @@ class PPolicyFactory(protocol.ServerFactory):
                 logging.getLogger().warn("Redeclaration of module %s[%s(%s)]" % (modType, modName, modParams))
             globals()[modType] = eval("__import__('%s', globals(),  locals(), [])" % modType)
             obj = eval("%s.%s('%s', self, **%s)" % (modType, modType, modName, modParams))
+            if state != None:
+                obj.setState(state.get(modName, {}))
             self.modules[modName] = [ obj, False ]
 
 
@@ -218,13 +256,18 @@ class PPolicyFactory(protocol.ServerFactory):
 
     def __stopChecks(self):
         """Stop factory modules."""
+        state = {}
         for modName, modVal in self.modules.items():
             logging.getLogger().info("Stop module %s" % modVal[0].getId())
             try:
                 modVal[0].stop()
                 modVal[1] = False
+                modState = modVal[0].getState()
+                if len(modState) > 0:
+                    state[modName] = modState
             except Exception, e:
                 logging.getLogger().error("Stop module %s failed: %s" % (modVal[0].getId(), e))
+        self.__saveState(state)
 
 
     def check(self, name, data, *args, **keywords):

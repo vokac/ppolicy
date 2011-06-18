@@ -225,7 +225,7 @@ def DNSLookup(name, qtype, strict=True):
             elif qtype == 'PTR':
                 retVal.append(((name, qtype), rdata.target.to_text(True)))
             elif qtype == 'TXT' or qtype == 'SPF':
-                retVal.append(((name, qtype), rdata.strings))
+                retVal.append(((name, qtype), rdata.to_text()))
     except dns.resolver.NoAnswer:
           pass
     except dns.resolver.NXDOMAIN,x:

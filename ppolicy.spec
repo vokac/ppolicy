@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.7.0
-Release: 0beta2
+Release: 0beta18
 License: GPL
 Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
 Group: Networking/Daemons
@@ -43,6 +43,7 @@ for file in ppolicy/tools/*.dat; do
 done
 
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
+install -p -D -m644 ppolicy.state $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.state
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
 install -p -D -m644 ppolicy.sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/ppolicy
 #install -p -D -m644 ppolicy.logrotate $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/ppolicy
@@ -79,6 +80,8 @@ else # install
 * some modules require additional packages
    dnspython >= 1.3.3
    MySQL-python >= 1.0.0
+* create database
+   mysql < %{_defaultdocdir}/%{name}-%{version}/ppolicy.sql
 EOF
 fi
 
@@ -109,6 +112,38 @@ fi
 
 
 %changelog
+* Mon Jun 13 2011 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.7.0-beta10
+- allow installation to custom directory
+- correct ldap filter escaping
+- fixed p0f data packing/unpacking (allow different versions)
+- fixed IPv4 and IPv6 regex
+- fixed caching all records from DB table
+- fixed DB data escaping
+- config file option to disable psyco
+- perRecipient/perMessage DOS checking
+- added simple mechanism for loading/saving module state
+
+* Wed Sep 12 2007 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.7.0-beta1
+- added LookupDB module
+- code cleanup in List, ListBW, ListDyn, ListMailDomain
+- case-(in)sensitive DB search depends on DB definition
+  (removed explicit DB case-insensitive search using LOWER,
+  because it can hurt DB performance)
+- checked and fixed SQL query escaping
+- checked and added indexes when creating new DB tables
+- fixed possible race condition in PPolicyRequest
+
+* Fri Aug 10 2007 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-0
+- cleanup in connection threading using deferred
+- switched to python twisted 2.4 (1.3 should still work)
+- better handling of clients that don't wait for results
+- commit database transactions
+- support for twisted 2.5 (twisted Interface replaced with ZopeInterface)
+- support for building RPM packages on Mandriva
+- get rid of dependencies in RPM that are required only by some modules
+- cleanup in getting/releasing connections from DB connection pool
+- race condition in deferred checking (see Ticket #1)
+
 * Sun Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-4
 - fixed handlint < and > in sender/recipient address
 - added LookupLDAP module

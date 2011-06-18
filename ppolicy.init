@@ -17,9 +17,10 @@ SYSCONFIG="/etc/sysconfig/ppolicy"
 
 pidfile=/var/log/ppolicy/ppolicy.pid
 rundir=/var/log/ppolicy
-file=/usr/sbin/ppolicy.tap
+tapfile=/usr/sbin/ppolicy.tap
 logfile=/var/log/ppolicy/ppolicy.log
 twistd=/usr/bin/twistd
+statefile=/etc/postfix/ppolicy.state
 
 prog="ppolicy"
 
@@ -32,8 +33,8 @@ if [ ! -x "$twistd" ]; then
     exit 1
 fi
 
-if [ ! -r "$file" ]; then
-    echo "$0: Aborting, no file $file found."
+if [ ! -r "$tapfile" ]; then
+    echo "$0: Aborting, no file $tapfile found."
     exit 1
 fi
 
@@ -49,6 +50,14 @@ if [ `id -u $PPOLICY_ACCOUNT` != `stat --format=%u ${rundir}` ]; then
     echo "Changing ownership for ${rundir} to $PPOLICY_ACCOUNT"
     chown $PPOLICY_ACCOUNT ${rundir}
 fi
+if [ ! -f ${statefile} ]; then
+  touch ${statefile}
+fi
+if [ `id -u $PPOLICY_ACCOUNT` != `stat --format=%u ${statefile}` ]; then
+    echo "State file owner "`stat --format=%u ${statefile}`" doesn't match ppolicy account $PPOLICY_ACCOUNT"
+    echo "Changing ownership for ${statefile} to $PPOLICY_ACCOUNT"
+    chown $PPOLICY_ACCOUNT ${statefile}
+fi
 
 start() {
     # Start daemon
@@ -58,8 +67,8 @@ start() {
 	$twistd  \
 		--pidfile=$pidfile \
 		--rundir=$rundir \
-		--file=$file \
-		--python=$file \
+		--file=$tapfile \
+		--python=$tapfile \
 		--no_save \
 		--logfile=$logfile
     retval=$?

@@ -1,7 +1,7 @@
 #!/bin/sh
 NAME=ppolicy
 VERSION=2.7.0
-RELEASE=0beta2
+RELEASE=0beta18
 RPMDIR=${HOME}/rpmbuild
 
 perl -p -i -e "s/^Version: .*/Version: ${VERSION}/" ppolicy.spec
@@ -14,6 +14,7 @@ ppolicy/test.py --doc > MODULES
 mkdir -p ${NAME}-${VERSION}
 #mkdir -p ${NAME}-${VERSION}/doc
 mkdir -p ${NAME}-${VERSION}/${NAME}
+rm ppolicy.state; touch ppolicy.state
 cp \
 NEWS \
 README \
@@ -22,6 +23,7 @@ TODO \
 TESTS \
 setup.py \
 ppolicy.conf \
+ppolicy.state \
 ppolicy.init \
 ppolicy.sysconfig \
 ppolicy.spec \
@@ -42,6 +44,9 @@ done
 
 #tar cjf ${NAME}-${VERSION}.tar.bz2 ${NAME}-${VERSION}
 tar czf ${NAME}-${VERSION}.tar.gz ${NAME}-${VERSION}
+
+#cp -r DEBIAN ${NAME}-${VERSION}
+#dpkg-deb --build ${NAME}-${VERSION}
 
 rm -rf ${NAME}-${VERSION}
 

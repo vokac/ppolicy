@@ -121,6 +121,8 @@ class Base(object):
                'saveResultPrefix': ('prefix for saved data', 'result_'),
 #               'redefineDefaultValue': (None, 'abc'),
                }
+    PERSIST_VERSION = 0
+    PERSIST_DATA = [ ]
 
     def __init__(self, name, factory = None, *args, **keywords):
         """Initialize base ppolicy checking module. It creates parameters
@@ -230,6 +232,57 @@ class Base(object):
             retVal = default
 
         return retVal
+
+
+    def getState(self):
+        retVal = {}
+
+        hierarchy = self.__class__.mro()
+        hierarchy.reverse()
+        for clazz in hierarchy:
+            version = getattr(clazz, 'PERSIST_VERSION', 0)
+            if version == 0:
+                continue
+            params = getattr(clazz, 'PERSIST_DATA', [])
+            if len(params) == 0:
+                continue
+
+            retVal[clazz] = { '__VERSION': version }
+            for param in params:
+                retVal[clazz][param] = getattr(self, param)
+
+        return retVal
+
+
+    def setState(self, data):
+        toBeSet = {}
+        hierarchy = self.__class__.mro()
+        hierarchy.reverse()
+        for clazz in hierarchy:
+            version = getattr(clazz, 'PERSIST_VERSION', 0)
+            if version == 0:
+                continue
+            params = getattr(clazz, 'PERSIST_DATA', [])
+            if len(params) == 0:
+                continue
+
+            if not data.has_key(clazz) or version != data[clazz].get('__VERSION', 0):
+                # incompatible data version - don't set object data,
+                # because it could bring it to invalid state
+                toBeSet = {}
+                break
+
+            for param in params:
+                if not data[clazz].has_key(param):
+                    # this should never happen...
+                    toBeSet = {}
+                    break
+                toBeSet[param] = data[clazz][param]
+            if len(toBeSet) == 0:
+                break
+
+        for k, v in toBeSet.items():
+            setattr(self, k, v)
 
 
     def start(self):

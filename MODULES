@@ -198,6 +198,10 @@ Parameters:
         maximum time for caching positive result
     cacheUnknown (0)
         maximum time for caching unknown result
+    caseSensitive (False)
+        case sensitive parameters
+    countOver (False)
+        count messages even we reached given limitCount
     factory (None)
         reference to factory instance
     limitCount (1000)
@@ -208,6 +212,8 @@ Parameters:
         time period for limitCount messages
     params (None)
         parameters that will be used to test equality
+    perRecipient (True)
+        limit computed for each recipient (False make sense only in "DATA" and "END-OF-MESSAGE" stages)
     saveResult (True)
         save returned value in data hash for further modules
     saveResultPrefix (result_)

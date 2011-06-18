@@ -52,11 +52,15 @@ class DOS(Base):
                'limitCount': ('number of messages accepted during limitTime period', 1000),
                'limitTime': ('time period for limitCount messages', 60*60),
                'limitGran': ('data collection granularity', 10),
+               'perRecipient': ('limit computed for each recipient (False make sense only in "DATA" and "END-OF-MESSAGE" stages)', True),
+               'caseSensitive': ('case sensitive parameters', False),
+               'countOver': ('count messages even we reached given limitCount', False),
                'cachePositive': (None, 0),
                'cacheUnknown': (None, 0),
                'cacheNegative': (None, 0),
                }
-
+    PERSIST_VERSION = 1
+    PERSIST_DATA = [ 'cache' ]
 
     def start(self):
         params = self.getParam('params')
@@ -79,7 +83,11 @@ class DOS(Base):
 
     def hashArg(self, data, *args, **keywords):
         params = self.getParam('params')
-        return hash("\n".join([ "=".join([x, data.get(x, '')]) for x in params ]))
+        hashKey = "\n".join([ "=".join([x, data.get(x, '')]) for x in params ])
+        if bool(self.getParam('caseSensitive')):
+            return hash(hashKey)
+        else:
+            return hash(hashKey.lower())
 
 
     def check(self, data, *args, **keywords):
@@ -107,12 +115,20 @@ class DOS(Base):
                         valXnew.append(pX + [(param, val)])
                 valX = valXnew
 
+        perRecipient = bool(self.getParam('perRecipient'))
+        incNum = 1.
+        if not perRecipient and int(data.get('recipient_count', 1)) > 0:
+            incNum = 1. / int(data.get('recipient_count', 1))
+
         # test frequency for all keys
         ddetail = []
         hasDosKey = False
         for paramsVal in valX:
-            key = hash("\n".join([ "%s=%s" % (x,y) for x,y in paramsVal ]))
-            hitsum = self.__checkDos(key)
+            keyStr = "\n".join([ "%s=%s" % (x,y) for x,y in paramsVal ])
+            key = hash(keyStr)
+            if not bool(self.getParam('caseSensitive')):
+                key = hash(keyStr.lower())
+            hitsum = self.__checkDos(key, incNum)
             ddetail.append((key, hitsum))
             if not hasDosKey and hitsum > limitCount:
                 hasDosKey = True
@@ -124,11 +140,12 @@ class DOS(Base):
             return -1, ddetail
 
 
-    def __checkDos(self, key):
+    def __checkDos(self, key, incNum = 1.):
         limitCount = int(self.getParam('limitCount'))
         limitTime = int(self.getParam('limitTime'))
         limitGran = int(self.getParam('limitGran'))
         limitInt = int(limitTime / limitGran)
+        countOver = bool(self.getParam('countOver'))
 
         if self.cache.has_key(key):
             data, nextUpdate = self.cache.get(key, (None, None))
@@ -144,10 +161,10 @@ class DOS(Base):
                 nextUpdate = time.time() + limitInt
             # don't increase if we reached DOS treshold,
             # because otherwise it can block such mail forever
-            if sum(data) <= limitCount:
-                data[0] += 1
+            if countOver or sum(data) <= limitCount:
+                data[0] += incNum
         else:
-            data = [ 1 ]
+            data = [ incNum ]
             nextUpdate = time.time() + limitInt
 
         self.cache[key] = (data, nextUpdate)
