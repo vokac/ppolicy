@@ -84,7 +84,7 @@ class Greylist(Base):
         conn = self.factory.getDbConnection()
         cursor = conn.cursor()
         try:
-            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(50), `date` DATETIME, `state` TINYINT DEFAULT 0, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
+            sql = "CREATE TABLE IF NOT EXISTS `%s` (`sender` VARCHAR(255) NOT NULL, `recipient` VARCHAR(255) NOT NULL, `client_address` VARCHAR(255), `date` DATETIME, `state` TINYINT DEFAULT 0, INDEX (`sender`), INDEX (`recipient`), INDEX (`client_address`)) %s" % (table, Greylist.DB_ENGINE)
             if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                 logging.getLogger().debug("SQL: %s" % sql)
             cursor.execute(sql)
