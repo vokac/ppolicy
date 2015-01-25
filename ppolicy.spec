@@ -12,6 +12,7 @@ Group: Networking/Daemons
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
 Requires: python-twisted >= 1.3
+BuildRequires: python
 #Requires: python-zope-interface >= 3.0
 #removed because it is required only by some modules and not ppolicy core
 #Requires: dnspython >= 1.3.3, MySQL-python >= 1.0.0
@@ -31,7 +32,7 @@ by providing multilevel caching of required data and results.
 
 
 %build
-python setup.py build
+%{__python} setup.py build
 
 
 %install
@@ -144,7 +145,7 @@ fi
 - cleanup in getting/releasing connections from DB connection pool
 - race condition in deferred checking (see Ticket #1)
 
-* Sun Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-4
+* Mon Sep 18 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.6.5-4
 - fixed handlint < and > in sender/recipient address
 - added LookupLDAP module
 - changed transport output to unbuffered(?),
@@ -189,7 +190,7 @@ fi
 - List now support array of parameters and columns
 - fixed bug in searching domain mailhost IP addresses
 
-* Fri May 13 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.3-1
+* Sat May 13 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.5.3-1
 - resEx returned from check method can be complex structure
   (used by List*, Greylist, SPF, ...)
 - format resouce usage string, add to data hash (can be stored in db)
@@ -240,7 +241,7 @@ fi
 - unified lower/upper case of some values (e.g. sender, ...) for cached records
 - fixed exception when using *args in check method (Base.hashArg method)
 
-* Thu Apr 4 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.2.1-1
+* Tue Apr 4 2006 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.2.1-1
 - added testing only mailhost and only tcp connection in Verification module
 - escape strings that are inserted into DB
 - DNS functions throws exception in case of DNS error
@@ -271,7 +272,7 @@ fi
 - checking flow defined in ppolicy.conf using python code
 - modules passed basic tests
 
-* Sat Aug 26 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.3-1
+* Fri Aug 26 2005 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 1.3-1
 - update 1.3
 - added DosCheck module
 - added TrapCheck module
