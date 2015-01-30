@@ -5,17 +5,31 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.7.0
-Release: 0beta18
+Release: 0beta19
 License: GPL
-Source: http://kmlinux.fjfi.cvut.cz/~vokac/activities/%{name}/%{name}-%{version}.tar.gz
+URL: https://github.com/vokac/ppolicy
+Source: %{name}-%{version}.tar.gz
 Group: Networking/Daemons
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
-Requires: python-twisted >= 1.3
 BuildRequires: python
 #Requires: python-zope-interface >= 3.0
 #removed because it is required only by some modules and not ppolicy core
 #Requires: dnspython >= 1.3.3, MySQL-python >= 1.0.0
+Requires(pre):  /usr/bin/getent, /usr/sbin/groupadd, /usr/sbin/useradd, /usr/sbin/usermod
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+Requires: python-twisted-core
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+BuildRequires: systemd
+%else
+Requires: python-twisted >= 1.3
+Requires(post): /sbin/chkconfig
+Requires(post): /sbin/service
+Requires(preun): /sbin/chkconfig, initscripts
+Requires(postun): initscripts
+%endif
 
 %description
 Modular Python Postfix Policy Server is tool for extending Postfix
@@ -45,18 +59,34 @@ done
 
 install -p -D -m644 ppolicy.conf $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.conf
 install -p -D -m644 ppolicy.state $RPM_BUILD_ROOT%{_sysconfdir}/postfix/ppolicy.state
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+%{__install} -D -m0644 ppolicy.service %{buildroot}%{_unitdir}/ppolicy.service
+%else
 install -p -D -m755 ppolicy.init $RPM_BUILD_ROOT%{_sysconfdir}/init.d/ppolicy
 install -p -D -m644 ppolicy.sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/ppolicy
+%endif
 #install -p -D -m644 ppolicy.logrotate $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/ppolicy
 install -p -D -m644 ppolicy.tap $RPM_BUILD_ROOT%{_sbindir}/ppolicy.tap
-install -d $RPM_BUILD_ROOT%{_var}/log/ppolicy
+install -d -m0750 $RPM_BUILD_ROOT%{_var}/log/ppolicy
+install -d -m0750 $RPM_BUILD_ROOT%{_localstatedir}/run/ppolicy
 
 
 %clean
 [ ! -z "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != '/' ] && rm -rf "$RPM_BUILD_ROOT"
 
 
+%pre
+/usr/bin/getent group ppolicy >/dev/null || /usr/sbin/groupadd -r ppolicy
+/usr/bin/getent passwd ppolicy >/dev/null || \
+/usr/sbin/useradd -r -g ppolicy -d %{_localstatedir}/run/ppolicy \
+                  -s /sbin/nologin -c "Postfix policy" ppolicy
+# Fix homedir for upgrades
+/usr/sbin/usermod --home %{_localstatedir}/run/ppolicy ppolicy &>/dev/null
+
 %post
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+%systemd_post ppolicy.service
+%else
 #exec &>/dev/null
 # Adding postfix config
 if [ $1 = 2 ]; then # upgrade
@@ -85,8 +115,12 @@ else # install
    mysql < %{_defaultdocdir}/%{name}-%{version}/ppolicy.sql
 EOF
 fi
+%endif
 
 %preun
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+%systemd_preun ppolicy.service
+%else
 #exec &>/dev/null
 if [ $1 = 0 ]; then # uninstall
   if [ -x /sbin/chkconfig ]; then
@@ -98,21 +132,37 @@ if [ $1 = 0 ]; then # uninstall
   cat /etc/postfix/main.cf.tmp | grep -v 'check_policy_service inet:127.0.0.1:10030' > /etc/postfix/main.cf
   /etc/init.d/postfix reload || true
 fi
+%endif
+
+%postun
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+%systemd_postun_with_restart ppolicy.service
+%else
+%{_initrddir}/ppolicy condrestart &>/dev/null || :
+%endif
 
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
 %doc NEWS README MODULES TODO TESTS ppolicy.sql ppolicy.conf
 %config(noreplace) %{_sysconfdir}/postfix/*
+%if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
+%{_unitdir}/ppolicy.service
+%else
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 #%config(noreplace) %{_sysconfdir}/logrotate.d/*
 %{_sysconfdir}/init.d/*
+%endif
 %{_sbindir}/*
 %{python_sitelib}/ppolicy/tools/*.dat
-%attr(-,nobody,mail) %{_var}/log/ppolicy
+%dir %attr(-,ppolicy,ppolicy) %{_var}/log/ppolicy
+%dir %attr(-,ppolicy,ppolicy) %{_localstatedir}/run/ppolicy
 
 
 %changelog
+* Fri Jan 30 2015 Petr Vokac <vokac@fjfi.cvut.cz> 2.7.0-beta19
+- support for systemd
+
 * Mon Jun 13 2011 Petr Vokac <vokac@kmlinux.fjfi.cvut.cz> 2.7.0-beta10
 - allow installation to custom directory
 - correct ldap filter escaping
