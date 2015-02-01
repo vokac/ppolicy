@@ -20,3 +20,8 @@ GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP,LOCK TABLES
 -- Apply new (user) privileges (do I need this?)
 --
 FLUSH PRIVILEGES;
+
+-- table for synchronizaction changes from master DB
+--CREATE TABLE `changes` (
+--  `date` datetime NOT NULL DEFAULT '0000-00-00 00:00:00'
+--) ENGINE=MyISAM DEFAULT CHARSET=latin1;
