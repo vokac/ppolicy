@@ -70,6 +70,11 @@ install -p -D -m644 ppolicy.tap $RPM_BUILD_ROOT%{_sbindir}/ppolicy.tap
 install -d -m0750 $RPM_BUILD_ROOT%{_var}/log/ppolicy
 install -d -m0750 $RPM_BUILD_ROOT%{_localstatedir}/run/ppolicy
 
+install -p -d %{buildroot}%{_sysconfdir}/tmpfiles.d
+cat > %{buildroot}%{_sysconfdir}/tmpfiles.d/%{name}.conf <<'EOF'
+D %{_localstatedir}/run/%{name} 0750 %{name} %{name} -
+EOF
+
 
 %clean
 [ ! -z "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != '/' ] && rm -rf "$RPM_BUILD_ROOT"
@@ -145,7 +150,8 @@ fi
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
 %doc NEWS README MODULES TODO TESTS ppolicy.sql ppolicy.conf
-%config(noreplace) %{_sysconfdir}/postfix/*
+%config(noreplace) %{_sysconfdir}/postfix/ppolicy.conf
+%config(noreplace) %attr(-,ppolicy,-) %{_sysconfdir}/postfix/ppolicy.state
 %if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
 %{_unitdir}/ppolicy.service
 %else
@@ -153,6 +159,7 @@ fi
 #%config(noreplace) %{_sysconfdir}/logrotate.d/*
 %{_sysconfdir}/init.d/*
 %endif
+%config(noreplace) %{_sysconfdir}/tmpfiles.d/%{name}.conf
 %{_sbindir}/*
 %{python_sitelib}/ppolicy/tools/*.dat
 %dir %attr(-,ppolicy,ppolicy) %{_var}/log/ppolicy
