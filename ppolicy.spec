@@ -15,7 +15,7 @@ BuildArch: noarch
 BuildRequires: python
 #Requires: python-zope-interface >= 3.0
 #removed because it is required only by some modules and not ppolicy core
-#Requires: dnspython >= 1.3.3, MySQL-python >= 1.0.0
+#Requires: dnspython >= 1.3.3, MySQL-python >= 1.0.0, python-netaddr
 Requires(pre):  /usr/bin/getent, /usr/sbin/groupadd, /usr/sbin/useradd, /usr/sbin/usermod
 %if 0%{?rhel} >= 7 || 0%{?fedora} >= 18
 Requires: python-twisted-core

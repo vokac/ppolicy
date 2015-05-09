@@ -17,6 +17,7 @@ import socket
 import threading
 import dns.resolver
 import dns.exception
+import netaddr
 
 
 class Cache(object):
@@ -248,9 +249,7 @@ def getNameForIp(ip):
     lifetime = _dnsLifetime
     timeout = _dnsTimeout
 
-    ipaddr = ip.split('.')
-    ipaddr.reverse()
-    ipaddr = '.'.join(ipaddr) + '.in-addr.arpa'
+    ipaddr = netaddr.IPAddress(ip).reverse_dns
 
     dnsretry = _dnsMaxRetry
     while dnsretry > 0:
@@ -275,46 +274,6 @@ def getNameForIp(ip):
         raise DNSCacheError("DNS error getting domain name for IP: %s" % ip)
 
     return ips
-
-
-def __cidr(ip, n):
-    return ~(0xFFFFFFFFL >> n) & 0xFFFFFFFFL & struct.unpack("!L", socket.inet_aton(ip))[0]
-
-
-def removeLocal(ips):
-    ipsLocal = []
-    ip0 = __cidr('0.0.0.0', 8)
-    ip10 = __cidr('10.0.0.0', 8)
-    ip127 = __cidr('127.0.0.0', 8)
-    ip169 = __cidr('169.254.0.0', 16)
-    ip172 = __cidr('172.16.0.0', 12)
-    ip192 = __cidr('192.168.0.0', 16)
-    ip1922 = __cidr('192.0.2.0', 24)
-    ip19218 = __cidr('192.18.0.0', 15)
-    ip224 = __cidr('224.0.0.0', 4)
-    ip240 = __cidr('240.0.0.0', 5)
-    ip248 = __cidr('248.0.0.0', 5)
-    for ip in ips:
-        # localhost
-        if ip in [ '255.255.255.255', '127.0.0.1', '0.0.0.0', '::0', '::1' ]: continue
-        if ip.find(':') == -1:
-            # ipv4 private addresses
-            if __cidr(ip, 8) == ip0: continue
-            if __cidr(ip, 8) == ip10: continue
-            if __cidr(ip, 8) == ip127: continue
-            if __cidr(ip, 16) == ip169: continue
-            if __cidr(ip, 12) == ip172: continue
-            if __cidr(ip, 16) == ip192: continue
-            if __cidr(ip, 24) == ip1922: continue
-            if __cidr(ip, 15) == ip19218: continue
-            if __cidr(ip, 4) == ip224: continue
-            if __cidr(ip, 5) == ip240: continue
-            if __cidr(ip, 5) == ip248: continue
-        else:
-            # NOTE: ipv6 private addresses
-            pass
-        ipsLocal.append(ip)
-    return ipsLocal
 
 
 def getDomainMailhosts(domain, ipv6=True, local=True):
@@ -368,7 +327,16 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
 
     # remove invalid IP from the list of mailhost
     if not local:
-        return removeLocal(ips)
+        fips = []
+        for ip in ips:
+            nip = netaddr.IPAddress()
+            if nip.is_multicast(): continue
+            if nip.is_private(): continue
+            if nip.is_reserved(): continue
+            if nip.is_loopback(): continue
+            fips.append(ip)
+        ips = fips
+
     return ips
 
 
@@ -389,7 +357,7 @@ if __name__ == "__main__":
         print getIpForName(domain)
     print
     print ">>>>> %s" % getNameForIp.__name__
-    for ip in [ "147.32.8.9", "147.32.9.20", "193.84.160.101" ]:
+    for ip in [ "147.32.8.9", "147.32.9.20", "193.84.160.101", "2620:6a:0:1213::199:27" ]:
         print ">>> %s" % ip
         print getNameForIp(ip)
     print
@@ -397,26 +365,6 @@ if __name__ == "__main__":
     for domain in [ "fjfi.cvut.cz", "ns.fjfi.cvut.cz",
                     "bimbod.fjfi.cvut.cz", "nmsd.fjfi.cvut.cz",
                     "unknown.fjfi.cvut.cz", "sh.cvut.cz",
-                    "nightmare.sh.cvut.cz" ]:
+                    "nightmare.sh.cvut.cz", 'fnal.gov' ]:
         print ">>> %s" % domain
         print getDomainMailhosts(domain)
-
-    print ">>>>> %s" % __cidr.__name__
-    ip10 = __cidr('10.0.0.0', 8)
-    ip172 = __cidr('172.16.0.0', 12)
-    ip192 = __cidr('192.168.0.0', 16)
-    if __cidr('9.255.255.255', 8) == ip10: print "__cidr('9.255.255.255', 8) == ip10"
-    if __cidr('10.0.0.0', 8) == ip10: print "__cidr('10.0.0.0', 8) == ip10"
-    if __cidr('10.255.255.255', 8) == ip10: print "__cidr('10.255.255.255', 8) == ip10"
-    if __cidr('11.0.0.0', 8) == ip10: print "__cidr('11.0.0.0', 8) == ip10"
-    if __cidr('147.32.8.9', 8) == ip10: print "__cidr('147.32.8.9', 8) == ip10"
-    if __cidr('172.15.255.255', 12) == ip172: print "__cidr('172.15.255.255', 12) == ip172"
-    if __cidr('172.16.0.0', 12) == ip172: print "__cidr('172.16.0.0', 12) == ip172"
-    if __cidr('172.31.255.255', 12) == ip172: print "__cidr('172.31.255.255', 12) == ip172"
-    if __cidr('172.32.0.0', 12) == ip172: print "__cidr('172.32.0.0', 12) == ip172"
-    if __cidr('147.32.8.9', 12) == ip172: print "__cidr('147.32.8.9', 12) == ip172"
-    if __cidr('192.167.255.255', 16) == ip192: print "__cidr('192.167.255.255', 16) == ip192"
-    if __cidr('192.168.0.0', 16) == ip192: print "__cidr('192.168.0.0', 16) == ip192"
-    if __cidr('192.168.255.255', 16) == ip192: print "__cidr('192.168.255.255', 16) == ip192"
-    if __cidr('192.169.0.0', 16) == ip192: print "__cidr('192.169.0.0', 16) == ip192"
-    if __cidr('147.32.8.9', 16) == ip192: print "__cidr('147.32.8.9', 16) == ip192"
