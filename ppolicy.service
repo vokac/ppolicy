@@ -1,0 +1,17 @@
+[Unit]
+Description=Startup script for a Postfix Policy Twisted service
+After=network.target mariadb.service
+
+[Service]
+Type=forking
+User=ppolicy
+Group=ppolicy
+PIDFile=/var/run/ppolicy/ppolicy.pid
+ExecStart=/usr/bin/python /usr/bin/twistd --pidfile=/var/run/ppolicy/ppolicy.pid --rundir=/var/log/ppolicy --file=/usr/sbin/ppolicy.tap --python=/usr/sbin/ppolicy.tap --no_save --logfile=/var/log/ppolicy/ppolicy.log
+PrivateTmp=true
+#PrivateDevices=true
+#ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
