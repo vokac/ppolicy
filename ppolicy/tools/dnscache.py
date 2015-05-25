@@ -329,7 +329,7 @@ def getDomainMailhosts(domain, ipv6=True, local=True):
     if not local:
         fips = []
         for ip in ips:
-            nip = netaddr.IPAddress()
+            nip = netaddr.IPAddress(ip)
             if nip.is_multicast(): continue
             if nip.is_private(): continue
             if nip.is_reserved(): continue
@@ -368,3 +368,4 @@ if __name__ == "__main__":
                     "nightmare.sh.cvut.cz", 'fnal.gov' ]:
         print ">>> %s" % domain
         print getDomainMailhosts(domain)
+        print getDomainMailhosts(domain, local=False)
