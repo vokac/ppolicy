@@ -34,7 +34,7 @@ class List(Base):
 
     Module arguments (see output of getParams method):
     param, table, column, retcols, cacheCaseSensitive, memCacheExpire,
-    memCacheSize, cacheAll, cacheAllRefresh
+    memCacheSize, cacheAll, cacheAllRefresh, cacheAllExpire
 
     Check arguments:
         data ... all input data in dict
@@ -67,6 +67,7 @@ class List(Base):
                'memCacheSize': ('memory cache max size - used only if param value is array', 1000),
                'cacheAll': ('cache all records in memory', False),
                'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
+               'cacheAllExpire': ('expire cache not successfuly refreshed during this time', 60*60),
                }
     DB_ENGINE="ENGINE=InnoDB"
     
@@ -99,49 +100,70 @@ class List(Base):
 
     def __cacheAllRefresh(self):
         """This method has to be called from synchronized block."""
-        if self.allDataCacheRefresh > time.time():
-            return
+        allDataCacheUpdated = 0
 
-        column = self.getParam('column')
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
+        while not self.allDataCacheStop:
+            conn = None
+            cursor = None
 
-        conn = self.factory.getDbConnection()
-        try:
-            newCache = {}
-            cursor = conn.cursor()
+            # in case of error try retry in 60 seconds
+            allDataCacheRefresh = 60
 
-            sql = self.selectAllSQL
-            logging.getLogger().debug("SQL: %s" % sql)
-            cursor.execute(sql)
-            logging.getLogger().info("cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
-            while True:
-                res = cursor.fetchone()
-                if res == None:
-                    break
-                if type(column) == str:
-                    cKey = res[len(res)-1]
-                    if not cacheCaseSensitive and type(cKey) == str:
-                        cKey = cKey.lower()
-                    newCache[cKey] = res[:-1]
-                else:
-                    cKey = res[-len(column):]
-                    if not cacheCaseSensitive:
-                        x = []
-                        for y in cKey:
-                            if type(y) == str: x.append(y.lower())
-                            else: x.append(y)
-                        cKey = x
-                    newCache[cKey] = res[:-len(column)]
-            cursor.close()
+            column = self.getParam('column')
+            cacheCaseSensitive = self.getParam('cacheCaseSensitive')
 
-            self.allDataCache = newCache
-            self.allDataCacheReady = True
-            self.allDataCacheRefresh = time.time() + self.getParam('cacheAllRefresh')
-        except Exception, e:
-            cursor.close()
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = time.time() + 60
-            logging.getLogger().error("caching all records failed: %s" % e)
+            try:
+                newCache = {}
+
+                conn = self.factory.getDbConnection()
+                cursor = conn.cursor()
+
+                sql = self.selectAllSQL
+                logging.getLogger().debug("SQL: %s" % sql)
+                cursor.execute(sql)
+                logging.getLogger().info("cached %s records for %ss (%ss)" % (int(cursor.rowcount), self.getParam('cacheAllRefresh'), self.getParam('cacheAllExpire')))
+                while True:
+                    res = cursor.fetchone()
+                    if res == None:
+                        break
+                    if type(column) == str:
+                        cKey = res[len(res)-1]
+                        if not cacheCaseSensitive and type(cKey) == str:
+                            cKey = cKey.lower()
+                        newCache[cKey] = res[:-1]
+                    else:
+                        cKey = res[-len(column):]
+                        if not cacheCaseSensitive:
+                            x = []
+                            for y in cKey:
+                                if type(y) == str: x.append(y.lower())
+                                else: x.append(y)
+                            cKey = x
+                        newCache[cKey] = res[:-len(column)]
+
+                cursor.close()
+
+                self.allDataCache = newCache
+                self.allDataCacheReady = True
+
+                allDataCacheUpdated = time.time()
+                allDataCacheRefresh = self.getParam('cacheAllRefresh')
+            except Exception, e:
+                logging.getLogger().error("caching all records failed: %s" % e)
+
+                if allDataCacheUpdated + self.getParam('cacheAllExpire') < time.time():
+                    # invalidate too old data in the cache
+                    self.allDataCacheReady = False
+
+                if cursor != None:
+                    try:
+                        cursor.close()
+                    except Exception, e:
+                        logging.getLogger().error("failed to close DB cursor: %s" % e)
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.wait(allDataCacheRefresh)
+            self.allDataCacheCondition.release()
 
 
     def getId(self):
@@ -204,11 +226,6 @@ class List(Base):
             self.lock = threading.Lock()
             self.cache = {}
         else:
-            self.allDataCache = {}
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = 0
-            self.allDataCacheLock = threading.Lock()
-
             self.setParam('cachePositive', 0) # don't use global result
             self.setParam('cacheUnknown', 0)  # cache when all records
             self.setParam('cacheNegative', 0) # are cached by this module
@@ -219,11 +236,26 @@ class List(Base):
                 groupBySQL = ''
             self.selectAllSQL = "SELECT %s, %s FROM `%s`%s" % (self.retcolsSQL, columnSQL, table, groupBySQL)
 
-            self.allDataCacheLock.acquire()
-            try:
-                self.__cacheAllRefresh()
-            finally:
-                self.allDataCacheLock.release()
+            self.allDataCache = {}
+            self.allDataCacheStop = False
+            self.allDataCacheReady = False
+            self.allDataCacheCondition = threading.Condition()
+            self.allDataCacheThread = threading.Thread(target=self.__cacheAllRefresh)
+            self.allDataCacheThread.daemon = True
+            self.allDataCacheThread.start()
+
+
+    def stop(self):
+        """Called when changing state to 'stopped'."""
+        if getattr(self, 'allDataCacheThread') != None:
+            self.allDataCacheStop = True
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.notify_all()
+            self.allDataCacheCondition.release()
+
+            self.allDataCacheThread.join()
+            self.allDataCacheThread = None
 
 
     def check(self, data, *args, **keywords):
@@ -269,19 +301,14 @@ class List(Base):
 
         if self.getParam('cacheAll', False):
 
-            self.allDataCacheLock.acquire()
-            try:
-                self.__cacheAllRefresh()
-                if not self.allDataCacheReady:
-                    ret = 0
-                else:
-                    for paramVal in paramValue:
-                        retEx = self.allDataCache.get(paramVal)
-                        if retEx != None:
-                            ret = 1
-                            break
-            finally:
-                self.allDataCacheLock.release()
+            if not self.allDataCacheReady:
+                ret = 0
+            else:
+                for paramVal in paramValue:
+                    retEx = self.allDataCache.get(paramVal)
+                    if retEx != None:
+                        ret = 1
+                        break
 
             return ret, retEx
 

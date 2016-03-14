@@ -441,6 +441,8 @@ array of incomming parameters.
 Parameters:
     cacheAll (False)
         cache all records in memory
+    cacheAllExpire (3600)
+        expire cache not successfuly refreshed during this time
     cacheAllRefresh (900)
         refresh time in case of caching all records
     cacheCaseSensitive (False)
@@ -503,6 +505,8 @@ Each parameter is searched in b/w list and first occurence is returned.
 Parameters:
     cacheAll (False)
         cache all records in memory
+    cacheAllExpire (3600)
+        expire cache not successfuly refreshed during this time
     cacheAllRefresh (900)
         refresh time in case of caching all records
     cacheCaseSensitive (False)
@@ -662,6 +666,8 @@ black/white listing sender or recipient mail addresses.
 Parameters:
     cacheAll (True)
         cache all records in memory
+    cacheAllExpire (3600)
+        expire cache not successfuly refreshed during this time
     cacheAllRefresh (900)
         refresh time in case of caching all records
     cacheCaseSensitive (False)
@@ -733,6 +739,8 @@ define mapping for concrete column, than default is used
 Parameters:
     cacheAll (False)
         cache all records in memory
+    cacheAllExpire (3600)
+        expire cache not successfuly refreshed during this time
     cacheAllRefresh (900)
         refresh time in case of caching all records
     cacheCaseSensitive (False)

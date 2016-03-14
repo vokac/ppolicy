@@ -5,7 +5,7 @@
 Summary: Modular Python Postfix Policy Server
 Name: ppolicy
 Version: 2.7.0
-Release: 0beta19
+Release: 0beta22
 License: GPL
 URL: https://github.com/vokac/ppolicy
 Source: %{name}-%{version}.tar.gz
@@ -167,6 +167,10 @@ fi
 
 
 %changelog
+* Mon Mar 14 2016 Petr Vokac <vokac@fjfi.cvut.cz> 2.7.0-beta22
+- refresh DB data in separate worker thread
+- add locking to DumpDataDB to ensure unique table row ID
+
 * Fri Jan 30 2015 Petr Vokac <vokac@fjfi.cvut.cz> 2.7.0-beta19
 - support for systemd
 

@@ -11,6 +11,7 @@
 #
 import logging
 import time
+import threading
 from Base import Base, ParamError
 
 
@@ -24,7 +25,7 @@ class ListBW(Base):
     Module arguments (see output of getParams method):
     param, tableBlacklist, tableWhitelist, retcolsBlacklist,
     retcolsWhitelist, mappingBlacklist, mappingWhitelist,
-    cacheCaseSensitive, cacheAll, cacheAllRefresh
+    cacheCaseSensitive, cacheAll, cacheAllRefresh, cacheAllExpire
 
     Check arguments:
         data ... all input data in dict
@@ -62,6 +63,7 @@ class ListBW(Base):
                'cacheCaseSensitive': ('case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column', False),
                'cacheAll': ('cache all records in memory', False),
                'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
+               'cacheAllExpire': ('expire cache not successfuly refreshed during this time', 60*60),
                }
     DB_ENGINE="ENGINE=InnoDB"
 
@@ -118,76 +120,96 @@ class ListBW(Base):
 
     def __cacheAllRefresh(self):
         """This method has to be called from synchronized block."""
-        if self.allDataCacheRefresh > time.time():
-            return
+        allDataCacheUpdated = 0
 
-        conn = self.factory.getDbConnection()
-        try:
-            newCacheWhitelist = {}
-            newCacheBlacklist = {}
+        while not self.allDataCacheStop:
+            conn = None
+            cursor = None
 
-            cursor = conn.cursor()
+            # in case of error try retry in 60 seconds
+            allDataCacheRefresh = 60
 
-            if self.tableWhitelist != None:
-                sql = self.selectAllSQLWhitelist
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
-                logging.getLogger().info("whitelist cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
-                while True:
-                    res = cursor.fetchone()
-                    if res == None:
-                        break
-                    if len(self.param) == 1:
-                        cKey = res[0]
-                        if not self.cacheCaseSensitive and type(cKey) == str:
-                            cKey = cKey.lower()
-                        newCacheWhitelist[cKey] = tuple(res[1:])
-                    else:
-                        cKey = res[:len(self.param)]
-                        if not self.cacheCaseSensitive:
-                            x = []
-                            for y in cKey:
-                                if type(y) == str: x.append(y.lower())
-                                else: x.append(y)
-                            cKey = x
-                        newCacheWhitelist[tuple(cKey)] = tuple(res[len(self.param):])
+            try:
+                newCacheWhitelist = {}
+                newCacheBlacklist = {}
 
-            if self.tableBlacklist != None:
-                sql = self.selectAllSQLBlacklist
-                logging.getLogger().debug("SQL: %s" % sql)
-                cursor.execute(sql)
-                logging.getLogger().info("blacklist cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
-                while True:
-                    res = cursor.fetchone()
-                    if res == None:
-                        break
-                    if len(self.param) == 1:
-                        cKey = res[0]
-                        if not self.cacheCaseSensitive and type(cKey) == str:
-                            cKey = cKey.lower()
-                        newCacheBlacklist[cKey] = tuple(res[1:])
-                    else:
-                        cKey = res[:len(self.param)]
-                        if not self.cacheCaseSensitive:
-                            x = []
-                            for y in cKey:
-                                if type(y) == str: x.append(y.lower())
-                                else: x.append(y)
-                            cKey = x
-                        newCacheBlacklist[tuple(cKey)] = tuple(res[len(self.param):])
+                conn = self.factory.getDbConnection()
+                cursor = conn.cursor()
 
-            cursor.close()
+                if self.tableWhitelist != None:
+                    sql = self.selectAllSQLWhitelist
+                    logging.getLogger().debug("SQL: %s" % sql)
+                    cursor.execute(sql)
+                    logging.getLogger().info("whitelist cached %s records for %ss (%ss)" % (int(cursor.rowcount), self.getParam('cacheAllRefresh'), self.getParam('cacheAllExpire')))
+                    while True:
+                        res = cursor.fetchone()
+                        if res == None:
+                            break
+                        if len(self.param) == 1:
+                            cKey = res[0]
+                            if not self.cacheCaseSensitive and type(cKey) == str:
+                                cKey = cKey.lower()
+                            newCacheWhitelist[cKey] = tuple(res[1:])
+                        else:
+                            cKey = res[:len(self.param)]
+                            if not self.cacheCaseSensitive:
+                                x = []
+                                for y in cKey:
+                                    if type(y) == str: x.append(y.lower())
+                                    else: x.append(y)
+                                cKey = x
+                            newCacheWhitelist[tuple(cKey)] = tuple(res[len(self.param):])
 
-            self.allDataCacheWhitelist = newCacheWhitelist
-            self.allDataCacheBlacklist = newCacheBlacklist
-            self.allDataCacheReady = True
-            self.allDataCacheRefresh = time.time() + self.getParam('cacheAllRefresh')
-        except Exception, e:
-            cursor.close()
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = time.time() + 60
-            logging.getLogger().error("caching all records failed: %s" % e)
-        #self.factory.releaseDbConnection(conn)
+                if self.tableBlacklist != None:
+                    sql = self.selectAllSQLBlacklist
+                    logging.getLogger().debug("SQL: %s" % sql)
+                    cursor.execute(sql)
+                    logging.getLogger().info("blacklist cached %s records for %ss (%ss)" % (int(cursor.rowcount), self.getParam('cacheAllRefresh'), self.getParam('cacheAllExpire')))
+                    while True:
+                        res = cursor.fetchone()
+                        if res == None:
+                            break
+                        if len(self.param) == 1:
+                            cKey = res[0]
+                            if not self.cacheCaseSensitive and type(cKey) == str:
+                                cKey = cKey.lower()
+                            newCacheBlacklist[cKey] = tuple(res[1:])
+                        else:
+                            cKey = res[:len(self.param)]
+                            if not self.cacheCaseSensitive:
+                                x = []
+                                for y in cKey:
+                                    if type(y) == str: x.append(y.lower())
+                                    else: x.append(y)
+                                cKey = x
+                            newCacheBlacklist[tuple(cKey)] = tuple(res[len(self.param):])
+
+                cursor.close()
+
+                self.allDataCacheWhitelist = newCacheWhitelist
+                self.allDataCacheBlacklist = newCacheBlacklist
+                self.allDataCacheReady = True
+
+                allDataCacheUpdated = time.time()
+                allDataCacheRefresh = self.getParam('cacheAllRefresh')
+            except Exception, e:
+                logging.getLogger().error("caching all records failed: %s" % e)
+
+                if allDataCacheUpdated + self.getParam('cacheAllExpire') < time.time():
+                    # invalidate too old data in the cache
+                    self.allDataCacheReady = False
+
+                if cursor != None:
+                    try:
+                        cursor.close()
+                    except Exception, e:
+                        logging.getLogger().error("failed to close DB cursor: %s" % e)
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.wait(allDataCacheRefresh)
+            self.allDataCacheCondition.release()
+
+            #self.factory.releaseDbConnection(conn)
 
 
     def getId(self):
@@ -311,11 +333,6 @@ class ListBW(Base):
         #self.factory.releaseDbConnection(conn)
 
         if self.getParam('cacheAll', False):
-            self.allDataCacheWhitelist = {}
-            self.allDataCacheBlacklist = {}
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = 0
-
             if self.tableWhitelist != None:
                 groupBySQLWhitelist = ''
                 if self.retcolsSQLWhitelist == '*':
@@ -336,7 +353,27 @@ class ListBW(Base):
                         groupBySQLBlacklist = " GROUP BY `%s`" % "`, `".join(colsBlacklist)
                 self.selectAllSQLBlacklist = "SELECT %s FROM `%s`%s" % (columnSQLBlacklist, self.tableBlacklist, groupBySQLBlacklist)
 
-            self.__cacheAllRefresh()
+            self.allDataCacheWhitelist = {}
+            self.allDataCacheBlacklist = {}
+            self.allDataCacheStop = False
+            self.allDataCacheReady = False
+            self.allDataCacheCondition = threading.Condition()
+            self.allDataCacheThread = threading.Thread(target=self.__cacheAllRefresh)
+            self.allDataCacheThread.daemon = True
+            self.allDataCacheThread.start()
+
+
+    def stop(self):
+        """Called when changing state to 'stopped'."""
+        if getattr(self, 'allDataCacheThread') != None:
+            self.allDataCacheStop = True
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.notify_all()
+            self.allDataCacheCondition.release()
+
+            self.allDataCacheThread.join()
+            self.allDataCacheThread = None
 
 
     def check(self, data, *args, **keywords):
@@ -358,10 +395,8 @@ class ListBW(Base):
         retEx = None
 
         if self.getParam('cacheAll', False):
-            self.__cacheAllRefresh()
-            if not self.allDataCacheReady:
-                ret = 0
-            else:
+
+            if self.allDataCacheReady:
                 retEx = self.allDataCacheWhitelist.get(paramValue)
                 if retEx != None:
                     ret = 1

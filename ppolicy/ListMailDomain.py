@@ -48,6 +48,7 @@ class ListMailDomain(ListBW):
 
     PARAMS = { 'cacheAll': (None, True),
                'cacheAllRefresh': (None, 15*60),
+               'cacheAllExpire': (None, 60*60),
                }
 
 

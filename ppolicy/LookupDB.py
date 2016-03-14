@@ -11,6 +11,7 @@
 #
 import logging
 import time
+import threading
 from Base import Base, ParamError
 
 
@@ -29,7 +30,8 @@ class LookupDB(Base):
     'dictName': ('dictName', 'VARCHAR(255)')
 
     Module arguments (see output of getParams method):
-    param, table, column, retcols, cacheCaseSensitive, cacheAll, cacheAllRefresh
+    param, table, column, retcols, cacheCaseSensitive,
+    cacheAll, cacheAllRefresh, cacheAllExpire
 
     Check arguments:
         data ... all input data in dict
@@ -59,6 +61,7 @@ class LookupDB(Base):
                'cacheCaseSensitive': ('case-sensitive cache (set to True if you are using case-sensitive text comparator on DB column', False),
                'cacheAll': ('cache all records in memory', False),
                'cacheAllRefresh': ('refresh time in case of caching all records', 15*60),
+               'cacheAllExpire': ('expire cache not successfuly refreshed during this time', 60*60),
                }
     DB_ENGINE="ENGINE=InnoDB"
     
@@ -127,49 +130,70 @@ class LookupDB(Base):
 
     def __cacheAllRefresh(self):
         """This method has to be called from synchronized block."""
-        if self.allDataCacheRefresh > time.time():
-            return
+        allDataCacheUpdated = 0
 
-        retcols = self.getParam('retcols')
-        cacheCaseSensitive = self.getParam('cacheCaseSensitive')
+        while not self.allDataCacheStop:
+            conn = None
+            cursor = None
 
-        conn = self.factory.getDbConnection()
-        try:
-            newCache = {}
-            cursor = conn.cursor()
+            # in case of error try retry in 60 seconds
+            allDataCacheRefresh = 60
 
-            sql = self.selectAllSQL
-            logging.getLogger().debug("SQL: %s" % sql)
-            cursor.execute(sql)
-            logging.getLogger().info("cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
-            while True:
-                res = cursor.fetchone()
-                if res == None:
-                    break
-                if type(retcols) == str:
-                    cKey = res[-1]
-                    if not cacheCaseSensitive and type(cKey) == str:
-                        cKey = cKey.lower()
-                    newCache[cKey] = res[:-1]
-                else:
-                    cKey = res[-len(retcols):]
-                    if not cacheCaseSensitive:
-                        x = []
-                        for y in cKey:
-                            if type(y) == str: x.append(y.lower())
-                            else: x.append(y)
-                        cKey = x
-                    newCache[cKey] = res[:-len(retcols)]
-            cursor.close()
+            retcols = self.getParam('retcols')
+            cacheCaseSensitive = self.getParam('cacheCaseSensitive')
 
-            self.allDataCache = newCache
-            self.allDataCacheReady = True
-            self.allDataCacheRefresh = time.time() + self.getParam('cacheAllRefresh')
-        except Exception, e:
-            cursor.close()
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = time.time() + 60
-            logging.getLogger().error("caching all records failed: %s" % e)
+            try:
+                newCache = {}
+
+                conn = self.factory.getDbConnection()
+                cursor = conn.cursor()
+
+                sql = self.selectAllSQL
+                logging.getLogger().debug("SQL: %s" % sql)
+                cursor.execute(sql)
+                logging.getLogger().info("cached %s records for %ss" % (int(cursor.rowcount), self.getParam('cacheAllRefresh')))
+                while True:
+                    res = cursor.fetchone()
+                    if res == None:
+                        break
+                    if type(retcols) == str:
+                        cKey = res[-1]
+                        if not cacheCaseSensitive and type(cKey) == str:
+                            cKey = cKey.lower()
+                        newCache[cKey] = res[:-1]
+                    else:
+                        cKey = res[-len(retcols):]
+                        if not cacheCaseSensitive:
+                            x = []
+                            for y in cKey:
+                                if type(y) == str: x.append(y.lower())
+                                else: x.append(y)
+                            cKey = x
+                        newCache[cKey] = res[:-len(retcols)]
+
+                cursor.close()
+
+                self.allDataCache = newCache
+                self.allDataCacheReady = True
+
+                allDataCacheUpdated = time.time()
+                allDataCacheRefresh = self.getParam('cacheAllRefresh')
+            except Exception, e:
+                logging.getLogger().error("caching all records failed: %s" % e)
+
+                if allDataCacheUpdated + self.getParam('cacheAllExpire') < time.time():
+                    # invalidate too old data in the cache
+                    self.allDataCacheReady = False
+
+                if cursor != None:
+                    try:
+                        cursor.close()
+                    except Exception, e:
+                        logging.getLogger().error("failed to close DB cursor: %s" % e)
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.wait(allDataCacheRefresh)
+            self.allDataCacheCondition.release()
 
 
     def getId(self):
@@ -242,10 +266,6 @@ class LookupDB(Base):
             raise e
 
         if self.getParam('cacheAll', False):
-            self.allDataCache = {}
-            self.allDataCacheReady = False
-            self.allDataCacheRefresh = 0
-
             columnSQL = '`%s`' % "`, `".join(cols)
             groupBySQL = ''
             if self.retcolsSQL == '*':
@@ -256,7 +276,26 @@ class LookupDB(Base):
                     groupBySQL = " GROUP BY `%s`" % "`, `".join(cols)
             self.selectAllSQL = "SELECT %s FROM `%s`%s" % (columnSQL, table, groupBySQL)
 
-            self.__cacheAllRefresh()
+            self.allDataCache = {}
+            self.allDataCacheStop = False
+            self.allDataCacheReady = False
+            self.allDataCacheCondition = threading.Condition()
+            self.allDataCacheThread = threading.Thread(target=self.__cacheAllRefresh)
+            self.allDataCacheThread.daemon = True
+            self.allDataCacheThread.start()
+
+
+    def stop(self):
+        """Called when changing state to 'stopped'."""
+        if getattr(self, 'allDataCacheThread') != None:
+            self.allDataCacheStop = True
+
+            self.allDataCacheCondition.acquire()
+            self.allDataCacheCondition.notify_all()
+            self.allDataCacheCondition.release()
+
+            self.allDataCacheThread.join()
+            self.allDataCacheThread = None
 
 
     def check(self, data, *args, **keywords):
