@@ -11,6 +11,7 @@
 #
 import logging
 import time
+import threading
 from Base import Base, ParamError
 
 
@@ -169,6 +170,7 @@ class DumpDataDB(Base):
 
         # initialize database table and newId, rowCount, ...
         self.newId = None
+        self.newIdLock = threading.Lock()
         self.rowCount = None
         self.rowDate = None
         self.__getTable()
@@ -182,10 +184,9 @@ class DumpDataDB(Base):
             try:
                 table = self.getParam('table')
 
-                # XXX: object.lock.acquire()
-                newId = self.newId
-                self.newId += 1
-                # XXX: object.lock.release()
+                with self.newIdLock:
+                    newId = self.newId
+                    self.newId += 1
 
                 sqlData = []
                 sqlData.append("(%i, 'date', NOW())" % newId)
